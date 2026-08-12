@@ -1,4 +1,6 @@
-import 'opening.dart';
+import 'opening.dart'; 
+
+
 
 /// Whether a [Section] is a fixed (non-opening) panel or an openable
 /// ("ouvrant") one.
