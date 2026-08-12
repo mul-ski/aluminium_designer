@@ -1,25 +1,38 @@
 import 'construction.dart';
 
-/// A user-facing project wrapping one [Construction] design.
+/// A project is a container for one or more [Construction]s (windows,
+/// doors, curtain walls) belonging to the same job/building.
 ///
-/// Previously `Project` carried its own flat `type`/`width`/`height` fields
-/// and a duplicate local `ConstructionType` enum, completely disconnected
-/// from `Construction`/`Section`. That made it impossible for a project to
-/// represent anything section-based (fixe+ouvrant, multiple ouvrants,
-/// etc.) -- the New Project screen could only ever produce a single
-/// rectangle with no sections.
-///
-/// `Project` now simply owns a [Construction], which is where type,
-/// overall dimensions, and sections already live. No new dimension/type
-/// fields are duplicated here.
+/// Previously `Project` wrapped a single `Construction` 1:1, which forced
+/// "one window = one project" and made it impossible to group multiple
+/// constructions (e.g. every window and door on one building) under one
+/// project. `Project` now holds `constructions` as a list; there is no
+/// remaining `Project.construction` singular field -- every call site that
+/// used to read `project.construction` must go through
+/// `project.constructions` instead, so there is exactly one source of
+/// truth for a project's constructions.
 class Project {
   final String id;
   final String name;
-  final Construction construction;
+  final List<Construction> constructions;
 
   const Project({
     required this.id,
     required this.name,
-    required this.construction,
+    this.constructions = const [],
   });
+
+  /// Returns a copy of this project with [constructions] replaced.
+  ///
+  /// `Project` is immutable (all fields `final`), so adding a construction
+  /// to a project means building a new `Project` rather than mutating one
+  /// in place -- this helper is what screens use to do that without
+  /// re-listing `id`/`name` at every call site.
+  Project copyWith({List<Construction>? constructions}) {
+    return Project(
+      id: id,
+      name: name,
+      constructions: constructions ?? this.constructions,
+    );
+  }
 }
