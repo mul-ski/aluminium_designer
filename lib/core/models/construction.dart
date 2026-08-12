@@ -1,4 +1,5 @@
 import 'construction_type.dart';
+import 'layout_direction.dart';
 import 'profile.dart';
 import 'profile_usage.dart';
 import 'section.dart';
@@ -18,6 +19,13 @@ import 'section.dart';
 /// actually placed (which section, which role, what quantity) -- see
 /// [ProfileUsage] for why this is a separate model from `Profile` rather
 /// than embedding profiles directly inside `Section`.
+///
+/// `layoutDirection` says whether `sections` are arranged side by side
+/// (`horizontal`) or stacked (`vertical`) -- see [SectionLayoutDirection].
+/// It defaults to `horizontal`, matching every construction built before
+/// this field existed. This field only has a defined geometric meaning for
+/// linear (window/door) constructions; see `validateSectionGeometry` for
+/// why curtain walls are excluded from that check.
 class Construction {
   final String id;
   final String name;
@@ -33,6 +41,9 @@ class Construction {
   /// Ordered sections making up this construction. See [Section] for how
   /// order, fixed/ouvrant kind, and per-section dimensions are represented.
   final List<Section> sections;
+
+  /// Direction sections are arranged in. See [SectionLayoutDirection].
+  final SectionLayoutDirection layoutDirection;
 
   final List<Profile> profiles;
 
@@ -51,6 +62,7 @@ class Construction {
     required this.manufacturer,
     required this.system,
     required this.sections,
+    this.layoutDirection = SectionLayoutDirection.horizontal,
     required this.profiles,
     this.profileUsages = const [],
   });

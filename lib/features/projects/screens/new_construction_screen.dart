@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/construction.dart';
 import '../../../core/models/construction_type.dart';
+import '../../../core/models/layout_direction.dart';
 import '../../../core/models/opening.dart';
 import '../../../core/models/section.dart';
+import '../../../core/models/section_geometry.dart';
 
 /// Creates one [Construction] to be added to a project's construction list.
 ///
@@ -91,8 +93,17 @@ class _NewConstructionScreenState extends State<NewConstructionScreen> {
       manufacturer: '',
       system: '',
       sections: [section],
+      layoutDirection: SectionLayoutDirection.horizontal,
       profiles: const [],
     );
+
+    final problems = validateSectionGeometry(construction);
+    if (problems.isNotEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(problems.first)));
+      return;
+    }
 
     Navigator.pop(context, construction);
   }

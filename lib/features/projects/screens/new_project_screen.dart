@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/project.dart';
-import 'project_workspace_screen.dart';
 
-/// Creates a new, empty [Project].
+/// Creates a new, empty [Project] and returns it to the caller.
 ///
-/// A project is just a name + container now -- type, dimensions, and
-/// sections belong to a *construction* created later inside the project
-/// workspace, not to the project itself. See [ProjectWorkspaceScreen].
+/// This screen only builds a `Project` and pops with it -- it does not
+/// navigate anywhere else itself. Deciding what happens after creation
+/// (adding the project to the in-memory list, then opening the workspace)
+/// is `ProjectDashboard`'s job, since `ProjectDashboard` is the single
+/// owner of project state. If this screen also pushed
+/// `ProjectWorkspaceScreen`, the stack would become Dashboard ->
+/// NewProjectScreen -> Workspace, and Dashboard's `Navigator.push` await
+/// would only resolve once *both* screens popped -- which is exactly the
+/// bug being fixed here.
 class NewProjectScreen extends StatefulWidget {
   const NewProjectScreen({super.key});
 
@@ -39,12 +44,7 @@ class _NewProjectScreenState extends State<NewProjectScreen> {
       constructions: const [],
     );
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProjectWorkspaceScreen(project: project),
-      ),
-    );
+    Navigator.pop(context, project);
   }
 
   @override

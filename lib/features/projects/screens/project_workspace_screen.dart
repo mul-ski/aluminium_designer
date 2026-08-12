@@ -13,10 +13,14 @@ import 'new_construction_screen.dart';
 /// more [Construction]s -- so this screen shows the project at the
 /// container level (name, construction count/list) instead.
 ///
-/// State is held locally for this milestone since there is no persistence
-/// layer yet: `Project` is immutable, so adding a construction rebuilds
-/// the `Project` via `copyWith` and this widget's `_project` state field is
-/// updated to the new instance.
+/// State is held locally in this screen while the user is working inside
+/// it: `Project` is immutable, so adding a construction rebuilds the
+/// `Project` via `copyWith` and this widget's `_project` field is updated
+/// to the new instance. On pop (back button, back gesture, or system back),
+/// this screen always returns its current `_project` to the caller
+/// (`ProjectDashboard`), which is the actual owner of project state for
+/// the app session -- this screen's `_project` is a working copy, not a
+/// second source of truth.
 class ProjectWorkspaceScreen extends StatefulWidget {
   final Project project;
 
@@ -67,48 +71,64 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
   Widget build(BuildContext context) {
     final constructions = _project.constructions;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(_project.name)),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: addConstruction,
-        icon: const Icon(Icons.add),
-        label: const Text('Ajouter une construction'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text(
-            _project.name,
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            constructions.isEmpty
-                ? 'Aucune construction'
-                : '${constructions.length} construction'
-                      '${constructions.length > 1 ? 's' : ''}',
-          ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, _project);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_project.name),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.home_outlined),
+              tooltip: 'Retour à Mes projets',
+              onPressed: () => Navigator.pop(context, _project),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: addConstruction,
+          icon: const Icon(Icons.add),
+          label: const Text('Ajouter une construction'),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text(
+              _project.name,
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              constructions.isEmpty
+                  ? 'Aucune construction'
+                  : '${constructions.length} construction'
+                        '${constructions.length > 1 ? 's' : ''}',
+            ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          if (constructions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(
-                child: Text(
-                  'Ce projet ne contient encore aucune construction.\n'
-                  'Utilisez "Ajouter une construction" pour commencer.',
-                  textAlign: TextAlign.center,
+            if (constructions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Center(
+                  child: Text(
+                    'Ce projet ne contient encore aucune construction.\n'
+                    'Utilisez "Ajouter une construction" pour commencer.',
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
-            )
-          else
-            for (final construction in constructions)
-              _ConstructionCard(
-                construction: construction,
-                typeLabel: _typeLabel(construction.type),
-              ),
-        ],
+              )
+            else
+              for (final construction in constructions)
+                _ConstructionCard(
+                  construction: construction,
+                  typeLabel: _typeLabel(construction.type),
+                ),
+          ],
+        ),
       ),
     );
   }
