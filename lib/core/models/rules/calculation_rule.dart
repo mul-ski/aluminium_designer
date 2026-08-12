@@ -1,88 +1,96 @@
-import 'opening.dart';
+import '../profile.dart';
+import 'dimension_expression.dart';
+import 'rule_condition.dart';
 
-/// Whether a [Section] is a fixed (non-opening) panel or an openable
-/// ("ouvrant") one.
+/// Which quantity of pieces a rule produces for a given construction.
 ///
-/// Kept as a field on a single [Section] type rather than two separate
-/// section classes (e.g. `FixedSection`/`OuvrantSection`), so the
-/// calculation engine, 3D viewer, and any future UI all walk one list of
-/// one type — mirroring the project's requirement that built-in and
-/// user-created systems share one code path rather than forking by kind.
-enum SectionKind { fixed, ouvrant }
+/// Kept as a small typed model instead of a bare `int` so it can later grow
+/// (e.g. per-vantail counts) without breaking the rule's shape.
+class CutQuantity {
+  /// Fixed number of identical pieces this rule produces, independent of
+  /// the construction's opening count (e.g. "2 montants" for a simple
+  /// fixed frame).
+  final int fixedCount;
 
-/// One panel/division within a [Construction], positioned left-to-right
-/// (or top-to-bottom, for future non-horizontal layouts) by [order].
+  const CutQuantity.fixed(this.fixedCount);
+}
+
+/// Cut angles for both ends of a piece, in degrees.
 ///
-/// A `Construction` is composed of an ordered list of `Section`s instead of
-/// a flat, unordered `List<Opening>`. This is what lets configurations like
-/// "fixe + ouvrant", "ouvrant + fixe", "fixe + ouvrant + fixe", or several
-/// ouvrants side by side be represented directly: each is just a different
-/// sequence of `Section`s, not a different data structure.
+/// 45/45 is a common mitred corner; 90/90 is a square cut. This is stored
+/// per-rule rather than assumed, since it varies by profile type and
+/// system.
+class CutAngles {
+  final double start;
+  final double end;
+
+  const CutAngles({required this.start, required this.end});
+
+  const CutAngles.square() : start = 90, end = 90;
+
+  const CutAngles.mitred45() : start = 45, end = 45;
+}
+
+/// A single, data-driven rule describing how to produce cut pieces for one
+/// [ProfileType] within a [ProfileSystem].
 ///
-/// Each section carries its own width/height rather than inheriting the
-/// full construction's dimensions, since a construction with multiple
-/// sections divides its overall width (or height) between them.
-class Section {
-  /// Stable identifier for this section, independent of its position —
-  /// needed so reordering sections, and referencing a specific section from
-  /// a profile/cut/3D-viewer element, doesn't rely on list index.
-  final String id;
+/// This is the placeholder-safe replacement for the hardcoded
+/// switch-statement logic that used to live directly in
+/// `ConstructionCalculator`. A rule says, declaratively:
+///
+///   "For profile type X, cut `lengthExpression` pieces, `quantity` of
+///    them, with these corner angles."
+///
+/// No manufacturer-specific deduction values are provided here — every
+/// concrete rule set built from this model must be explicit about whether
+/// its numbers are real manufacturer data or a placeholder.
+class ProfileCalculationRule {
+  /// The profile type this rule applies to (montant, traverse, etc.).
+  final ProfileType appliesTo;
 
-  /// Position of this section within the construction. Sections are
-  /// ordered by this value (ascending). Using an explicit field rather than
-  /// relying on list order keeps position meaningful even if sections are
-  /// stored or transmitted out of order.
-  final int order;
+  /// Additional conditions this rule requires, beyond matching
+  /// [appliesTo]. Empty means "applies to every context of this profile
+  /// type" — i.e. today's generic placeholder behaviour. All conditions
+  /// must hold (AND semantics); there's no OR/NOT yet — see
+  /// [system_rule_set.dart]'s doc comment for why that's deferred.
+  final List<RuleCondition> conditions;
 
-  final SectionKind kind;
+  /// Expression computing the cut length for a single piece, in mm.
+  final DimensionExpression lengthExpression;
 
-  /// This section's own width and height, in millimetres. For a
-  /// multi-section construction these sum to (or subdivide) the overall
-  /// `Construction.width`/`height` — the calculation engine, not this
-  /// model, is responsible for enforcing that consistency.
-  final double width;
-  final double height;
+  /// How many pieces this rule produces.
+  final CutQuantity quantity;
 
-  /// The opening behaviour of this section. Required when [kind] is
-  /// [SectionKind.ouvrant] (an ouvrant section must specify how it opens),
-  /// and must be `null` when [kind] is [SectionKind.fixed] — a fixed
-  /// section has no opening type. This is enforced in the constructor
-  /// rather than left to callers to get right by convention.
-  final OpeningType? openingType;
+  /// Corner angles applied to both ends of each produced piece.
+  final CutAngles angles;
 
-  /// Number of vantaux (openable leaves) this section represents. `1` for
-  /// an ordinary single-leaf ouvrant. Fixed sections always have `0`.
-  final int vantauxCount;
+  /// True if this rule uses invented/generic numbers rather than a real
+  /// manufacturer's fabrication data. Every rule currently shipped with the
+  /// app must set this to `true` until real data is supplied — see project
+  /// constraint "do not invent real-world aluminium fabrication formulas".
+  final bool isPlaceholder;
 
-  Section({
-    required this.id,
-    required this.order,
-    required this.kind,
-    required this.width,
-    required this.height,
-    this.openingType,
-    this.vantauxCount = 0,
-  }) {
-    if (kind == SectionKind.ouvrant && openingType == null) {
-      throw ArgumentError('Section $id is ouvrant but has no openingType.');
+  /// Optional human-readable description, useful for debugging / showing
+  /// the user which rule produced a given cut, and in ambiguity error
+  /// messages.
+  final String? description;
+
+  const ProfileCalculationRule({
+    required this.appliesTo,
+    this.conditions = const [],
+    required this.lengthExpression,
+    required this.quantity,
+    required this.angles,
+    required this.isPlaceholder,
+    this.description,
+  });
+
+  /// True if [appliesTo] matches the context's profile type and every one
+  /// of [conditions] holds for that context.
+  bool matches(CalculationContext context) {
+    if (context.profile.type != appliesTo) {
+      return false;
     }
-    if (kind == SectionKind.fixed && openingType != null) {
-      throw ArgumentError(
-        'Section $id is fixed but has an openingType ($openingType); '
-        'fixed sections must not specify one.',
-      );
-    }
-    if (kind == SectionKind.ouvrant && vantauxCount < 1) {
-      throw ArgumentError(
-        'Section $id is ouvrant but vantauxCount is $vantauxCount; '
-        'an ouvrant section needs at least 1 vantail.',
-      );
-    }
-    if (kind == SectionKind.fixed && vantauxCount != 0) {
-      throw ArgumentError(
-        'Section $id is fixed but vantauxCount is $vantauxCount; '
-        'fixed sections must have 0 vantaux.',
-      );
-    }
+    return conditions.every((condition) => condition.matches(context));
   }
 }

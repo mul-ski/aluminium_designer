@@ -1,6 +1,5 @@
 import '../models/construction.dart';
 import '../models/cut.dart';
-import '../models/profile.dart';
 import '../models/rules/dimension_expression.dart';
 import '../models/rules/generic_placeholder_rules.dart';
 import '../models/rules/rule_condition.dart';
