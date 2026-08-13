@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/construction.dart';
 import '../../../core/models/construction_type.dart';
 import '../../../core/models/project.dart';
+import '../../constructions/screens/construction_editor_screen.dart';
 import 'new_construction_screen.dart';
 
 /// The workspace for one [Project]: shows its constructions and lets the
@@ -54,6 +55,24 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
         constructions: [..._project.constructions, construction],
       );
     });
+  }
+
+  /// Opens the read-only 2D editor for [construction].
+  ///
+  /// This milestone's editor doesn't change [construction], and pop
+  /// returns nothing (`void`, no `Navigator.push<T>` result) -- so there
+  /// is deliberately nothing to merge back into `_project` here. Once
+  /// section editing is added to the canvas, this will need to become a
+  /// `push<Construction>` that replaces the matching entry in
+  /// `_project.constructions`, the same way `addConstruction` above
+  /// appends one.
+  Future<void> _openConstruction(Construction construction) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ConstructionEditorScreen(construction: construction),
+      ),
+    );
   }
 
   String _typeLabel(ConstructionType type) {
@@ -126,6 +145,7 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
                 _ConstructionCard(
                   construction: construction,
                   typeLabel: _typeLabel(construction.type),
+                  onTap: () => _openConstruction(construction),
                 ),
           ],
         ),
@@ -137,33 +157,45 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
 class _ConstructionCard extends StatelessWidget {
   final Construction construction;
   final String typeLabel;
+  final VoidCallback onTap;
 
   const _ConstructionCard({
     required this.construction,
     required this.typeLabel,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              typeLabel,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text('${construction.width} × ${construction.height} mm'),
-            const SizedBox(height: 4),
-            Text(
-              '${construction.sections.length} section'
-              '${construction.sections.length > 1 ? 's' : ''}',
-            ),
-          ],
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      typeLabel,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('${construction.width} × ${construction.height} mm'),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${construction.sections.length} section'
+                      '${construction.sections.length > 1 ? 's' : ''}',
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
         ),
       ),
     );
