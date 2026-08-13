@@ -7,8 +7,8 @@ import 'package:aluminium_designer/core/models/section_geometry.dart';
 
 Construction _buildConstruction({
   required List<Section> sections,
-  required double width,
-  required double height,
+  double? width,
+  double? height,
   SectionLayoutDirection layoutDirection = SectionLayoutDirection.horizontal,
   ConstructionType type = ConstructionType.window,
 }) {
@@ -151,5 +151,81 @@ void main() {
     );
 
     expect(validateSectionGeometry(construction), isEmpty);
+  });
+
+  group('validateSectionGeometry - incomplete construction', () {
+    test('reports no problems when width is not set yet', () {
+      final construction = _buildConstruction(
+        width: null,
+        height: 1200,
+        sections: [_fixedSection(id: 's1', order: 0, width: 800, height: 1200)],
+      );
+
+      expect(validateSectionGeometry(construction), isEmpty);
+    });
+
+    test('reports no problems when there are no sections yet', () {
+      final construction = _buildConstruction(width: 2000, height: 1200, sections: []);
+
+      expect(validateSectionGeometry(construction), isEmpty);
+    });
+  });
+
+  group('constructionGeometryStatus', () {
+    test('incomplete when width is not set yet', () {
+      final construction = _buildConstruction(
+        width: null,
+        height: 1200,
+        sections: [_fixedSection(id: 's1', order: 0, width: 800, height: 1200)],
+      );
+
+      expect(constructionGeometryStatus(construction), GeometryStatus.incomplete);
+    });
+
+    test('incomplete when there are no sections yet', () {
+      final construction = _buildConstruction(width: 2000, height: 1200, sections: []);
+
+      expect(constructionGeometryStatus(construction), GeometryStatus.incomplete);
+    });
+
+    test('incomplete when neither dimension is set and there are no sections', () {
+      final construction = _buildConstruction(width: null, height: null, sections: []);
+
+      expect(constructionGeometryStatus(construction), GeometryStatus.incomplete);
+    });
+
+    test('valid when dimensions and sections are complete and consistent', () {
+      final construction = _buildConstruction(
+        width: 1200,
+        height: 1400,
+        sections: [_fixedSection(id: 's1', order: 0, width: 1200, height: 1400)],
+      );
+
+      expect(constructionGeometryStatus(construction), GeometryStatus.valid);
+    });
+
+    test('invalid when dimensions and sections are complete but inconsistent', () {
+      final construction = _buildConstruction(
+        width: 2000,
+        height: 1200,
+        sections: [
+          _fixedSection(id: 's1', order: 0, width: 800, height: 1200),
+          _fixedSection(id: 's2', order: 1, width: 900, height: 1200),
+        ],
+      );
+
+      expect(constructionGeometryStatus(construction), GeometryStatus.invalid);
+    });
+
+    test('curtain wall is always valid regardless of dimensions/sections', () {
+      final construction = _buildConstruction(
+        width: null,
+        height: null,
+        type: ConstructionType.curtainWall,
+        sections: [],
+      );
+
+      expect(constructionGeometryStatus(construction), GeometryStatus.valid);
+    });
   });
 }

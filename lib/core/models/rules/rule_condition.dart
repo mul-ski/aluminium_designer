@@ -223,6 +223,12 @@ class NumericComparisonCondition extends RuleCondition {
         return context.construction.width;
       case NumericField.constructionHeight:
         return context.construction.height;
+      // Both branches above already return double? (Construction.width/
+      // height are nullable), and matches() above already treats a null
+      // fieldValue as "condition does not match" rather than throwing --
+      // so an incomplete construction's dimensions simply fail to match
+      // any numeric condition, consistent with how a missing sectionWidth
+      // is already handled below.
       case NumericField.sectionWidth:
         return context.section?.width;
       case NumericField.sectionHeight:

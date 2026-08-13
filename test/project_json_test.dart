@@ -171,6 +171,24 @@ void main() {
       expect(restored.profileUsages.single.role, ProfileUsageRole.left);
     });
 
+    test('incomplete construction (null width/height) round-trips as null', () {
+      final construction = Construction(
+        id: 'c1',
+        name: 'Fenêtre',
+        type: ConstructionType.window,
+        manufacturer: '',
+        system: '',
+        sections: const [],
+        profiles: const [],
+      );
+
+      final restored = constructionFromJson(construction.toJson());
+
+      expect(restored.width, isNull);
+      expect(restored.height, isNull);
+      expect(restored.sections, isEmpty);
+    });
+
     test('schemaVersion is present and defaults correctly when missing', () {
       final project = Project(id: 'p1', name: 'X', constructions: const []);
       final json = project.toJson();

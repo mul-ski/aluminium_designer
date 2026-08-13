@@ -32,8 +32,18 @@ class Construction {
 
   final ConstructionType type;
 
-  final double width;
-  final double height;
+  /// Overall width/height in millimetres, or `null` if the user hasn't
+  /// entered them yet.
+  ///
+  /// Nullable rather than defaulting to `0` (or any other placeholder
+  /// number) so a freshly created construction can honestly represent
+  /// "not dimensioned yet" instead of a fake dimension that would either
+  /// silently pass or silently fail geometry validation for the wrong
+  /// reason. See `GeometryStatus`/`constructionGeometryStatus` in
+  /// `section_geometry.dart` for how this incomplete state is surfaced to
+  /// the editor without being treated as an error.
+  final double? width;
+  final double? height;
 
   final String manufacturer;
   final String system;
@@ -57,8 +67,8 @@ class Construction {
     required this.id,
     required this.name,
     required this.type,
-    required this.width,
-    required this.height,
+    this.width,
+    this.height,
     required this.manufacturer,
     required this.system,
     required this.sections,
@@ -66,4 +76,38 @@ class Construction {
     required this.profiles,
     this.profileUsages = const [],
   });
+
+  /// Returns a copy of this construction with the given fields replaced.
+  ///
+  /// Needed now that a `Construction` is built up incrementally in the
+  /// editor (name/type first, then manufacturer/system, then dimensions,
+  /// then sections) rather than constructed once with every field known --
+  /// each editor step produces a new `Construction` via this method rather
+  /// than mutating one in place, consistent with `Project.copyWith`.
+  Construction copyWith({
+    String? name,
+    ConstructionType? type,
+    double? width,
+    double? height,
+    String? manufacturer,
+    String? system,
+    List<Section>? sections,
+    SectionLayoutDirection? layoutDirection,
+    List<Profile>? profiles,
+    List<ProfileUsage>? profileUsages,
+  }) {
+    return Construction(
+      id: id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      manufacturer: manufacturer ?? this.manufacturer,
+      system: system ?? this.system,
+      sections: sections ?? this.sections,
+      layoutDirection: layoutDirection ?? this.layoutDirection,
+      profiles: profiles ?? this.profiles,
+      profileUsages: profileUsages ?? this.profileUsages,
+    );
+  }
 }

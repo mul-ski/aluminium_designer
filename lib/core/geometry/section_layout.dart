@@ -44,6 +44,13 @@ class SectionRect {
 /// rectangle (always at millimetre origin (0, 0), sized
 /// [Construction.width] x [Construction.height]) plus every section's
 /// rectangle within it.
+///
+/// [width]/[height] are non-nullable here even though
+/// [Construction.width]/[height] are nullable -- there is nothing to lay
+/// out in millimetre space until both are known, so [layoutConstruction]
+/// returns `null` instead of a [ConstructionLayout] for an incomplete
+/// construction (see [layoutConstruction]'s doc). Once a `ConstructionLayout`
+/// exists, its dimensions are always real numbers.
 @immutable
 class ConstructionLayout {
   final double width;
@@ -71,7 +78,20 @@ class ConstructionLayout {
 /// deterministically (just visibly not filling the outer rectangle) rather
 /// than throwing -- this function has no opinion on validity, only
 /// position.
-ConstructionLayout layoutConstruction(Construction construction) {
+///
+/// Returns `null` if [Construction.width] or [Construction.height] is not
+/// set yet -- an incomplete construction (see `Construction`'s doc
+/// comment) has no millimetre space to lay sections out in. This is not an
+/// error: the editor is expected to call this while the user is still
+/// entering dimensions, and should treat `null` as "nothing to draw yet"
+/// rather than a failure.
+ConstructionLayout? layoutConstruction(Construction construction) {
+  final width = construction.width;
+  final height = construction.height;
+  if (width == null || height == null) {
+    return null;
+  }
+
   final ordered = [...construction.sections]
     ..sort((a, b) => a.order.compareTo(b.order));
 
@@ -108,11 +128,7 @@ ConstructionLayout layoutConstruction(Construction construction) {
     }
   }
 
-  return ConstructionLayout(
-    width: construction.width,
-    height: construction.height,
-    sections: rects,
-  );
+  return ConstructionLayout(width: width, height: height, sections: rects);
 }
 
 /// A uniform millimetre-to-pixel transform plus the pixel-space offset

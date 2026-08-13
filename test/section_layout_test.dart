@@ -7,8 +7,8 @@ import 'package:aluminium_designer/core/models/section.dart';
 
 Construction _buildConstruction({
   required List<Section> sections,
-  required double width,
-  required double height,
+  double? width,
+  double? height,
   SectionLayoutDirection layoutDirection = SectionLayoutDirection.horizontal,
 }) {
   return Construction(
@@ -53,7 +53,7 @@ void main() {
         ],
       );
 
-      final layout = layoutConstruction(construction);
+      final layout = layoutConstruction(construction)!;
 
       expect(layout.sections, hasLength(2));
 
@@ -80,7 +80,7 @@ void main() {
         ],
       );
 
-      final layout = layoutConstruction(construction);
+      final layout = layoutConstruction(construction)!;
 
       expect(layout.sections[0].section.id, 's1');
       expect(layout.sections[0].x, 0);
@@ -101,7 +101,7 @@ void main() {
         ],
       );
 
-      final layout = layoutConstruction(construction);
+      final layout = layoutConstruction(construction)!;
 
       expect(layout.sections[0].x, 0);
       expect(layout.sections[0].y, 0);
@@ -120,13 +120,41 @@ void main() {
       sections: [_fixedSection(id: 's1', order: 0, width: 1200, height: 1400)],
     );
 
-    final layout = layoutConstruction(construction);
+    final layout = layoutConstruction(construction)!;
 
     expect(layout.width, 1200);
     expect(layout.height, 1400);
     expect(layout.sections, hasLength(1));
     expect(layout.sections.single.x, 0);
     expect(layout.sections.single.y, 0);
+  });
+
+  group('layoutConstruction - incomplete construction', () {
+    test('returns null when width is not set yet', () {
+      final construction = _buildConstruction(
+        width: null,
+        height: 1200,
+        sections: [_fixedSection(id: 's1', order: 0, width: 800, height: 1200)],
+      );
+
+      expect(layoutConstruction(construction), isNull);
+    });
+
+    test('returns null when height is not set yet', () {
+      final construction = _buildConstruction(
+        width: 2000,
+        height: null,
+        sections: [_fixedSection(id: 's1', order: 0, width: 800, height: 1200)],
+      );
+
+      expect(layoutConstruction(construction), isNull);
+    });
+
+    test('returns null when neither dimension is set yet', () {
+      final construction = _buildConstruction(width: null, height: null, sections: []);
+
+      expect(layoutConstruction(construction), isNull);
+    });
   });
 
   group('fitConstructionToCanvas', () {

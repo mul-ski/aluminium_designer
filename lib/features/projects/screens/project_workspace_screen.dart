@@ -40,6 +40,18 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
     _project = widget.project;
   }
 
+  /// Creates a bare construction stub via [NewConstructionScreen], adds it
+  /// to the project immediately, then opens it straight in
+  /// `ConstructionEditorScreen` -- matching the desired flow of "Add
+  /// construction" being a lightweight entry point into the editor, not a
+  /// geometry form in its own right (see `NewConstructionScreen`'s doc
+  /// comment).
+  ///
+  /// The stub is added to `_project.constructions` *before* opening the
+  /// editor (not only after Save) so it isn't lost if the user backs out
+  /// of the editor without saving -- it will simply remain in its initial,
+  /// honestly incomplete state (see `GeometryStatus.incomplete`), the same
+  /// state it's in the moment it's created.
   Future<void> addConstruction() async {
     final construction = await Navigator.push<Construction>(
       context,
@@ -55,24 +67,39 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
         constructions: [..._project.constructions, construction],
       );
     });
+
+    await _openConstruction(construction);
   }
 
-  /// Opens the read-only 2D editor for [construction].
+  /// Opens the construction editor for [construction] and merges any
+  /// saved edits back into `_project.constructions` by id.
   ///
-  /// This milestone's editor doesn't change [construction], and pop
-  /// returns nothing (`void`, no `Navigator.push<T>` result) -- so there
-  /// is deliberately nothing to merge back into `_project` here. Once
-  /// section editing is added to the canvas, this will need to become a
-  /// `push<Construction>` that replaces the matching entry in
-  /// `_project.constructions`, the same way `addConstruction` above
-  /// appends one.
+  /// `ConstructionEditorScreen` pops with the edited `Construction` when
+  /// the user taps Save, or with `null` if they back out without saving
+  /// (matching `addConstruction`'s "null means cancelled" convention
+  /// above). Replacing by id rather than by list position keeps this
+  /// correct even if `_project.constructions` has been reordered or
+  /// changed elsewhere between opening and closing the editor.
   Future<void> _openConstruction(Construction construction) async {
-    await Navigator.push(
+    final edited = await Navigator.push<Construction>(
       context,
       MaterialPageRoute(
         builder: (_) => ConstructionEditorScreen(construction: construction),
       ),
     );
+
+    if (edited == null) {
+      return;
+    }
+
+    setState(() {
+      _project = _project.copyWith(
+        constructions: [
+          for (final c in _project.constructions)
+            if (c.id == edited.id) edited else c,
+        ],
+      );
+    });
   }
 
   String _typeLabel(ConstructionType type) {
@@ -184,7 +211,12 @@ class _ConstructionCard extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
-                    Text('${construction.width} × ${construction.height} mm'),
+                    Text(
+                      construction.width == null || construction.height == null
+                          ? 'Dimensions non définies'
+                          : '${construction.width!.toStringAsFixed(0)} × '
+                                '${construction.height!.toStringAsFixed(0)} mm',
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       '${construction.sections.length} section'

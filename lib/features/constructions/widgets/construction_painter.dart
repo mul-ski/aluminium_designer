@@ -47,6 +47,14 @@ class ConstructionPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final layout = layoutConstruction(construction);
+    if (layout == null) {
+      // Construction doesn't have both overall dimensions yet -- nothing
+      // to draw. The editor is responsible for telling the user why (see
+      // `GeometryStatus.incomplete`); this painter only avoids crashing on
+      // a null layout, it doesn't duplicate that messaging.
+      return;
+    }
+
     final transform = fitConstructionToCanvas(
       contentWidth: layout.width,
       contentHeight: layout.height,

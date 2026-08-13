@@ -28,10 +28,27 @@ class ConstructionCalculator {
   /// matches with equal specificity, [AmbiguousRuleMatchException]
   /// propagates out of this call rather than being silently resolved --
   /// see `SystemRuleSet.select` for the selection/tie-breaking rules.
+  ///
+  /// Throws [StateError] if [construction] doesn't have both overall
+  /// dimensions set yet. `Construction.width`/`height` are nullable to
+  /// represent a construction the editor is still building (see
+  /// `Construction`'s doc comment) -- calculation is a later stage than
+  /// editing and has no meaningful way to compute cut lengths without both
+  /// dimensions, so this fails loudly rather than silently treating a
+  /// missing dimension as zero.
   List<ProfileCut> calculate(Construction construction) {
+    final width = construction.width;
+    final height = construction.height;
+    if (width == null || height == null) {
+      throw StateError(
+        'Cannot calculate cuts for construction ${construction.id}: '
+        'width/height not set yet.',
+      );
+    }
+
     final variables = <DimensionVariable, double>{
-      DimensionVariable.constructionWidth: construction.width,
-      DimensionVariable.constructionHeight: construction.height,
+      DimensionVariable.constructionWidth: width,
+      DimensionVariable.constructionHeight: height,
     };
 
     final cuts = <ProfileCut>[];

@@ -87,8 +87,8 @@ Construction constructionFromJson(Map<String, dynamic> json) {
     id: json['id'] as String,
     name: json['name'] as String,
     type: ConstructionType.values.byName(json['type'] as String),
-    width: (json['width'] as num).toDouble(),
-    height: (json['height'] as num).toDouble(),
+    width: (json['width'] as num?)?.toDouble(),
+    height: (json['height'] as num?)?.toDouble(),
     manufacturer: json['manufacturer'] as String,
     system: json['system'] as String,
     layoutDirection: SectionLayoutDirection.values.byName(
