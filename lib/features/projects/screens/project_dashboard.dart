@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/project.dart';
+import '../../../core/storage/project_store.dart';
 import 'new_project_screen.dart';
 import 'project_workspace_screen.dart';
 
-/// Owns the in-memory list of [Project]s for the current app session.
+/// Owns the list of [Project]s for the app.
 ///
-/// This is the single place `Project` state lives. `NewProjectScreen`
-/// creates a `Project` and hands it back via `Navigator.pop`; this screen
-/// appends it to `_projects` and is the one that pushes
-/// `ProjectWorkspaceScreen`. `ProjectWorkspaceScreen` returns its
-/// (possibly updated, e.g. with new constructions) `Project` when popped,
-/// and this screen replaces the matching entry in `_projects` by id --
-/// so the workspace's local copy is transient UI state, not a second
-/// source of truth. No persistence yet: `_projects` lives only as long as
-/// this widget does, which for now is the app's lifetime (it's the root
-/// screen).
+/// This is the single place `Project` state lives in memory, and the
+/// single place that talks to [ProjectStore] for persistence.
+/// `NewProjectScreen` creates a `Project` and hands it back via
+/// `Navigator.pop`; this screen appends it to `_projects`, saves it to
+/// disk, and is the one that pushes `ProjectWorkspaceScreen`.
+/// `ProjectWorkspaceScreen` returns its (possibly updated, e.g. with new
+/// constructions) `Project` when popped, and this screen replaces the
+/// matching entry in `_projects` by id and re-saves it -- so the
+/// workspace's local copy is transient UI state, not a second source of
+/// truth, and disk is never out of sync with what's shown after a
+/// successful save.
+///
+/// On start, `_projects` is loaded from [ProjectStore.loadAll] so projects
+/// survive closing and reopening the app.
 class ProjectDashboard extends StatefulWidget {
   const ProjectDashboard({super.key});
 
@@ -23,7 +28,24 @@ class ProjectDashboard extends StatefulWidget {
 }
 
 class _ProjectDashboardState extends State<ProjectDashboard> {
-  final List<Project> _projects = [];
+  final ProjectStore _store = ProjectStore();
+  List<Project> _projects = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    final projects = await _store.loadAll();
+    if (!mounted) return;
+    setState(() {
+      _projects = projects;
+      _loading = false;
+    });
+  }
 
   Future<void> _createProject() async {
     final project = await Navigator.push<Project>(
@@ -35,8 +57,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
       return;
     }
 
+    await _store.save(project);
+
     setState(() {
-      _projects.add(project);
+      _projects = [..._projects, project];
     });
 
     if (!mounted) return;
@@ -54,6 +78,8 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     if (updated == null) {
       return;
     }
+
+    await _store.save(updated);
 
     setState(() {
       final index = _projects.indexWhere((p) => p.id == updated.id);
@@ -99,7 +125,12 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                if (_projects.isEmpty)
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_projects.isEmpty)
                   const Text('Aucun projet pour le moment.')
                 else
                   Expanded(
