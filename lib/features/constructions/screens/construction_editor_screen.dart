@@ -175,7 +175,37 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   }
 
   void _save() {
-    Navigator.pop(context, _draft);
+    Navigator.pop(context, ConstructionEditorResult.saved(_draft));
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer la construction'),
+        content: Text(
+          'Supprimer '
+          '"${_draft.name.isEmpty ? _typeLabel(_draft.type) : _draft.name}" '
+          '? Cette action est irréversible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    Navigator.pop(context, ConstructionEditorResult.deleted(_draft.id));
   }
 
   @override
@@ -189,6 +219,11 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
           _draft.name.isEmpty ? _typeLabel(_draft.type) : _draft.name,
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Supprimer',
+            onPressed: _delete,
+          ),
           IconButton(
             icon: const Icon(Icons.check),
             tooltip: 'Enregistrer',
@@ -369,6 +404,32 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
       ),
     );
   }
+}
+
+/// Distinguishes "user saved edits" from "user deleted this construction"
+/// when `ConstructionEditorScreen` pops -- a plain nullable `Construction`
+/// (as before) could not represent deletion at all, which is the root
+/// cause of the ghost-canvas bug: there was no way for the caller
+/// (`ProjectWorkspaceScreen`) to learn a construction was deleted, so it
+/// never removed it from `Project.constructions`, and the (now-detached)
+/// `ConstructionPainter` for that construction kept rendering wherever it
+/// was still being built from stale state.
+///
+/// `null` from `Navigator.pop` (back button/gesture without saving or
+/// deleting) still means "cancelled", exactly as before.
+class ConstructionEditorResult {
+  final Construction? saved;
+  final String? deletedId;
+
+  const ConstructionEditorResult._({this.saved, this.deletedId});
+
+  factory ConstructionEditorResult.saved(Construction construction) =>
+      ConstructionEditorResult._(saved: construction);
+
+  factory ConstructionEditorResult.deleted(String id) =>
+      ConstructionEditorResult._(deletedId: id);
+
+  bool get isDeleted => deletedId != null;
 }
 
 /// Local, UI-only enum used purely to drive `SegmentedButton`'s selection

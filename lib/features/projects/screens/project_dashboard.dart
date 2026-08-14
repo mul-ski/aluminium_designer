@@ -67,6 +67,39 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     await _openProject(project);
   }
 
+  Future<void> _deleteProject(Project project) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer le projet'),
+        content: Text(
+          'Supprimer "${project.name}" ? Cette action est irréversible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    await _store.delete(project.id);
+
+    if (!mounted) return;
+    setState(() {
+      _projects = _projects.where((p) => p.id != project.id).toList();
+    });
+  }
+
   Future<void> _openProject(Project project) async {
     final updated = await Navigator.push<Project>(
       context,
@@ -146,7 +179,17 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                               '${project.constructions.length} construction'
                               '${project.constructions.length > 1 ? 's' : ''}',
                             ),
-                            trailing: const Icon(Icons.chevron_right),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline),
+                                  tooltip: 'Supprimer',
+                                  onPressed: () => _deleteProject(project),
+                                ),
+                                const Icon(Icons.chevron_right),
+                              ],
+                            ),
                             onTap: () => _openProject(project),
                           ),
                         );

@@ -36,13 +36,22 @@ String openingTypeLabel(OpeningType type) {
 class ConstructionPainter extends CustomPainter {
   final Construction construction;
 
-  ConstructionPainter({required this.construction});
+  /// The id of the currently selected [Section], or `null` if the
+  /// construction root is selected (no section highlighted). This mirrors
+  /// exactly what `ConstructionEditorScreen._selectedId` holds -- the
+  /// painter does not keep its own idea of "selected", it only visualizes
+  /// the one shared selection value passed in, matching the requirement
+  /// that canvas and left-panel selection never diverge.
+  final String? selectedSectionId;
+
+  ConstructionPainter({required this.construction, this.selectedSectionId});
 
   static const _fixedFill = Color(0xFFDCE3E8);
   static const _ouvrantFill = Color(0xFFCDE7D8);
   static const _outerStroke = Color(0xFF2D3A45);
   static const _sectionStroke = Color(0xFF5B6B76);
   static const _dimensionColor = Color(0xFF445059);
+  static const _selectionStroke = Color(0xFF1565C0);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -76,6 +85,45 @@ class ConstructionPainter extends CustomPainter {
     _paintOverallDimensions(canvas, layout, transform);
   }
 
+  /// Returns the [SectionRect] under [localPosition] (in the same pixel
+  /// space the canvas was painted in), or `null` if the tap didn't land on
+  /// any section -- used by the editor to turn a tap on the canvas into a
+  /// selection change. Recomputes layout/transform the same way [paint]
+  /// does rather than caching them, since this painter owns no state
+  /// between frames (see class doc) and hit-testing must stay consistent
+  /// with whatever was actually drawn for this [size].
+  ///
+  /// Deliberately not named `hitTest` -- `CustomPainter` already declares
+  /// `bool? hitTest(Offset position)` (a different signature, for a
+  /// different purpose: opting a painter in/out of hit-testing entirely).
+  /// Reusing that name here would silently fail as an invalid `@override`
+  /// rather than adding a new method.
+  SectionRect? sectionAt(Offset localPosition, Size size) {
+    final layout = layoutConstruction(construction);
+    if (layout == null) return null;
+
+    final transform = fitConstructionToCanvas(
+      contentWidth: layout.width,
+      contentHeight: layout.height,
+      canvasWidth: size.width,
+      canvasHeight: size.height,
+    );
+    if (transform.scale <= 0) return null;
+
+    for (final rect in layout.sections) {
+      final pixelRect = Rect.fromLTWH(
+        transform.toPixelX(rect.x),
+        transform.toPixelY(rect.y),
+        transform.toPixelLength(rect.width),
+        transform.toPixelLength(rect.height),
+      );
+      if (pixelRect.contains(localPosition)) {
+        return rect;
+      }
+    }
+    return null;
+  }
+
   void _paintSection(Canvas canvas, SectionRect rect, FittedTransform t) {
     final pixelRect = Rect.fromLTWH(
       t.toPixelX(rect.x),
@@ -83,6 +131,8 @@ class ConstructionPainter extends CustomPainter {
       t.toPixelLength(rect.width),
       t.toPixelLength(rect.height),
     );
+
+    final isSelected = rect.section.id == selectedSectionId;
 
     final fillPaint = Paint()
       ..style = PaintingStyle.fill
@@ -112,6 +162,19 @@ class ConstructionPainter extends CustomPainter {
           ..color = _sectionStroke.withValues(alpha: 0.6);
         canvas.drawRect(insetRect, insetPaint);
       }
+    }
+
+    // Selected section gets a heavier, colored outline drawn on top --
+    // this is the only visual difference selection introduces; fill,
+    // ouvrant inset, and label all stay exactly as they'd render
+    // unselected, so selection never changes what geometry the drawing
+    // communicates, only that it's the current focus.
+    if (isSelected) {
+      final selectionPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = _selectionStroke;
+      canvas.drawRect(pixelRect.deflate(1.5), selectionPaint);
     }
 
     _paintSectionLabel(canvas, pixelRect, rect.section);
@@ -238,15 +301,13 @@ class ConstructionPainter extends CustomPainter {
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.rotate(-1.5707963267948966); // -90 degrees, in radians.
-    painter.paint(
-      canvas,
-      Offset(-painter.width / 2, -painter.height / 2),
-    );
+    painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
     canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant ConstructionPainter oldDelegate) {
-    return oldDelegate.construction != construction;
+    return oldDelegate.construction != construction ||
+        oldDelegate.selectedSectionId != selectedSectionId;
   }
 }

@@ -71,27 +71,51 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
     await _openConstruction(construction);
   }
 
-  /// Opens the construction editor for [construction] and merges any
-  /// saved edits back into `_project.constructions` by id.
+  /// Opens the construction editor for [construction] and either merges
+  /// saved edits back into `_project.constructions` by id, or removes the
+  /// construction entirely if it was deleted.
   ///
-  /// `ConstructionEditorScreen` pops with the edited `Construction` when
-  /// the user taps Save, or with `null` if they back out without saving
-  /// (matching `addConstruction`'s "null means cancelled" convention
-  /// above). Replacing by id rather than by list position keeps this
+  /// `ConstructionEditorScreen` now pops with a `ConstructionEditorResult`
+  /// that distinguishes "saved" from "deleted" from `null` ("cancelled" --
+  /// user backed out without saving or deleting). Previously it only ever
+  /// popped a plain `Construction?`, so there was no way to represent
+  /// deletion at all: the editor closed, but this screen had no signal to
+  /// remove the construction from `_project.constructions`, leaving the
+  /// deleted construction's data (and its `ConstructionPainter` output,
+  /// wherever it was still referenced) around as a ghost. Rebuilding the
+  /// constructions list here -- via `setState`, which is what actually
+  /// drives the workspace's `ListView` and any editor re-render -- is what
+  /// makes the removal visible; simply closing the editor was never
+  /// enough on its own.
+  ///
+  /// Replacing/removing by id rather than by list position keeps this
   /// correct even if `_project.constructions` has been reordered or
   /// changed elsewhere between opening and closing the editor.
   Future<void> _openConstruction(Construction construction) async {
-    final edited = await Navigator.push<Construction>(
+    final result = await Navigator.push<ConstructionEditorResult>(
       context,
       MaterialPageRoute(
         builder: (_) => ConstructionEditorScreen(construction: construction),
       ),
     );
 
-    if (edited == null) {
+    if (result == null) {
       return;
     }
 
+    if (result.isDeleted) {
+      setState(() {
+        _project = _project.copyWith(
+          constructions: [
+            for (final c in _project.constructions)
+              if (c.id != result.deletedId) c,
+          ],
+        );
+      });
+      return;
+    }
+
+    final edited = result.saved!;
     setState(() {
       _project = _project.copyWith(
         constructions: [
