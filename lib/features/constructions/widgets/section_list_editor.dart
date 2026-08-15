@@ -38,7 +38,8 @@ class SectionListEditor extends StatelessWidget {
     );
     if (edited == null) return;
     onSectionsChanged([
-      for (final s in sections) if (s.id == existing.id) edited else s,
+      for (final s in sections)
+        if (s.id == existing.id) edited else s,
     ]);
   }
 
@@ -73,12 +74,7 @@ class SectionListEditor extends StatelessWidget {
     required int order,
     Section? existing,
   }) async {
-    return showDialog<Section>(
-      context: context,
-      builder: (dialogContext) {
-        return _SectionDialog(order: order, existing: existing);
-      },
-    );
+    return showSectionDialog(context, order: order, existing: existing);
   }
 
   @override
@@ -145,6 +141,22 @@ class SectionListEditor extends StatelessWidget {
   }
 }
 
+/// Shows the add/edit section dialog. Extracted as a top-level function
+/// (rather than only reachable via [SectionListEditor]) so the new
+/// toolbar-driven "Add Section" action in `ConstructionEditorScreen` can
+/// reuse the exact same dialog/validation instead of a second copy.
+Future<Section?> showSectionDialog(
+  BuildContext context, {
+  required int order,
+  Section? existing,
+}) {
+  return showDialog<Section>(
+    context: context,
+    builder: (dialogContext) =>
+        _SectionDialog(order: order, existing: existing),
+  );
+}
+
 /// Modal dialog for creating or editing one [Section]'s fields.
 class _SectionDialog extends StatefulWidget {
   final int order;
@@ -209,7 +221,9 @@ class _SectionDialogState extends State<_SectionDialog> {
     }
 
     final section = Section(
-      id: widget.existing?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          widget.existing?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       order: widget.order,
       kind: kind,
       width: width,
@@ -226,7 +240,9 @@ class _SectionDialogState extends State<_SectionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.existing == null ? 'Nouvelle section' : 'Modifier la section'),
+      title: Text(
+        widget.existing == null ? 'Nouvelle section' : 'Modifier la section',
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -234,20 +250,33 @@ class _SectionDialogState extends State<_SectionDialog> {
           children: [
             TextField(
               controller: widthController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Largeur', suffixText: 'mm'),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Largeur',
+                suffixText: 'mm',
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: heightController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Hauteur', suffixText: 'mm'),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Hauteur',
+                suffixText: 'mm',
+              ),
             ),
             const SizedBox(height: 16),
             SegmentedButton<SectionKind>(
               segments: const [
                 ButtonSegment(value: SectionKind.fixed, label: Text('Fixe')),
-                ButtonSegment(value: SectionKind.ouvrant, label: Text('Ouvrant')),
+                ButtonSegment(
+                  value: SectionKind.ouvrant,
+                  label: Text('Ouvrant'),
+                ),
               ],
               selected: {kind},
               onSelectionChanged: (selection) {
@@ -266,7 +295,9 @@ class _SectionDialogState extends State<_SectionDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<OpeningType>(
                 initialValue: openingType,
-                decoration: const InputDecoration(labelText: "Type d'ouverture"),
+                decoration: const InputDecoration(
+                  labelText: "Type d'ouverture",
+                ),
                 items: const [
                   DropdownMenuItem(
                     value: OpeningType.francaise,
@@ -298,7 +329,10 @@ class _SectionDialogState extends State<_SectionDialog> {
                         ? () => setState(() => vantauxCount--)
                         : null,
                   ),
-                  Text('$vantauxCount', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    '$vantauxCount',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline),
                     onPressed: () => setState(() => vantauxCount++),

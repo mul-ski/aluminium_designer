@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/construction.dart';
 import '../../../core/models/construction_type.dart';
 import '../../../core/models/project.dart';
+import '../../../core/storage/project_store.dart';
 import '../../constructions/screens/construction_editor_screen.dart';
 import 'new_construction_screen.dart';
 
@@ -19,9 +20,10 @@ import 'new_construction_screen.dart';
 /// `Project` via `copyWith` and this widget's `_project` field is updated
 /// to the new instance. On pop (back button, back gesture, or system back),
 /// this screen always returns its current `_project` to the caller
-/// (`ProjectDashboard`), which is the actual owner of project state for
-/// the app session -- this screen's `_project` is a working copy, not a
-/// second source of truth.
+/// (`ProjectDashboard`), which re-saves it via `ProjectStore` too -- but
+/// that is now a redundant safety net, not the only save path: see
+/// `_openConstruction` below for why a construction Save must be durable
+/// the moment it happens, not only once this screen itself later closes.
 class ProjectWorkspaceScreen extends StatefulWidget {
   final Project project;
 
@@ -32,6 +34,7 @@ class ProjectWorkspaceScreen extends StatefulWidget {
 }
 
 class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
+  final ProjectStore _store = ProjectStore();
   late Project _project;
 
   @override
@@ -51,7 +54,10 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
   /// editor (not only after Save) so it isn't lost if the user backs out
   /// of the editor without saving -- it will simply remain in its initial,
   /// honestly incomplete state (see `GeometryStatus.incomplete`), the same
-  /// state it's in the moment it's created.
+  /// state it's in the moment it's created. It is also persisted to disk
+  /// immediately (see `_persist`) for the same reason: the stub must
+  /// survive an app close even if the user never explicitly saves it
+  /// again inside the editor.
   Future<void> addConstruction() async {
     final construction = await Navigator.push<Construction>(
       context,
@@ -67,6 +73,7 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
         constructions: [..._project.constructions, construction],
       );
     });
+    await _persist();
 
     await _openConstruction(construction);
   }
@@ -77,16 +84,26 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
   ///
   /// `ConstructionEditorScreen` now pops with a `ConstructionEditorResult`
   /// that distinguishes "saved" from "deleted" from `null` ("cancelled" --
-  /// user backed out without saving or deleting). Previously it only ever
-  /// popped a plain `Construction?`, so there was no way to represent
-  /// deletion at all: the editor closed, but this screen had no signal to
-  /// remove the construction from `_project.constructions`, leaving the
-  /// deleted construction's data (and its `ConstructionPainter` output,
-  /// wherever it was still referenced) around as a ghost. Rebuilding the
-  /// constructions list here -- via `setState`, which is what actually
+  /// user backed out/discarded without saving or deleting). Previously it
+  /// only ever popped a plain `Construction?`, so there was no way to
+  /// represent deletion at all: the editor closed, but this screen had no
+  /// signal to remove the construction from `_project.constructions`,
+  /// leaving the deleted construction's data around as a ghost. Rebuilding
+  /// the constructions list here -- via `setState`, which is what actually
   /// drives the workspace's `ListView` and any editor re-render -- is what
-  /// makes the removal visible; simply closing the editor was never
-  /// enough on its own.
+  /// makes the removal visible; simply closing the editor was never enough
+  /// on its own.
+  ///
+  /// CRITICAL: after merging, this always calls `_persist()` before
+  /// returning. The construction editor's own Save action only hands the
+  /// updated `Construction` back through `Navigator.pop` -- it never
+  /// touches disk itself (see `ConstructionEditorScreen`'s class doc).
+  /// Without this call, a saved edit would only survive as long as this
+  /// screen's in-memory `_project`, and would be lost on app close unless
+  /// the user also happened to pop this screen afterward (which is what
+  /// used to make Save "not reliably persisted": it depended on a second,
+  /// unrelated navigation action). Persisting here makes the editor's
+  /// Save durable the moment it happens.
   ///
   /// Replacing/removing by id rather than by list position keeps this
   /// correct even if `_project.constructions` has been reordered or
@@ -112,6 +129,7 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
           ],
         );
       });
+      await _persist();
       return;
     }
 
@@ -124,6 +142,16 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
         ],
       );
     });
+    await _persist();
+  }
+
+  /// Writes the current `_project` through the real `ProjectStore`
+  /// persistence path. Called after every mutation to
+  /// `_project.constructions` (add, edited-and-saved, deleted) so disk is
+  /// never more than one mutation behind what's shown -- not deferred
+  /// until this screen itself is popped.
+  Future<void> _persist() async {
+    await _store.save(_project);
   }
 
   String _typeLabel(ConstructionType type) {

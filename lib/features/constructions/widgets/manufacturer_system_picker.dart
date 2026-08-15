@@ -29,8 +29,7 @@ class ManufacturerSystemPicker extends StatelessWidget {
   final String? selectedManufacturerName;
   final String? selectedSystemName;
   final ValueChanged<Catalog> onCatalogChanged;
-  final void Function(String manufacturerName, String systemName)
-  onSelected;
+  final void Function(String manufacturerName, String systemName) onSelected;
 
   const ManufacturerSystemPicker({
     super.key,
@@ -68,13 +67,14 @@ class ManufacturerSystemPicker extends StatelessWidget {
     );
 
     onCatalogChanged(
-      catalog.copyWith(
-        manufacturers: [...catalog.manufacturers, manufacturer],
-      ),
+      catalog.copyWith(manufacturers: [...catalog.manufacturers, manufacturer]),
     );
   }
 
-  Future<void> _createSystem(BuildContext context, Manufacturer manufacturer) async {
+  Future<void> _createSystem(
+    BuildContext context,
+    Manufacturer manufacturer,
+  ) async {
     final name = await _promptForName(
       context,
       title: 'Nouveau système',
@@ -119,8 +119,7 @@ class ManufacturerSystemPicker extends StatelessWidget {
             controller: controller,
             autofocus: true,
             decoration: InputDecoration(labelText: label),
-            onSubmitted: (value) =>
-                Navigator.pop(dialogContext, value.trim()),
+            onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
           ),
           actions: [
             TextButton(
@@ -156,12 +155,22 @@ class ManufacturerSystemPicker extends StatelessWidget {
               child: DropdownButtonFormField<String>(
                 initialValue: manufacturer?.id,
                 decoration: const InputDecoration(labelText: 'Fabricant'),
+                isExpanded: true,
                 hint: catalog.manufacturers.isEmpty
-                    ? const Text('Aucun fabricant -- créez-en un')
-                    : const Text('Sélectionner un fabricant'),
+                    ? const Text(
+                        'Aucun fabricant -- créez-en un',
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : const Text(
+                        'Sélectionner un fabricant',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                 items: [
                   for (final m in catalog.manufacturers)
-                    DropdownMenuItem(value: m.id, child: Text(m.name)),
+                    DropdownMenuItem(
+                      value: m.id,
+                      child: Text(m.name, overflow: TextOverflow.ellipsis),
+                    ),
                 ],
                 onChanged: (id) {
                   final chosen = catalog.manufacturers.firstWhere(
@@ -188,19 +197,31 @@ class ManufacturerSystemPicker extends StatelessWidget {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                initialValue: systems
-                        .any((s) => s.name == selectedSystemName)
+                initialValue: systems.any((s) => s.name == selectedSystemName)
                     ? systems.firstWhere((s) => s.name == selectedSystemName).id
                     : null,
                 decoration: const InputDecoration(labelText: 'Système'),
+                isExpanded: true,
                 hint: manufacturer == null
-                    ? const Text('Choisissez d\'abord un fabricant')
+                    ? const Text(
+                        'Choisissez d\'abord un fabricant',
+                        overflow: TextOverflow.ellipsis,
+                      )
                     : systems.isEmpty
-                    ? const Text('Aucun système -- créez-en un')
-                    : const Text('Sélectionner un système'),
+                    ? const Text(
+                        'Aucun système -- créez-en un',
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : const Text(
+                        'Sélectionner un système',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                 items: [
                   for (final s in systems)
-                    DropdownMenuItem(value: s.id, child: Text(s.name)),
+                    DropdownMenuItem(
+                      value: s.id,
+                      child: Text(s.name, overflow: TextOverflow.ellipsis),
+                    ),
                 ],
                 onChanged: manufacturer == null
                     ? null
