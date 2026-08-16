@@ -79,20 +79,35 @@ void main() {
     });
 
     testWidgets(
-      'construction selected by default shows construction properties',
+      'construction selected by default shows General stage properties',
       (tester) async {
         await _pumpEditor(tester, _construction());
 
+        // Default stage is General.
         expect(find.text('GÉNÉRAL'), findsOneWidget);
-        expect(find.text('DIMENSIONS'), findsOneWidget);
-        expect(find.text('DISPOSITION'), findsOneWidget);
         expect(find.text('SYSTÈME'), findsOneWidget);
-        // Section-only fields absent.
+        // Geometry/Sections-only fields absent until those stages are active.
+        expect(find.text('DIMENSIONS'), findsNothing);
+        expect(find.text('DISPOSITION'), findsNothing);
         expect(find.text('TYPE'), findsNothing);
       },
     );
 
-    testWidgets('selecting a section in the tree shows section properties', (
+    testWidgets('Geometry stage shows dimensions and layout direction', (
+      tester,
+    ) async {
+      await _pumpEditor(tester, _construction());
+
+      await tester.tap(find.text('Geometry'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('DIMENSIONS'), findsOneWidget);
+      expect(find.text('DISPOSITION'), findsOneWidget);
+      // General-only content absent.
+      expect(find.text('SYSTÈME'), findsNothing);
+    });
+
+    testWidgets('selecting a section in the tree switches to Sections stage', (
       tester,
     ) async {
       await _pumpEditor(tester, _construction());
@@ -102,8 +117,9 @@ void main() {
 
       expect(find.textContaining('SECTION 1'), findsOneWidget);
       expect(find.text('TYPE'), findsOneWidget);
-      // Construction-only sections absent.
+      // General/Geometry-only sections absent.
       expect(find.text('SYSTÈME'), findsNothing);
+      expect(find.text('DIMENSIONS'), findsNothing);
     });
 
     testWidgets('fixed section does not show opening controls', (tester) async {
@@ -159,8 +175,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('1 section(s)'), findsOneWidget);
-      // Selection reverts to construction root -> construction props shown.
-      expect(find.text('SYSTÈME'), findsOneWidget);
+      // Selection clears but the stage stays on Sections -- with nothing
+      // selected, the panel prompts the user to pick or add a section
+      // rather than silently jumping back to General.
+      expect(
+        find.text(
+          'Sélectionnez une section dans la liste à gauche ou '
+          'ajoutez-en une avec le bouton "Ajouter une section" '
+          'de la barre d\'outils.',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
@@ -273,5 +298,138 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('Next moves General -> Geometry -> Sections', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      expect(find.text('SYSTÈME'), findsOneWidget); // General
+
+      await tester.tap(find.byTooltip('Étape suivante'));
+      await tester.pumpAndSettle();
+      expect(find.text('DISPOSITION'), findsOneWidget); // Geometry
+
+      await tester.tap(find.byTooltip('Étape suivante'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byTooltip('Terminer'),
+        findsOneWidget,
+      ); // Sections (last stage)
+    });
+
+    testWidgets('Back moves Sections -> Geometry -> General', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      await tester.tap(find.text('Geometry')); // left nav direct jump
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sections'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Étape précédente'));
+      await tester.pumpAndSettle();
+      expect(find.text('DISPOSITION'), findsOneWidget); // Geometry
+
+      await tester.tap(find.byTooltip('Étape précédente'));
+      await tester.pumpAndSettle();
+      expect(find.text('SYSTÈME'), findsOneWidget); // General
+    });
+
+    testWidgets('left nav jumps directly to a stage', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      await tester.tap(find.text('Sections'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TYPE'), findsNothing); // no section selected yet
+      expect(find.textContaining('Sélectionnez une section'), findsOneWidget);
+    });
+
+    testWidgets('Finish (Terminer) saves and pops via the existing Save path', (
+      tester,
+    ) async {
+      ConstructionEditorResult? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () async {
+                  result = await Navigator.push<ConstructionEditorResult>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ConstructionEditorScreen(
+                        construction: _construction(),
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      tester.view.physicalSize = _desktopSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Étape suivante'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Étape suivante'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Terminer'));
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      expect(result!.isDeleted, isFalse);
+      expect(result!.saved, isNotNull);
+    });
+
+    testWidgets(
+      'Return to Project (top-bar back) with no unsaved changes pops immediately',
+      (tester) async {
+        ConstructionEditorResult? result;
+        var popped = false;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: ElevatedButton(
+                  onPressed: () async {
+                    result = await Navigator.push<ConstructionEditorResult>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ConstructionEditorScreen(
+                          construction: _construction(),
+                        ),
+                      ),
+                    );
+                    popped = true;
+                  },
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        tester.view.physicalSize = _desktopSize;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Retour au projet'));
+        await tester.pumpAndSettle();
+
+        // Popped with no result at all -- not saved, not deleted.
+        expect(popped, isTrue);
+        expect(result, isNull);
+      },
+    );
   });
 }

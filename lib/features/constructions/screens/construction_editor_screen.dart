@@ -13,6 +13,87 @@ import '../widgets/construction_painter.dart';
 import '../widgets/manufacturer_system_picker.dart';
 import '../widgets/section_list_editor.dart' show showSectionDialog;
 
+/// A `TextFormField` whose displayed text is driven by an external value
+/// (`value`) that can change for reasons other than the user typing --
+/// e.g. switching stages away and back, or a different section being
+/// selected. Uses a `TextEditingController` kept in sync via
+/// `didUpdateWidget` instead of keying the field by its own live value.
+///
+/// The previous implementation keyed each field as
+/// `ValueKey('width-$id-${draft.width}')` -- including the live value in
+/// the key. Every keystroke changed `draft.width`, which changed the key,
+/// which made Flutter tear down and rebuild a brand-new `TextFormField`
+/// on every character: focus, cursor position, and -- if the rebuild won
+/// the race against that keystroke's `onChanged` call -- the keystroke
+/// itself could be lost. That is exactly what going Back/Next or
+/// reopening a stage could appear to "undo": the last character typed
+/// before switching away had not reliably reached `_draft` yet. Syncing
+/// a stable controller instead removes that race entirely -- the
+/// controller is the single source of the field's text, updated
+/// explicitly, never torn down by a keystroke.
+class _SyncedTextField extends StatefulWidget {
+  final String value;
+  final String label;
+  final String? suffixText;
+  final TextInputType? keyboardType;
+  final ValueChanged<String> onChanged;
+
+  const _SyncedTextField({
+    super.key,
+    required this.value,
+    required this.label,
+    required this.onChanged,
+    this.suffixText,
+    this.keyboardType,
+  });
+
+  @override
+  State<_SyncedTextField> createState() => _SyncedTextFieldState();
+}
+
+class _SyncedTextFieldState extends State<_SyncedTextField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
+
+  @override
+  void didUpdateWidget(covariant _SyncedTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only push an external change into the controller when the field's
+    // current text doesn't already match it -- otherwise every keystroke
+    // (which changes `widget.value` via the parent's `setState` in the
+    // same frame) would fight the controller for cursor position. A
+    // mismatch here means the value changed for some other reason (a
+    // different section selected, a stage switch and back), so the
+    // field's text needs to catch up.
+    if (widget.value != _controller.text) {
+      _controller.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: _controller,
+      keyboardType: widget.keyboardType,
+      decoration: InputDecoration(
+        labelText: widget.label,
+        suffixText: widget.suffixText,
+      ),
+      onChanged: widget.onChanged,
+    );
+  }
+}
+
 /// The one and only construction editing workspace.
 ///
 /// This milestone reshapes the screen into a professional, desktop-first
@@ -43,9 +124,17 @@ import '../widgets/section_list_editor.dart' show showSectionDialog;
 /// workspace itself later happens to close. Back/close with unsaved
 /// changes intercepts the pop and asks Cancel/Discard/Save rather than
 /// silently doing either.
+///
+/// STAGE NAVIGATION: the right properties panel is additionally scoped by
+/// `_stage` (General / Geometry / Sections) -- a pure UI concept layered
+/// on top of the same `_draft`/`_selectedSectionId` state described above.
+/// `_stage` never gates what data exists or what Save persists; it only
+/// decides which subset of the *same* draft's fields the right panel
+/// currently shows, and which item is highlighted in the left nav. Moving
+/// between stages (via the left nav or the bottom Back/Next/Finish bar)
+/// never touches `_draft`, `_lastSaved`, or the selected section.
 class ConstructionEditorScreen extends StatefulWidget {
   final Construction construction;
-
   const ConstructionEditorScreen({super.key, required this.construction});
 
   @override
@@ -57,6 +146,13 @@ class ConstructionEditorScreen extends StatefulWidget {
 /// this, the layout is not pretended to work well -- see [build]'s
 /// `LayoutBuilder` fallback.
 const double _kMinDesktopWidth = 900;
+
+/// The three-stage design workflow this milestone adds: General ->
+/// Geometry -> Sections. Purely a UI concept -- see the class doc's
+/// "STAGE NAVIGATION" note. Order in this enum is the canonical
+/// Back/Next order used by [_ConstructionEditorScreenState._goNext] and
+/// [_ConstructionEditorScreenState._goBack].
+enum _Stage { general, geometry, sections }
 
 class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   final CatalogStore _catalogStore = CatalogStore();
@@ -70,6 +166,11 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   /// advances it. This is what `_draft` is compared against to decide
   /// whether there are unsaved changes.
   late Construction _lastSaved;
+
+  /// Which of the three design stages the right panel currently shows.
+  /// Defaults to General -- the natural start of the General -> Geometry
+  /// -> Sections route described in the class doc.
+  _Stage _stage = _Stage.general;
 
   /// Null means the construction root is selected (construction-level
   /// properties shown). Otherwise the id of the selected [Section] --
@@ -134,7 +235,55 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   }
 
   void _selectSection(String? id) {
-    setState(() => _selectedSectionId = id);
+    setState(() {
+      _selectedSectionId = id;
+      // Selecting a section from the tree or canvas only makes sense to
+      // look at alongside the Sections stage's properties -- if the user
+      // was on General or Geometry, jump them there so the right panel
+      // they now see actually matches what they just selected. Selecting
+      // the construction root (id == null) does NOT force a stage change:
+      // General/Geometry both operate on the construction root already,
+      // so there's no mismatch to correct there.
+      if (id != null) {
+        _stage = _Stage.sections;
+      }
+    });
+  }
+
+  /// Left-nav / bottom-bar direct stage change. Never touches `_draft` or
+  /// `_selectedSectionId` -- see the class doc's "STAGE NAVIGATION" note.
+  void _goToStage(_Stage stage) {
+    setState(() => _stage = stage);
+  }
+
+  void _goNext() {
+    switch (_stage) {
+      case _Stage.general:
+        _goToStage(_Stage.geometry);
+        break;
+      case _Stage.geometry:
+        _goToStage(_Stage.sections);
+        break;
+      case _Stage.sections:
+        // No "next" past Sections -- the bottom bar shows Finish instead
+        // of Next here (see [_buildBottomNav]), so this should not be
+        // reachable, but do nothing rather than wrap around if it is.
+        break;
+    }
+  }
+
+  void _goBack() {
+    switch (_stage) {
+      case _Stage.general:
+        // No "back" before General -- see [_buildBottomNav].
+        break;
+      case _Stage.geometry:
+        _goToStage(_Stage.general);
+        break;
+      case _Stage.sections:
+        _goToStage(_Stage.geometry);
+        break;
+    }
   }
 
   // ---- Construction-level property edits ----
@@ -303,6 +452,9 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
     setState(() {
       _draft = _draft.copyWith(sections: [..._draft.sections, section]);
       _selectedSectionId = section.id;
+      // Match `_selectSection`'s behavior: a newly added section is only
+      // useful to look at alongside the Sections stage's properties.
+      _stage = _Stage.sections;
     });
   }
 
@@ -479,9 +631,11 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
                     children: [
                       SizedBox(
                         width: 260,
-                        child: _StructureTree(
+                        child: _LeftPanel(
                           construction: _draft,
+                          stage: _stage,
                           selectedSectionId: _selectedSectionId,
+                          onStageSelected: _goToStage,
                           onSelectConstruction: () => _selectSection(null),
                           onSelectSection: _selectSection,
                         ),
@@ -530,6 +684,36 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         ],
       ),
       actions: [
+        // Stage Back/Next/Finish, grouped separately from Return-to-Project
+        // (the leading arrow_back) and Delete/Save below -- distinct icons
+        // (chevron vs arrow_back/check) so "go back one design stage" is
+        // never visually confused with "leave the editor".
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          tooltip: 'Étape précédente',
+          onPressed: _stage == _Stage.general ? null : _goBack,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            _stageLabel(_stage),
+            style: const TextStyle(fontSize: 13),
+          ),
+        ),
+        if (_stage == _Stage.sections)
+          IconButton(
+            icon: const Icon(Icons.check_circle_outline),
+            tooltip: 'Terminer',
+            onPressed: _save,
+          )
+        else
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            tooltip: 'Étape suivante',
+            onPressed: _goNext,
+          ),
+        const SizedBox(width: 8),
+        const VerticalDivider(width: 1, indent: 14, endIndent: 14),
         IconButton(
           icon: const Icon(Icons.delete_outline),
           tooltip: 'Supprimer la construction',
@@ -543,6 +727,17 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         const SizedBox(width: 8),
       ],
     );
+  }
+
+  String _stageLabel(_Stage stage) {
+    switch (stage) {
+      case _Stage.general:
+        return 'Général';
+      case _Stage.geometry:
+        return 'Géométrie';
+      case _Stage.sections:
+        return 'Sections';
+    }
   }
 
   Widget _buildToolbar() {
@@ -678,29 +873,38 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   }
 
   Widget _buildPropertiesPanel() {
-    final section = _selectedSection;
-    if (section == null) {
-      return _ConstructionPropertiesPanel(
-        draft: _draft,
-        catalog: _catalog,
-        typeLabel: _typeLabel,
-        onNameChanged: _applyName,
-        onTypeChanged: _applyType,
-        onWidthChanged: _applyWidth,
-        onHeightChanged: _applyHeight,
-        onLayoutDirectionChanged: _applyLayoutDirection,
-        onManufacturerSystemSelected: _applyManufacturerSystem,
-        onCatalogChanged: _applyCatalogChange,
-      );
+    switch (_stage) {
+      case _Stage.general:
+        return _GeneralPropertiesPanel(
+          draft: _draft,
+          catalog: _catalog,
+          typeLabel: _typeLabel,
+          onNameChanged: _applyName,
+          onTypeChanged: _applyType,
+          onManufacturerSystemSelected: _applyManufacturerSystem,
+          onCatalogChanged: _applyCatalogChange,
+        );
+      case _Stage.geometry:
+        return _GeometryPropertiesPanel(
+          draft: _draft,
+          onWidthChanged: _applyWidth,
+          onHeightChanged: _applyHeight,
+          onLayoutDirectionChanged: _applyLayoutDirection,
+        );
+      case _Stage.sections:
+        final section = _selectedSection;
+        if (section == null) {
+          return const _NoSectionSelectedNotice();
+        }
+        return _SectionPropertiesPanel(
+          section: section,
+          onWidthChanged: (v) => _applySectionWidth(section, v),
+          onHeightChanged: (v) => _applySectionHeight(section, v),
+          onKindChanged: (k) => _applySectionKind(section, k),
+          onOpeningTypeChanged: (t) => _applySectionOpeningType(section, t),
+          onVantauxCountChanged: (c) => _applySectionVantauxCount(section, c),
+        );
     }
-    return _SectionPropertiesPanel(
-      section: section,
-      onWidthChanged: (v) => _applySectionWidth(section, v),
-      onHeightChanged: (v) => _applySectionHeight(section, v),
-      onKindChanged: (k) => _applySectionKind(section, k),
-      onOpeningTypeChanged: (t) => _applySectionOpeningType(section, t),
-      onVantauxCountChanged: (c) => _applySectionVantauxCount(section, c),
-    );
   }
 
   Widget _buildStatusBar() {
@@ -856,16 +1060,24 @@ class _ToolbarButton extends StatelessWidget {
   }
 }
 
-/// Left working zone: construction/section outline tree.
-class _StructureTree extends StatelessWidget {
+/// Left working zone: the DESIGN stage navigator (General / Geometry /
+/// Sections) plus the existing construction/section structure tree below
+/// it, preserved unchanged from before this milestone -- selecting a
+/// section here still drives canvas/properties selection exactly as it
+/// did previously (see `_ConstructionEditorScreenState._selectSection`).
+class _LeftPanel extends StatelessWidget {
   final Construction construction;
+  final _Stage stage;
   final String? selectedSectionId;
+  final ValueChanged<_Stage> onStageSelected;
   final VoidCallback onSelectConstruction;
   final ValueChanged<String> onSelectSection;
 
-  const _StructureTree({
+  const _LeftPanel({
     required this.construction,
+    required this.stage,
     required this.selectedSectionId,
+    required this.onStageSelected,
     required this.onSelectConstruction,
     required this.onSelectSection,
   });
@@ -880,6 +1092,32 @@ class _StructureTree extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: _PanelHeader('DESIGN'),
+          ),
+          _StageNavItem(
+            icon: Icons.info_outline,
+            label: 'General',
+            selected: stage == _Stage.general,
+            onTap: () => onStageSelected(_Stage.general),
+          ),
+          _StageNavItem(
+            icon: Icons.straighten,
+            label: 'Geometry',
+            selected: stage == _Stage.geometry,
+            onTap: () => onStageSelected(_Stage.geometry),
+          ),
+          _StageNavItem(
+            icon: Icons.dashboard_customize_outlined,
+            label: 'Sections',
+            selected: stage == _Stage.sections,
+            onTap: () => onStageSelected(_Stage.sections),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: Divider(height: 1),
+          ),
           ListTile(
             dense: true,
             leading: const Icon(Icons.view_quilt_outlined),
@@ -917,29 +1155,81 @@ class _StructureTree extends StatelessWidget {
   }
 }
 
+/// One row in the DESIGN stage navigator. A plain `ListTile` would work
+/// too, but this makes the "active stage must be visually identifiable"
+/// requirement explicit via a left accent bar rather than relying only on
+/// background-color contrast.
+class _StageNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _StageNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: selected ? const Color(0xFF1565C0) : Colors.transparent,
+              width: 3,
+            ),
+          ),
+          color: selected ? const Color(0xFFE3EEFB) : null,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? const Color(0xFF1565C0) : null,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                color: selected ? const Color(0xFF1565C0) : null,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Right working zone, construction-level: shown when nothing is selected.
-class _ConstructionPropertiesPanel extends StatelessWidget {
+/// Right panel, General stage: construction identity + manufacturer
+/// system -- everything from the old combined panel except dimensions and
+/// layout direction, which moved to [_GeometryPropertiesPanel].
+class _GeneralPropertiesPanel extends StatelessWidget {
   final Construction draft;
   final Catalog catalog;
   final String Function(ConstructionType) typeLabel;
   final ValueChanged<String> onNameChanged;
   final ValueChanged<ConstructionType> onTypeChanged;
-  final ValueChanged<String> onWidthChanged;
-  final ValueChanged<String> onHeightChanged;
-  final ValueChanged<SectionLayoutDirection> onLayoutDirectionChanged;
   final void Function(String manufacturerName, String systemName)
   onManufacturerSystemSelected;
   final ValueChanged<Catalog> onCatalogChanged;
 
-  const _ConstructionPropertiesPanel({
+  const _GeneralPropertiesPanel({
     required this.draft,
     required this.catalog,
     required this.typeLabel,
     required this.onNameChanged,
     required this.onTypeChanged,
-    required this.onWidthChanged,
-    required this.onHeightChanged,
-    required this.onLayoutDirectionChanged,
     required this.onManufacturerSystemSelected,
     required this.onCatalogChanged,
   });
@@ -950,10 +1240,9 @@ class _ConstructionPropertiesPanel extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         const _PanelHeader('GÉNÉRAL'),
-        TextFormField(
-          key: ValueKey('name-${draft.id}'),
-          initialValue: draft.name,
-          decoration: const InputDecoration(labelText: 'Nom'),
+        _SyncedTextField(
+          value: draft.name,
+          label: 'Nom',
           onChanged: onNameChanged,
         ),
         const SizedBox(height: 12),
@@ -969,26 +1258,55 @@ class _ConstructionPropertiesPanel extends StatelessWidget {
           },
         ),
         const SizedBox(height: 20),
+        const _PanelHeader('SYSTÈME'),
+        ManufacturerSystemPicker(
+          catalog: catalog,
+          selectedManufacturerName: draft.manufacturer.isEmpty
+              ? null
+              : draft.manufacturer,
+          selectedSystemName: draft.system.isEmpty ? null : draft.system,
+          onCatalogChanged: onCatalogChanged,
+          onSelected: onManufacturerSystemSelected,
+        ),
+      ],
+    );
+  }
+}
+
+/// Right panel, Geometry stage: construction width/height + layout
+/// direction -- the dimensions/layout portion of the old combined panel.
+class _GeometryPropertiesPanel extends StatelessWidget {
+  final Construction draft;
+  final ValueChanged<String> onWidthChanged;
+  final ValueChanged<String> onHeightChanged;
+  final ValueChanged<SectionLayoutDirection> onLayoutDirectionChanged;
+
+  const _GeometryPropertiesPanel({
+    required this.draft,
+    required this.onWidthChanged,
+    required this.onHeightChanged,
+    required this.onLayoutDirectionChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
         const _PanelHeader('DIMENSIONS'),
-        TextFormField(
-          key: ValueKey('width-${draft.id}-${draft.width}'),
-          initialValue: draft.width?.toStringAsFixed(0) ?? '',
+        _SyncedTextField(
+          value: draft.width?.toStringAsFixed(0) ?? '',
+          label: 'Largeur',
+          suffixText: 'mm',
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Largeur',
-            suffixText: 'mm',
-          ),
           onChanged: onWidthChanged,
         ),
         const SizedBox(height: 12),
-        TextFormField(
-          key: ValueKey('height-${draft.id}-${draft.height}'),
-          initialValue: draft.height?.toStringAsFixed(0) ?? '',
+        _SyncedTextField(
+          value: draft.height?.toStringAsFixed(0) ?? '',
+          label: 'Hauteur',
+          suffixText: 'mm',
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Hauteur',
-            suffixText: 'mm',
-          ),
           onChanged: onHeightChanged,
         ),
         const SizedBox(height: 20),
@@ -1008,18 +1326,31 @@ class _ConstructionPropertiesPanel extends StatelessWidget {
           onSelectionChanged: (selection) =>
               onLayoutDirectionChanged(selection.first),
         ),
-        const SizedBox(height: 20),
-        const _PanelHeader('SYSTÈME'),
-        ManufacturerSystemPicker(
-          catalog: catalog,
-          selectedManufacturerName: draft.manufacturer.isEmpty
-              ? null
-              : draft.manufacturer,
-          selectedSystemName: draft.system.isEmpty ? null : draft.system,
-          onCatalogChanged: onCatalogChanged,
-          onSelected: onManufacturerSystemSelected,
-        ),
       ],
+    );
+  }
+}
+
+/// Shown in the Sections stage's right panel when no section is currently
+/// selected (e.g. the user just switched to this stage, or just removed
+/// the selected section). Directs the user to either pick an existing
+/// section or add one via the toolbar, rather than showing an empty panel.
+class _NoSectionSelectedNotice extends StatelessWidget {
+  const _NoSectionSelectedNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(16),
+      child: Center(
+        child: Text(
+          'Sélectionnez une section dans la liste à gauche ou '
+          'ajoutez-en une avec le bouton "Ajouter une section" '
+          'de la barre d\'outils.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Color(0xFF5B6B76)),
+        ),
+      ),
     );
   }
 }
@@ -1050,25 +1381,21 @@ class _SectionPropertiesPanel extends StatelessWidget {
         _PanelHeader('GÉNÉRAL -- SECTION ${section.order + 1}'),
         const SizedBox(height: 8),
         const _PanelHeader('DIMENSIONS'),
-        TextFormField(
-          key: ValueKey('sec-width-${section.id}-${section.width}'),
-          initialValue: section.width.toStringAsFixed(0),
+        _SyncedTextField(
+          key: ValueKey('sec-width-${section.id}'),
+          value: section.width.toStringAsFixed(0),
+          label: 'Largeur',
+          suffixText: 'mm',
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Largeur',
-            suffixText: 'mm',
-          ),
           onChanged: onWidthChanged,
         ),
         const SizedBox(height: 12),
-        TextFormField(
-          key: ValueKey('sec-height-${section.id}-${section.height}'),
-          initialValue: section.height.toStringAsFixed(0),
+        _SyncedTextField(
+          key: ValueKey('sec-height-${section.id}'),
+          value: section.height.toStringAsFixed(0),
+          label: 'Hauteur',
+          suffixText: 'mm',
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Hauteur',
-            suffixText: 'mm',
-          ),
           onChanged: onHeightChanged,
         ),
         const SizedBox(height: 20),

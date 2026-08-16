@@ -104,6 +104,106 @@ class ManufacturerSystemPicker extends StatelessWidget {
     onSelected(manufacturer.name, system.name);
   }
 
+  Future<bool> _confirmDelete(
+    BuildContext context, {
+    required String title,
+    required String message,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  /// Deletes [manufacturer] and every [ProfileSystem] that belongs to it
+  /// (a system with no manufacturer left would be meaningless). If the
+  /// construction currently being edited was pointing at this manufacturer
+  /// (or any of its now-deleted systems), that selection is cleared via
+  /// `onSelected('', '')` so it never keeps referencing a name that no
+  /// longer exists in the catalog -- `Construction.manufacturer`/`.system`
+  /// only ever store plain names (see the class doc), so nothing else
+  /// needs to change for this to be safe: an empty string already means
+  /// "not selected" throughout this widget and the construction model.
+  Future<void> _deleteManufacturer(
+    BuildContext context,
+    Manufacturer manufacturer,
+  ) async {
+    final systemNamesToRemove = catalog
+        .systemsFor(manufacturer.id)
+        .map((s) => s.name)
+        .toSet();
+
+    final confirmed = await _confirmDelete(
+      context,
+      title: 'Supprimer le fabricant',
+      message: systemNamesToRemove.isEmpty
+          ? 'Supprimer "${manufacturer.name}" ? Cette action est '
+                'irréversible.'
+          : 'Supprimer "${manufacturer.name}" et ${systemNamesToRemove.length} '
+                'système(s) associé(s) ? Cette action est irréversible.',
+    );
+    if (!confirmed) return;
+
+    onCatalogChanged(
+      catalog.copyWith(
+        manufacturers: catalog.manufacturers
+            .where((m) => m.id != manufacturer.id)
+            .toList(),
+        profileSystems: catalog.profileSystems
+            .where((s) => s.manufacturerId != manufacturer.id)
+            .toList(),
+      ),
+    );
+
+    if (selectedManufacturerName == manufacturer.name) {
+      onSelected('', '');
+    }
+  }
+
+  /// Deletes [system]. If it was the one currently selected on the
+  /// construction being edited, clears just the system half of the
+  /// selection (the manufacturer, if any, stays selected) -- see
+  /// `_deleteManufacturer`'s doc for why an empty string is a safe "not
+  /// selected" marker here.
+  Future<void> _deleteSystem(
+    BuildContext context,
+    Manufacturer manufacturer,
+    ProfileSystem system,
+  ) async {
+    final confirmed = await _confirmDelete(
+      context,
+      title: 'Supprimer le système',
+      message: 'Supprimer "${system.name}" ? Cette action est irréversible.',
+    );
+    if (!confirmed) return;
+
+    onCatalogChanged(
+      catalog.copyWith(
+        profileSystems: catalog.profileSystems
+            .where((s) => s.id != system.id)
+            .toList(),
+      ),
+    );
+
+    if (selectedSystemName == system.name) {
+      onSelected(manufacturer.name, '');
+    }
+  }
+
   Future<String?> _promptForName(
     BuildContext context, {
     required String title,
@@ -145,6 +245,9 @@ class ManufacturerSystemPicker extends StatelessWidget {
     final systems = manufacturer == null
         ? const <ProfileSystem>[]
         : catalog.systemsFor(manufacturer.id);
+    final selectedSystem = systems.any((s) => s.name == selectedSystemName)
+        ? systems.firstWhere((s) => s.name == selectedSystemName)
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,6 +293,13 @@ class ManufacturerSystemPicker extends StatelessWidget {
               tooltip: 'Créer un fabricant',
               onPressed: () => _createManufacturer(context),
             ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Supprimer ce fabricant',
+              onPressed: manufacturer == null
+                  ? null
+                  : () => _deleteManufacturer(context, manufacturer),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -197,9 +307,7 @@ class ManufacturerSystemPicker extends StatelessWidget {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                initialValue: systems.any((s) => s.name == selectedSystemName)
-                    ? systems.firstWhere((s) => s.name == selectedSystemName).id
-                    : null,
+                initialValue: selectedSystem?.id,
                 decoration: const InputDecoration(labelText: 'Système'),
                 isExpanded: true,
                 hint: manufacturer == null
@@ -238,6 +346,13 @@ class ManufacturerSystemPicker extends StatelessWidget {
               onPressed: manufacturer == null
                   ? null
                   : () => _createSystem(context, manufacturer),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Supprimer ce système',
+              onPressed: manufacturer == null || selectedSystem == null
+                  ? null
+                  : () => _deleteSystem(context, manufacturer, selectedSystem),
             ),
           ],
         ),
