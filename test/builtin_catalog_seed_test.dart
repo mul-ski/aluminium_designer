@@ -120,6 +120,89 @@ void main() {
       expect(restoredSystem.manufacturerId, aluminiumDuMarocId);
       expect(restoredSystem.profiles, isEmpty);
     });
+
+    test(
+      'Sepalumic Maroc and its three Coulissant systems exist after seeding',
+      () {
+        final seeded = withBuiltInCatalogSeed(const Catalog());
+
+        expect(seeded.manufacturers.any((m) => m.id == sepalumicId), isTrue);
+        final sepalumicSystems = seeded.systemsFor(sepalumicId);
+        expect(sepalumicSystems.map((s) => s.id).toSet(), {
+          sepalumic8800Id,
+          sepalumic6700Id,
+          sepalumic6900Id,
+        });
+        // Every Sepalumic system carries zero profiles, same as Cuzco 713
+        // OM -- no numeric/profile data was verified for any of them.
+        expect(sepalumicSystems.every((s) => s.profiles.isEmpty), isTrue);
+      },
+    );
+
+    test('low-confidence Targa Plus and DOMAL entries exist but carry no '
+        'supportedOpenings beyond what was actually verified', () {
+      final seeded = withBuiltInCatalogSeed(const Catalog());
+
+      final targaPlus = seeded.profileSystems.firstWhere(
+        (s) => s.id == menaraTargaPlusId,
+      );
+      expect(targaPlus.manufacturerId, menaraProfilId);
+      expect(targaPlus.profiles, isEmpty);
+      // Category itself is unverified for Targa Plus -- no OpeningType
+      // is asserted here as fitting, unlike every other seeded system.
+      expect(targaPlus.supportedOpenings, isEmpty);
+
+      final domal = seeded.profileSystems.firstWhere((s) => s.id == meDomalId);
+      expect(domal.manufacturerId, maghrebExtrusionId);
+      expect(domal.profiles, isEmpty);
+    });
+
+    test('seeding produces exactly 4 manufacturers and 6 profile systems, '
+        'all with zero total profiles', () {
+      final seeded = withBuiltInCatalogSeed(const Catalog());
+
+      expect(seeded.manufacturers, hasLength(4));
+      expect(seeded.profileSystems, hasLength(6));
+      final totalProfiles = seeded.profileSystems.fold<int>(
+        0,
+        (sum, s) => sum + s.profiles.length,
+      );
+      expect(totalProfiles, 0);
+    });
+
+    test('each record is added independently -- pre-seeding one built-in '
+        'system does not block any of the others from being added by a '
+        'single withBuiltInCatalogSeed call', () {
+      // Start with only Cuzco 713 OM's manufacturer/system already
+      // present (as if a previous partial seed, or a hand-crafted
+      // catalog, already had exactly these two records).
+      final partial = Catalog(
+        manufacturers: const [aluminiumDuMaroc],
+        profileSystems: const [cuzco713Om],
+      );
+
+      final seeded = withBuiltInCatalogSeed(partial);
+
+      // Cuzco 713 OM's pair isn't duplicated...
+      expect(
+        seeded.manufacturers.where((m) => m.id == aluminiumDuMarocId).length,
+        1,
+      );
+      expect(
+        seeded.profileSystems.where((s) => s.id == cuzco713OmId).length,
+        1,
+      );
+      // ...and every other built-in record still gets added in the
+      // same call, proving each id is evaluated independently rather
+      // than the whole seed being skipped once *anything* is present.
+      expect(seeded.manufacturers.any((m) => m.id == sepalumicId), isTrue);
+      expect(
+        seeded.profileSystems.where((s) => s.id == sepalumic8800Id).length,
+        1,
+      );
+      expect(seeded.manufacturers, hasLength(4));
+      expect(seeded.profileSystems, hasLength(6));
+    });
   });
 
   group('CatalogStore seeding via real file I/O', () {

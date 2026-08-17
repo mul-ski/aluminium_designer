@@ -1,23 +1,35 @@
+/// Real `Manufacturer`/`ProfileSystem` records shipped with the app, and
+/// the merge logic that adds them to whatever catalog a user already has
+/// on disk.
+///
+/// Confidence varies by source and is stated explicitly on each record
+/// below:
+///   - Aluminium du Maroc / Cuzco 713 OM: HIGH. Every field set is
+///     verified fact from the manufacturer's own product pages.
+///   - Sepalumic Maroc and its three Coulissant systems: MEDIUM. Names
+///     and thermal-break status are from Sepalumic's own site; no numeric
+///     system-level data was published anywhere found.
+///   - Menara Profil / "Targa Plus" and Maghreb Extrusion / "DOMAL": LOW.
+///     Included as explicitly low-confidence placeholders -- see each
+///     record's own doc comment for exactly what is and isn't confirmed.
+///
+/// Nothing here is inferred numerically or invented -- low confidence
+/// means "the name/category itself is uncertain," never "we guessed at
+/// numbers." Where the current `ProfileSystem` model has no field to hold
+/// a piece of verified data (frame thickness, glazing range, dimension
+/// limits, etc.), that data is deliberately left out rather than forced
+/// into an unrelated field -- see the "DATA THAT CANNOT BE REPRESENTED
+/// YET" note on [cuzco713Om] for the fullest example of this. `profiles`
+/// stays empty on every system here for the same reason: no individual
+/// profile reference/width/depth/weight data was supplied for any of
+/// them, and this file must not fabricate any to make a picker look
+/// populated.
 library;
 
 import '../models/catalog.dart';
 import '../models/manufacturer.dart';
 import '../models/opening.dart';
 import '../models/profile_system.dart';
-
-/// Real, manufacturer-verified `Manufacturer`/`ProfileSystem` records
-/// shipped with the app, and the merge logic that adds them to whatever
-/// catalog a user already has on disk.
-///
-/// EVERY field set below was supplied as verified fact from Aluminium du
-/// Maroc's own product pages -- nothing here is inferred, estimated, or
-/// invented. Where the current `ProfileSystem` model has no field to hold
-/// a piece of verified data, that data is deliberately left out rather
-/// than forced into an unrelated field -- see the "DATA THAT CANNOT BE
-/// REPRESENTED YET" section below for the full list of what's missing and
-/// why. `profiles` stays empty for the same reason: individual profile
-/// reference/width/depth/weight data was not supplied, and this file must
-/// not fabricate any to make a picker look populated.
 
 /// Manufacturer id for Aluminium du Maroc. A fixed, stable string (not a
 /// generated timestamp id like user-created manufacturers get in
@@ -30,6 +42,21 @@ const String aluminiumDuMarocId = 'builtin-aluminium-du-maroc';
 /// [aluminiumDuMarocId].
 const String cuzco713OmId = 'builtin-cuzco-713-om';
 
+/// Manufacturer id for Sepalumic Maroc.
+const String sepalumicId = 'builtin-sepalumic';
+
+/// Manufacturer id for Menara Profil (GPRAL).
+const String menaraProfilId = 'builtin-menara-profil';
+
+/// Manufacturer id for Maghreb Extrusion (ME).
+const String maghrebExtrusionId = 'builtin-maghreb-extrusion';
+
+const String sepalumic8800Id = 'builtin-sepalumic-8800';
+const String sepalumic6700Id = 'builtin-sepalumic-6700';
+const String sepalumic6900Id = 'builtin-sepalumic-6900';
+const String menaraTargaPlusId = 'builtin-menara-targa-plus';
+const String meDomalId = 'builtin-me-domal';
+
 const Manufacturer aluminiumDuMaroc = Manufacturer(
   id: aluminiumDuMarocId,
   // "System family: Profils Systèmes" from the brief is Aluminium du
@@ -40,6 +67,36 @@ const Manufacturer aluminiumDuMaroc = Manufacturer(
   // CANNOT BE REPRESENTED YET" note on `ProfileSystem` for where this
   // would belong if a field existed.
   name: 'Aluminium du Maroc',
+  isBuiltIn: true,
+);
+
+/// Confidence: MEDIUM. Sepalumic Maroc's own website lists these system
+/// names (Coulissant 8800/6700/6900) and states thermal-break status for
+/// 6700 and 6900, but publishes no numeric profile tables -- same
+/// "verified name, unverified numbers" situation as Aluminium du Maroc's
+/// systems, just without any numeric system-level data at all this time.
+const Manufacturer sepalumic = Manufacturer(
+  id: sepalumicId,
+  name: 'Sepalumic Maroc',
+  isBuiltIn: true,
+);
+
+/// Confidence: LOW. No official Menara/GPRAL catalog or spec sheet was
+/// found -- "Targa Plus" is a product name seen associated with this
+/// distributor, nothing more. See [menaraTargaPlus]'s own doc comment.
+const Manufacturer menaraProfil = Manufacturer(
+  id: menaraProfilId,
+  name: 'Menara Profil (GPRAL)',
+  isBuiltIn: true,
+);
+
+/// Confidence: LOW. Confirmed only via a business directory (Kerix)
+/// listing Maghreb Extrusion as a Casablanca-based extruder/distributor
+/// with named series including "DOMAL" -- not confirmed against Maghreb
+/// Extrusion's own materials. See [meDomal]'s own doc comment.
+const Manufacturer maghrebExtrusion = Manufacturer(
+  id: maghrebExtrusionId,
+  name: 'Maghreb Extrusion (ME)',
   isBuiltIn: true,
 );
 
@@ -103,8 +160,112 @@ const ProfileSystem cuzco713Om = ProfileSystem(
   isBuiltIn: true,
 );
 
-/// Returns [catalog] with the built-in manufacturer/system records above
-/// merged in, added only if not already present (matched by id).
+/// Confidence: MEDIUM. Sliding system, name confirmed on Sepalumic's own
+/// site. No thermal-break status stated for this one specifically (unlike
+/// 6700/6900 below), so `supportedOpenings` is the only content beyond
+/// name/manufacturer -- `coulissante` because "Coulissant" is the system's
+/// own stated category. No numeric system-level data (frame thickness,
+/// glazing, dimension limits) was published anywhere found -- entirely
+/// absent, not just unrepresentable, unlike Cuzco 713 OM where the
+/// numbers exist but the model has nowhere to put them.
+const ProfileSystem sepalumic8800 = ProfileSystem(
+  id: sepalumic8800Id,
+  manufacturer: 'Sepalumic Maroc',
+  manufacturerId: sepalumicId,
+  name: 'Coulissant 8800',
+  ruleSetId: 'generic-placeholder',
+  profiles: [],
+  supportedOpenings: [OpeningType.coulissante],
+  isBuiltIn: true,
+);
+
+/// Confidence: MEDIUM. Sliding, thermally broken -- both stated on
+/// Sepalumic's own site (name includes "(TB)" in their own materials).
+/// No numeric system-level data published/found.
+const ProfileSystem sepalumic6700 = ProfileSystem(
+  id: sepalumic6700Id,
+  manufacturer: 'Sepalumic Maroc',
+  manufacturerId: sepalumicId,
+  name: 'Coulissant 6700 (TB)',
+  ruleSetId: 'generic-placeholder',
+  profiles: [],
+  supportedOpenings: [OpeningType.coulissante],
+  isBuiltIn: true,
+);
+
+/// Confidence: MEDIUM. Same basis as [sepalumic6700].
+const ProfileSystem sepalumic6900 = ProfileSystem(
+  id: sepalumic6900Id,
+  manufacturer: 'Sepalumic Maroc',
+  manufacturerId: sepalumicId,
+  name: 'Coulissant 6900 (TB)',
+  ruleSetId: 'generic-placeholder',
+  profiles: [],
+  supportedOpenings: [OpeningType.coulissante],
+  isBuiltIn: true,
+);
+
+/// Confidence: LOW -- included as an explicitly low-confidence
+/// placeholder, not a verified catalog entry. No official documentation
+/// was located for "Targa Plus"; it is associated with Menara Profil
+/// (GPRAL) in distributor/product-name references only, and its own
+/// category is uncertain (possibly a pergola/track system rather than a
+/// window/door system at all). Because the category itself is unverified,
+/// `supportedOpenings` is left empty rather than guessed -- unlike the
+/// Sepalumic/Cuzco entries above, where at least the opening category is
+/// confidently known even though numeric specs aren't.
+const ProfileSystem menaraTargaPlus = ProfileSystem(
+  id: menaraTargaPlusId,
+  manufacturer: 'Menara Profil (GPRAL)',
+  manufacturerId: menaraProfilId,
+  name: 'Targa Plus (non vérifié)',
+  ruleSetId: 'generic-placeholder',
+  profiles: [],
+  supportedOpenings: [],
+  isBuiltIn: true,
+);
+
+/// Confidence: LOW -- included as an explicitly low-confidence
+/// placeholder. "DOMAL" is a series name found via a business directory
+/// listing for Maghreb Extrusion, not confirmed against the
+/// manufacturer's own materials, and not confirmed to match the sliding
+/// system the original request described. `supportedOpenings` uses
+/// `coulissante` on the strength of "sliding systems" being the
+/// directory's stated product category for this manufacturer -- the
+/// weakest justification of any `supportedOpenings` value in this file,
+/// flagged here explicitly rather than presented with the same confidence
+/// as the Sepalumic entries.
+const ProfileSystem meDomal = ProfileSystem(
+  id: meDomalId,
+  manufacturer: 'Maghreb Extrusion (ME)',
+  manufacturerId: maghrebExtrusionId,
+  name: 'DOMAL (non vérifié)',
+  ruleSetId: 'generic-placeholder',
+  profiles: [],
+  supportedOpenings: [OpeningType.coulissante],
+  isBuiltIn: true,
+);
+
+/// Every built-in manufacturer, in the order they were introduced.
+const List<Manufacturer> builtInManufacturers = [
+  aluminiumDuMaroc,
+  sepalumic,
+  menaraProfil,
+  maghrebExtrusion,
+];
+
+/// Every built-in profile system, in the order they were introduced.
+const List<ProfileSystem> builtInProfileSystems = [
+  cuzco713Om,
+  sepalumic8800,
+  sepalumic6700,
+  sepalumic6900,
+  menaraTargaPlus,
+  meDomal,
+];
+
+/// Returns [catalog] with every built-in manufacturer/system record above
+/// merged in, each added only if not already present (matched by id).
 ///
 /// Idempotent and non-destructive by design: calling this on every
 /// `CatalogStore.load()` (see that class) must never duplicate entries on
@@ -112,23 +273,27 @@ const ProfileSystem cuzco713Om = ProfileSystem(
 /// catalog -- a user could in principle rename or delete their own
 /// unrelated manufacturers/systems, or even (via existing delete UI) the
 /// built-in ones themselves, and this function must respect that rather
-/// than resurrecting anything the user removed. It only ADDS a record
-/// when one with that exact id is completely absent; it never modifies or
-/// re-adds an existing one.
+/// than resurrecting anything the user removed. Each record is checked
+/// independently by id: deleting one built-in manufacturer/system does
+/// not affect whether any other one gets (re-)added, and this function
+/// never modifies or re-adds a record that's already present.
 Catalog withBuiltInCatalogSeed(Catalog catalog) {
-  final hasManufacturer = catalog.manufacturers.any(
-    (m) => m.id == aluminiumDuMarocId,
-  );
-  final hasSystem = catalog.profileSystems.any((s) => s.id == cuzco713OmId);
+  final existingManufacturerIds = catalog.manufacturers
+      .map((m) => m.id)
+      .toSet();
+  final existingSystemIds = catalog.profileSystems.map((s) => s.id).toSet();
 
-  if (hasManufacturer && hasSystem) return catalog;
+  final manufacturersToAdd = builtInManufacturers.where(
+    (m) => !existingManufacturerIds.contains(m.id),
+  );
+  final systemsToAdd = builtInProfileSystems.where(
+    (s) => !existingSystemIds.contains(s.id),
+  );
+
+  if (manufacturersToAdd.isEmpty && systemsToAdd.isEmpty) return catalog;
 
   return catalog.copyWith(
-    manufacturers: hasManufacturer
-        ? catalog.manufacturers
-        : [...catalog.manufacturers, aluminiumDuMaroc],
-    profileSystems: hasSystem
-        ? catalog.profileSystems
-        : [...catalog.profileSystems, cuzco713Om],
+    manufacturers: [...catalog.manufacturers, ...manufacturersToAdd],
+    profileSystems: [...catalog.profileSystems, ...systemsToAdd],
   );
 }
