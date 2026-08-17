@@ -431,5 +431,49 @@ void main() {
         expect(result, isNull);
       },
     );
+
+    testWidgets(
+      'Sections stage shows the "select a system first" empty state when '
+      'no system has ever been selected',
+      (tester) async {
+        await _pumpEditor(tester, _construction());
+
+        await tester.tap(find.text('Section 1'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Sélectionnez un système'), findsOneWidget);
+        // Confirms the assignment UI itself does not render at all --
+        // there is nothing to assign profiles from without a system.
+        expect(find.text('PROFILS ASSIGNÉS'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'Sections stage shows the "system no longer exists" empty state -- '
+      'not crashing -- when systemId points at nothing in the (empty, '
+      'freshly-loaded) catalog',
+      (tester) async {
+        final construction = _construction().copyWith(
+          manufacturer: 'Deleted Manufacturer',
+          system: 'Deleted System',
+          manufacturerId: 'mfr-gone',
+          systemId: 'sys-gone',
+        );
+        await _pumpEditor(tester, construction);
+
+        await tester.tap(find.text('Section 1'));
+        await tester.pumpAndSettle();
+
+        // Distinct wording from the "never selected" case -- confirms the
+        // editor tells unresolved apart from unselected rather than
+        // crashing on the stale systemId (Part 4B).
+        expect(
+          find.textContaining('n\'existe plus dans le catalogue'),
+          findsOneWidget,
+        );
+        expect(find.text('PROFILS ASSIGNÉS'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

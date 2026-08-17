@@ -171,6 +171,56 @@ void main() {
       expect(restored.profileUsages.single.role, ProfileUsageRole.left);
     });
 
+    test('manufacturerId/systemId round-trip alongside display names', () {
+      final construction = Construction(
+        id: 'c1',
+        name: 'Fenêtre',
+        type: ConstructionType.window,
+        width: 1200,
+        height: 1400,
+        manufacturer: 'ACME',
+        system: 'Custom Window 2026',
+        manufacturerId: 'mfr-1',
+        systemId: 'sys-1',
+        sections: const [],
+        profiles: const [],
+      );
+
+      final restored = constructionFromJson(construction.toJson());
+
+      expect(restored.manufacturer, 'ACME');
+      expect(restored.system, 'Custom Window 2026');
+      expect(restored.manufacturerId, 'mfr-1');
+      expect(restored.systemId, 'sys-1');
+    });
+
+    test('old construction JSON saved before manufacturerId/systemId existed '
+        'still loads safely, with both resolving to null', () {
+      // Simulates a project file written by a build before this
+      // milestone -- no manufacturerId/systemId keys present at all,
+      // only the plain display-name fields that already existed.
+      final oldJson = <String, dynamic>{
+        'id': 'c1',
+        'name': 'Fenêtre',
+        'type': 'window',
+        'width': 1200,
+        'height': 1400,
+        'manufacturer': 'ACME',
+        'system': 'Custom Window 2026',
+        'layoutDirection': 'horizontal',
+        'sections': <dynamic>[],
+        'profiles': <dynamic>[],
+        'profileUsages': <dynamic>[],
+      };
+
+      final restored = constructionFromJson(oldJson);
+
+      expect(restored.manufacturer, 'ACME');
+      expect(restored.system, 'Custom Window 2026');
+      expect(restored.manufacturerId, isNull);
+      expect(restored.systemId, isNull);
+    });
+
     test('incomplete construction (null width/height) round-trips as null', () {
       final construction = Construction(
         id: 'c1',

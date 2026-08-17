@@ -3,51 +3,85 @@ import 'package:flutter/material.dart';
 import '../../../core/models/catalog.dart';
 import '../../../core/models/manufacturer.dart';
 import '../../../core/models/profile_system.dart';
+import 'profile_system_profiles_panel.dart';
 
 /// Lets the user pick an existing [Manufacturer]/[ProfileSystem] from
-/// [catalog], or create a new one -- shown inside the construction editor
+/// [catalog], or create/delete one -- shown inside the construction editor
 /// so a construction's manufacturer/system can only ever be one of these
 /// two things: something the user already created, or something they're
 /// creating right now. Never a hardcoded list.
 ///
+/// This widget stays scoped to manufacturer/system selection and
+/// creation/deletion only. Managing the PROFILES that belong to a
+/// selected system is a separate, focused widget --
+/// [ProfileSystemProfilesPanel] -- reached via the "Profils du système"
+/// button shown once a valid system is selected. Keeping profile CRUD out
+/// of this widget is deliberate: this picker's job is "which system", not
+/// "what's in the system".
+///
 /// [catalog] starts empty for a fresh install and stays empty until the
 /// user creates their first manufacturer here -- there is no seeded data.
-/// [onCatalogChanged] is called whenever a new manufacturer or system is
-/// created, so the caller (the construction editor) can persist the
-/// updated catalog via `CatalogStore` and keep its own copy in sync; this
-/// widget does not talk to storage directly.
+/// [onCatalogChanged] is called whenever a new manufacturer/system is
+/// created or deleted, so the caller (the construction editor) can persist
+/// the updated catalog via `CatalogStore` and keep its own copy in sync;
+/// this widget does not talk to storage directly.
 ///
-/// [selectedManufacturerName]/[selectedSystemName] are the *names*
-/// currently stored on the construction being edited
-/// (`Construction.manufacturer`/`Construction.system` stay plain strings
-/// -- see `Construction`'s doc comment for why), not ids -- this widget
-/// resolves them back to catalog entries by name for display, but the
-/// callback it invokes on selection passes the chosen entries' names, not
-/// ids, matching what the construction model actually stores.
+/// [selectedManufacturerId]/[selectedSystemId] are the AUTHORITATIVE
+/// current selection -- `Construction.manufacturerId`/`.systemId`. This
+/// widget resolves them to catalog entries by id, never by name.
+/// [selectedManufacturerName]/[selectedSystemName] are only used as a
+/// display fallback when the id doesn't resolve (old data with no id yet,
+/// or a since-deleted catalog entry) -- see `Construction`'s doc comment.
+///
+/// [onSelected] is called with both the display names (for backward
+/// compatibility -- see `Construction.manufacturer`/`.system`) AND the
+/// stable ids of the newly chosen manufacturer/system. The caller (the
+/// construction editor's `_applyManufacturerSystem`) is responsible for
+/// checking whether the change invalidates any existing `ProfileUsage`
+/// records and confirming with the user before applying it -- this widget
+/// does not know about `ProfileUsage` at all, keeping it focused on
+/// selection only.
 class ManufacturerSystemPicker extends StatelessWidget {
   final Catalog catalog;
+  final String? selectedManufacturerId;
+  final String? selectedSystemId;
   final String? selectedManufacturerName;
   final String? selectedSystemName;
   final ValueChanged<Catalog> onCatalogChanged;
-  final void Function(String manufacturerName, String systemName) onSelected;
+  final void Function(
+    String manufacturerName,
+    String systemName, {
+    String? manufacturerId,
+    String? systemId,
+  })
+  onSelected;
 
   const ManufacturerSystemPicker({
     super.key,
     required this.catalog,
+    required this.selectedManufacturerId,
+    required this.selectedSystemId,
     required this.selectedManufacturerName,
     required this.selectedSystemName,
     required this.onCatalogChanged,
     required this.onSelected,
   });
 
+  /// Resolves the selected manufacturer by id first (authoritative); if
+  /// that doesn't resolve (no id yet, or deleted), falls back to matching
+  /// by the display name so old/stale data still shows *something*
+  /// sensible rather than blanking out entirely.
   Manufacturer? get _selectedManufacturer {
-    if (selectedManufacturerName == null || selectedManufacturerName!.isEmpty) {
-      return null;
-    }
-    for (final manufacturer in catalog.manufacturers) {
-      if (manufacturer.name == selectedManufacturerName) {
-        return manufacturer;
+    final id = selectedManufacturerId;
+    if (id != null) {
+      for (final m in catalog.manufacturers) {
+        if (m.id == id) return m;
       }
+    }
+    final name = selectedManufacturerName;
+    if (name == null || name.isEmpty) return null;
+    for (final m in catalog.manufacturers) {
+      if (m.name == name) return m;
     }
     return null;
   }
@@ -85,8 +119,9 @@ class ManufacturerSystemPicker extends StatelessWidget {
     // ruleSetId points at the generic placeholder rule set -- this is an
     // honest "no real fabrication rules assigned yet" marker (see
     // `genericPlaceholderRuleSet`'s own doc comment), not invented
-    // manufacturer data. profiles/supportedOpenings start empty because
-    // this milestone has no profile-catalogue UI to populate them from.
+    // manufacturer data. profiles/supportedOpenings start empty -- see
+    // `ProfileSystemProfilesPanel` for where profiles are added to a
+    // system after it's created.
     final system = ProfileSystem(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       manufacturer: manufacturer.name,
@@ -101,7 +136,12 @@ class ManufacturerSystemPicker extends StatelessWidget {
     onCatalogChanged(
       catalog.copyWith(profileSystems: [...catalog.profileSystems, system]),
     );
-    onSelected(manufacturer.name, system.name);
+    onSelected(
+      manufacturer.name,
+      system.name,
+      manufacturerId: manufacturer.id,
+      systemId: system.id,
+    );
   }
 
   Future<bool> _confirmDelete(
@@ -132,12 +172,12 @@ class ManufacturerSystemPicker extends StatelessWidget {
   /// Deletes [manufacturer] and every [ProfileSystem] that belongs to it
   /// (a system with no manufacturer left would be meaningless). If the
   /// construction currently being edited was pointing at this manufacturer
-  /// (or any of its now-deleted systems), that selection is cleared via
-  /// `onSelected('', '')` so it never keeps referencing a name that no
-  /// longer exists in the catalog -- `Construction.manufacturer`/`.system`
-  /// only ever store plain names (see the class doc), so nothing else
-  /// needs to change for this to be safe: an empty string already means
-  /// "not selected" throughout this widget and the construction model.
+  /// (by id or, for old data, by name), that selection is cleared via
+  /// `onSelected('', '')` with no ids -- the editor's own
+  /// `_applyManufacturerSystem` will see the change (an empty/absent
+  /// system means no `ProfileUsage`s can possibly be compatible, so it
+  /// runs the same confirmation-before-clearing flow as any other
+  /// incompatible change).
   Future<void> _deleteManufacturer(
     BuildContext context,
     Manufacturer manufacturer,
@@ -169,7 +209,8 @@ class ManufacturerSystemPicker extends StatelessWidget {
       ),
     );
 
-    if (selectedManufacturerName == manufacturer.name) {
+    if (selectedManufacturerId == manufacturer.id ||
+        selectedManufacturerName == manufacturer.name) {
       onSelected('', '');
     }
   }
@@ -177,8 +218,8 @@ class ManufacturerSystemPicker extends StatelessWidget {
   /// Deletes [system]. If it was the one currently selected on the
   /// construction being edited, clears just the system half of the
   /// selection (the manufacturer, if any, stays selected) -- see
-  /// `_deleteManufacturer`'s doc for why an empty string is a safe "not
-  /// selected" marker here.
+  /// `_deleteManufacturer`'s doc for why this routes through the same
+  /// `onSelected` path rather than special-casing anything here.
   Future<void> _deleteSystem(
     BuildContext context,
     Manufacturer manufacturer,
@@ -199,8 +240,8 @@ class ManufacturerSystemPicker extends StatelessWidget {
       ),
     );
 
-    if (selectedSystemName == system.name) {
-      onSelected(manufacturer.name, '');
+    if (selectedSystemId == system.id || selectedSystemName == system.name) {
+      onSelected(manufacturer.name, '', manufacturerId: manufacturer.id);
     }
   }
 
@@ -239,13 +280,43 @@ class ManufacturerSystemPicker extends StatelessWidget {
     return result;
   }
 
+  Future<void> _openProfilesPanel(
+    BuildContext context,
+    ProfileSystem system,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640, maxHeight: 640),
+          child: ProfileSystemProfilesPanel(
+            catalog: catalog,
+            system: system,
+            onCatalogChanged: onCatalogChanged,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final manufacturer = _selectedManufacturer;
     final systems = manufacturer == null
         ? const <ProfileSystem>[]
         : catalog.systemsFor(manufacturer.id);
-    final selectedSystem = systems.any((s) => s.name == selectedSystemName)
+
+    ProfileSystem? selectedSystem;
+    final systemId = selectedSystemId;
+    if (systemId != null) {
+      for (final s in systems) {
+        if (s.id == systemId) {
+          selectedSystem = s;
+          break;
+        }
+      }
+    }
+    selectedSystem ??= systems.any((s) => s.name == selectedSystemName)
         ? systems.firstWhere((s) => s.name == selectedSystemName)
         : null;
 
@@ -281,9 +352,9 @@ class ManufacturerSystemPicker extends StatelessWidget {
                   );
                   // Selecting a different manufacturer invalidates
                   // whatever system was chosen for the previous one --
-                  // an empty system name means "not selected yet" here,
-                  // consistent with how selectedSystemName is read above.
-                  onSelected(chosen.name, '');
+                  // no systemId means "not selected yet", consistent with
+                  // how selectedSystemId is read above.
+                  onSelected(chosen.name, '', manufacturerId: chosen.id);
                 },
               ),
             ),
@@ -335,7 +406,12 @@ class ManufacturerSystemPicker extends StatelessWidget {
                     ? null
                     : (id) {
                         final chosen = systems.firstWhere((s) => s.id == id);
-                        onSelected(manufacturer.name, chosen.name);
+                        onSelected(
+                          manufacturer.name,
+                          chosen.name,
+                          manufacturerId: manufacturer.id,
+                          systemId: chosen.id,
+                        );
                       },
               ),
             ),
@@ -352,10 +428,20 @@ class ManufacturerSystemPicker extends StatelessWidget {
               tooltip: 'Supprimer ce système',
               onPressed: manufacturer == null || selectedSystem == null
                   ? null
-                  : () => _deleteSystem(context, manufacturer, selectedSystem),
+                  : () => _deleteSystem(context, manufacturer, selectedSystem!),
             ),
           ],
         ),
+        if (selectedSystem != null) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => _openProfilesPanel(context, selectedSystem!),
+            icon: const Icon(Icons.view_list_outlined),
+            label: Text(
+              'Profils du système (${selectedSystem.profiles.length})',
+            ),
+          ),
+        ],
       ],
     );
   }

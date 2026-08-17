@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import '../data/builtin_catalog_seed.dart';
 import '../models/catalog.dart';
 import '../models/catalog_json.dart';
 
@@ -14,6 +15,7 @@ import '../models/catalog_json.dart';
 ///
 /// ```
 /// <documents>/aluvis/catalog.json
+/// <documents>/aluvis/.catalog_seeded
 /// ```
 ///
 /// A single file rather than one-per-entry (unlike `ProjectStore`, which
@@ -29,6 +31,21 @@ import '../models/catalog_json.dart';
 /// project file -- the catalog is app-level data, not project-level data,
 /// so it lives in its own file and is loaded/saved independently of any
 /// project.
+///
+/// SEEDING: `.catalog_seeded` is a tiny sentinel file (its content is
+/// unused; only its presence matters) marking "the built-in
+/// manufacturer/system seed has already been applied at least once."
+/// [load] merges in `withBuiltInCatalogSeed` and creates this sentinel
+/// only the very first time it runs -- never again after that, on
+/// purpose. Without this, re-running the seed merge on every load would
+/// make a built-in manufacturer/system effectively undeletable: the
+/// existing delete UI in `ManufacturerSystemPicker` applies to built-in
+/// entries exactly like user-created ones (there's no protection against
+/// it), so a user who deletes "Aluminium du Maroc" must have that
+/// deletion actually stick on the next app restart, not have it silently
+/// reappear. A separate sentinel file (rather than, say, a field on
+/// `Catalog` itself) keeps this concern entirely inside the storage layer
+/// -- the domain model has no reason to know whether it was ever seeded.
 class CatalogStore {
   Directory? _appDir;
 
@@ -47,25 +64,47 @@ class CatalogStore {
 
   File _catalogFile(Directory dir) => File('${dir.path}/catalog.json');
 
+  File _seededMarkerFile(Directory dir) => File('${dir.path}/.catalog_seeded');
+
   /// Loads the persisted catalog, or an empty [Catalog] if no catalog file
   /// exists yet (e.g. first run) or the file is unreadable/corrupt --
   /// matching `ProjectStore.loadAll`'s "skip corrupt data rather than
   /// crash app start" behaviour.
+  ///
+  /// On the very first call ever (no `.catalog_seeded` sentinel present),
+  /// merges in the verified built-in manufacturer/system records from
+  /// `builtin_catalog_seed.dart`, persists the merged result, and writes
+  /// the sentinel so this never happens again -- see the class doc's
+  /// "SEEDING" note for why a one-time merge, not a merge on every load.
   Future<Catalog> load() async {
     final dir = await _dir();
     final file = _catalogFile(dir);
 
+    Catalog catalog;
     if (!await file.exists()) {
-      return const Catalog();
+      catalog = const Catalog();
+    } else {
+      try {
+        final contents = await file.readAsString();
+        final json = jsonDecode(contents) as Map<String, dynamic>;
+        catalog = catalogFromJson(json);
+      } catch (_) {
+        catalog = const Catalog();
+      }
     }
 
-    try {
-      final contents = await file.readAsString();
-      final json = jsonDecode(contents) as Map<String, dynamic>;
-      return catalogFromJson(json);
-    } catch (_) {
-      return const Catalog();
+    final seededMarker = _seededMarkerFile(dir);
+    if (!await seededMarker.exists()) {
+      final seeded = withBuiltInCatalogSeed(catalog);
+      if (seeded.manufacturers.length != catalog.manufacturers.length ||
+          seeded.profileSystems.length != catalog.profileSystems.length) {
+        catalog = seeded;
+        await save(catalog);
+      }
+      await seededMarker.writeAsString('1');
     }
+
+    return catalog;
   }
 
   /// Writes [catalog] to disk, fully replacing the previous file.

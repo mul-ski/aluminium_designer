@@ -13,12 +13,23 @@ import 'section.dart';
 /// all of which are required to tell "fixe + ouvrant" apart from "ouvrant +
 /// fixe", or a single wide ouvrant apart from two narrower ones.
 ///
-/// `profiles` is the flat list of `Profile` *definitions* assigned to/
-/// available in this construction (catalogue data) and is preserved as-is.
-/// `profileUsages` is new: it records where each profile definition is
-/// actually placed (which section, which role, what quantity) -- see
-/// [ProfileUsage] for why this is a separate model from `Profile` rather
-/// than embedding profiles directly inside `Section`.
+/// PROFILE PATH -- READ BEFORE TOUCHING `profiles`/`profileUsages`:
+/// `profiles` is the OLD, disconnected flat list of `Profile` copies. It
+/// predates `manufacturerId`/`systemId` and is not linked to anything in
+/// `Catalog` by id. It is kept only for backward compatibility with
+/// already-saved data and is NOT used by any new functionality -- new code
+/// must never read or write it. The current, real profile path is:
+///
+///   `Construction.systemId` -> `Catalog.profileSystems[id]` ->
+///   `ProfileSystem.profiles` (profile *definitions*, catalog-owned)
+///   `Construction.profileUsages` (profile *assignments* -- which
+///   definition, which section, which role; construction-owned)
+///
+/// See `ProfileUsage`'s doc comment for the definition/usage distinction,
+/// and `lib/core/logic/system_compatibility.dart` for the shared logic
+/// that decides which usages are compatible with a given system.
+/// `ConstructionCalculator` is untouched by this and still reads the old
+/// `profiles` list -- that is a separate, later milestone.
 ///
 /// `layoutDirection` says whether `sections` are arranged side by side
 /// (`horizontal`) or stacked (`vertical`) -- see [SectionLayoutDirection].
@@ -45,8 +56,32 @@ class Construction {
   final double? width;
   final double? height;
 
+  /// Display names of the selected manufacturer/system, kept for backward
+  /// compatibility and for display when the stable id can't be resolved
+  /// (e.g. an old project saved before ids existed, or a catalog entry
+  /// that was later deleted -- see `manufacturerId`/`systemId` below).
+  /// These are NOT the authoritative relationship once an id is present;
+  /// they may go stale (e.g. after a catalog rename) without affecting
+  /// which `ProfileSystem` this construction actually resolves to.
   final String manufacturer;
   final String system;
+
+  /// Stable ids of the selected [Manufacturer]/[ProfileSystem] in the app
+  /// catalog, or `null` if none has been selected yet, or if this
+  /// `Construction` was saved before these fields existed (old JSON --
+  /// see `project_json.dart`'s `constructionFromJson`).
+  ///
+  /// These are authoritative for resolving "which system is this
+  /// construction using" -- `manufacturer`/`system` (the plain name
+  /// strings above) are display-only fallbacks. A non-null `systemId`
+  /// that no longer matches any `ProfileSystem.id` in the current catalog
+  /// (the system, or its manufacturer, was deleted) means "unresolved",
+  /// not "none selected" -- callers must distinguish the two: unresolved
+  /// keeps whatever `profileUsages` already exist untouched (see
+  /// `system_compatibility.dart`), while selecting a new system runs the
+  /// incompatibility check against them.
+  final String? manufacturerId;
+  final String? systemId;
 
   /// Ordered sections making up this construction. See [Section] for how
   /// order, fixed/ouvrant kind, and per-section dimensions are represented.
@@ -55,6 +90,8 @@ class Construction {
   /// Direction sections are arranged in. See [SectionLayoutDirection].
   final SectionLayoutDirection layoutDirection;
 
+  /// OLD profile path. See the class doc's "PROFILE PATH" note -- do not
+  /// use this for new functionality.
   final List<Profile> profiles;
 
   /// Concrete placements of profile definitions within this construction's
@@ -71,6 +108,8 @@ class Construction {
     this.height,
     required this.manufacturer,
     required this.system,
+    this.manufacturerId,
+    this.systemId,
     required this.sections,
     this.layoutDirection = SectionLayoutDirection.horizontal,
     required this.profiles,
@@ -84,6 +123,14 @@ class Construction {
   /// then sections) rather than constructed once with every field known --
   /// each editor step produces a new `Construction` via this method rather
   /// than mutating one in place, consistent with `Project.copyWith`.
+  ///
+  /// `manufacturerId`/`systemId` use an explicit `clearManufacturerId`/
+  /// `clearSystemId` flag rather than relying on `null` meaning "clear" --
+  /// the usual `newValue ?? oldValue` pattern this method otherwise uses
+  /// cannot distinguish "caller didn't pass this field" from "caller
+  /// explicitly wants it set to null", and clearing to null is a real,
+  /// needed case here (selecting a manufacturer with no system yet must
+  /// clear a previously-set `systemId`, not leave a stale one behind).
   Construction copyWith({
     String? name,
     ConstructionType? type,
@@ -91,6 +138,10 @@ class Construction {
     double? height,
     String? manufacturer,
     String? system,
+    String? manufacturerId,
+    bool clearManufacturerId = false,
+    String? systemId,
+    bool clearSystemId = false,
     List<Section>? sections,
     SectionLayoutDirection? layoutDirection,
     List<Profile>? profiles,
@@ -104,6 +155,10 @@ class Construction {
       height: height ?? this.height,
       manufacturer: manufacturer ?? this.manufacturer,
       system: system ?? this.system,
+      manufacturerId: clearManufacturerId
+          ? null
+          : (manufacturerId ?? this.manufacturerId),
+      systemId: clearSystemId ? null : (systemId ?? this.systemId),
       sections: sections ?? this.sections,
       layoutDirection: layoutDirection ?? this.layoutDirection,
       profiles: profiles ?? this.profiles,

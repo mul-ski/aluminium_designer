@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/logic/system_compatibility.dart';
 import '../../../core/models/catalog.dart';
 import '../../../core/models/construction.dart';
 import '../../../core/models/construction_type.dart';
 import '../../../core/models/layout_direction.dart';
 import '../../../core/models/opening.dart';
+import '../../../core/models/profile.dart';
+import '../../../core/models/profile_system.dart';
+import '../../../core/models/profile_usage.dart';
 import '../../../core/models/project_json.dart' show ConstructionJson;
 import '../../../core/models/section.dart';
 import '../../../core/models/section_geometry.dart';
@@ -234,6 +238,21 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
     return null;
   }
 
+  /// The [ProfileSystem] `_draft.systemId` currently resolves to in
+  /// `_catalog`, or `null` if no system is selected, or if it was
+  /// selected but has since been deleted from the catalog (unresolved --
+  /// see `Construction.systemId`'s doc comment for why those two cases
+  /// are NOT distinguished by this getter; callers that need to tell them
+  /// apart check `_draft.systemId` directly alongside this).
+  ProfileSystem? get _resolvedSystem {
+    final id = _draft.systemId;
+    if (id == null) return null;
+    for (final s in _catalog.profileSystems) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
   void _selectSection(String? id) {
     setState(() {
       _selectedSectionId = id;
@@ -342,11 +361,80 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
     setState(() => _draft = _draft.copyWith(layoutDirection: direction));
   }
 
-  void _applyManufacturerSystem(String manufacturerName, String systemName) {
+  /// Applies a manufacturer/system selection made in the picker.
+  ///
+  /// [manufacturerId]/[systemId] are the new authoritative ids (may be
+  /// `null` -- e.g. manufacturer chosen but no system yet, or the
+  /// selection was cleared). [manufacturerName]/[systemName] are the
+  /// display-name fallbacks stored alongside them (see `Construction`'s
+  /// doc comment on why both exist).
+  ///
+  /// Per the approved policy: if [systemId] differs from the currently
+  /// resolved system AND any existing `_draft.profileUsages` would become
+  /// incompatible with the new system (checked via
+  /// `incompatibleUsages` against ALL current usages, not just ones known
+  /// to be tied to the previous system -- see that function's doc for
+  /// why), this asks for confirmation before proceeding. Cancelling makes
+  /// no change at all -- the picker's own dropdown state reverts on
+  /// rebuild since `_draft` never changed. Confirming removes exactly the
+  /// incompatible usages and applies the new selection in one `setState`.
+  Future<void> _applyManufacturerSystem(
+    BuildContext context, {
+    required String manufacturerName,
+    required String systemName,
+    String? manufacturerId,
+    String? systemId,
+  }) async {
+    ProfileSystem? newSystem;
+    if (systemId != null) {
+      for (final s in _catalog.profileSystems) {
+        if (s.id == systemId) {
+          newSystem = s;
+          break;
+        }
+      }
+    }
+
+    final incompatible = incompatibleUsages(_draft.profileUsages, newSystem);
+
+    if (incompatible.isNotEmpty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Changer de système'),
+          content: Text(
+            'Ce changement rendra ${incompatible.length} assignation(s) de '
+            'profil incompatible(s) avec le nouveau système. Elles seront '
+            'supprimées. Continuer ?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Continuer'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return; // Cancel: no change at all.
+    }
+
     setState(() {
       _draft = _draft.copyWith(
         manufacturer: manufacturerName,
         system: systemName,
+        manufacturerId: manufacturerId,
+        clearManufacturerId: manufacturerId == null,
+        systemId: systemId,
+        clearSystemId: systemId == null,
+        profileUsages: incompatible.isEmpty
+            ? _draft.profileUsages
+            : _draft.profileUsages
+                  .where((u) => !incompatible.contains(u))
+                  .toList(),
       );
     });
   }
@@ -439,6 +527,62 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
           ? (vantauxCount ?? s.vantauxCount)
           : 0,
     );
+  }
+
+  // ---- Profile assignment (ProfileUsage) for the selected section ----
+
+  /// Adds a new [ProfileUsage] for [profileId] on [sectionId] with [role],
+  /// quantity defaulting to `1` (see `ProfileUsage.quantity`'s doc for
+  /// what this default represents). [profileId] is expected to already
+  /// belong to the currently resolved system -- callers (the assignment
+  /// UI) only ever offer profiles from `_resolvedSystem.profiles`, so this
+  /// does not re-check compatibility itself; it trusts its caller the same
+  /// way `_applySectionWidth` trusts a parsed value from its caller.
+  void _addProfileUsage({
+    required String profileId,
+    required String sectionId,
+    required ProfileUsageRole role,
+  }) {
+    final usage = ProfileUsage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      profileId: profileId,
+      sectionId: sectionId,
+      role: role,
+    );
+    setState(() {
+      _draft = _draft.copyWith(profileUsages: [..._draft.profileUsages, usage]);
+    });
+  }
+
+  void _updateProfileUsageQuantity(ProfileUsage usage, int quantity) {
+    if (quantity < 1) return;
+    setState(() {
+      _draft = _draft.copyWith(
+        profileUsages: [
+          for (final u in _draft.profileUsages)
+            if (u.id == usage.id)
+              ProfileUsage(
+                id: u.id,
+                profileId: u.profileId,
+                sectionId: u.sectionId,
+                role: u.role,
+                quantity: quantity,
+              )
+            else
+              u,
+        ],
+      );
+    });
+  }
+
+  void _removeProfileUsage(ProfileUsage usage) {
+    setState(() {
+      _draft = _draft.copyWith(
+        profileUsages: _draft.profileUsages
+            .where((u) => u.id != usage.id)
+            .toList(),
+      );
+    });
   }
 
   // ---- Section add/remove (toolbar + tree) ----
@@ -881,7 +1025,15 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
           typeLabel: _typeLabel,
           onNameChanged: _applyName,
           onTypeChanged: _applyType,
-          onManufacturerSystemSelected: _applyManufacturerSystem,
+          onManufacturerSystemSelected:
+              (manufacturerName, systemName, {manufacturerId, systemId}) =>
+                  _applyManufacturerSystem(
+                    context,
+                    manufacturerName: manufacturerName,
+                    systemName: systemName,
+                    manufacturerId: manufacturerId,
+                    systemId: systemId,
+                  ),
           onCatalogChanged: _applyCatalogChange,
         );
       case _Stage.geometry:
@@ -896,13 +1048,51 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         if (section == null) {
           return const _NoSectionSelectedNotice();
         }
-        return _SectionPropertiesPanel(
-          section: section,
-          onWidthChanged: (v) => _applySectionWidth(section, v),
-          onHeightChanged: (v) => _applySectionHeight(section, v),
-          onKindChanged: (k) => _applySectionKind(section, k),
-          onOpeningTypeChanged: (t) => _applySectionOpeningType(section, t),
-          onVantauxCountChanged: (c) => _applySectionVantauxCount(section, c),
+        final system = _resolvedSystem;
+        if (system == null) {
+          // Covers BOTH "no system selected yet" (_draft.systemId == null)
+          // and "selected system no longer exists in the catalog"
+          // (_draft.systemId is set but doesn't resolve) -- see
+          // `_resolvedSystem`'s doc comment for why this getter doesn't
+          // distinguish them; the messages below do, using
+          // `_draft.systemId` directly, since the user benefits from
+          // knowing which case they're in even though the *available
+          // profiles* (none, either way) are the same.
+          return _NoSystemSelectedNotice(unresolved: _draft.systemId != null);
+        }
+        return Column(
+          children: [
+            Expanded(
+              child: _SectionPropertiesPanel(
+                section: section,
+                onWidthChanged: (v) => _applySectionWidth(section, v),
+                onHeightChanged: (v) => _applySectionHeight(section, v),
+                onKindChanged: (k) => _applySectionKind(section, k),
+                onOpeningTypeChanged: (t) =>
+                    _applySectionOpeningType(section, t),
+                onVantauxCountChanged: (c) =>
+                    _applySectionVantauxCount(section, c),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: _SectionProfileAssignmentPanel(
+                section: section,
+                system: system,
+                usages: _draft.profileUsages
+                    .where((u) => u.sectionId == section.id)
+                    .toList(),
+                onAdd: ({required profileId, required role}) =>
+                    _addProfileUsage(
+                      profileId: profileId,
+                      sectionId: section.id,
+                      role: role,
+                    ),
+                onQuantityChanged: _updateProfileUsageQuantity,
+                onRemove: _removeProfileUsage,
+              ),
+            ),
+          ],
         );
     }
   }
@@ -1220,7 +1410,12 @@ class _GeneralPropertiesPanel extends StatelessWidget {
   final String Function(ConstructionType) typeLabel;
   final ValueChanged<String> onNameChanged;
   final ValueChanged<ConstructionType> onTypeChanged;
-  final void Function(String manufacturerName, String systemName)
+  final void Function(
+    String manufacturerName,
+    String systemName, {
+    String? manufacturerId,
+    String? systemId,
+  })
   onManufacturerSystemSelected;
   final ValueChanged<Catalog> onCatalogChanged;
 
@@ -1261,6 +1456,8 @@ class _GeneralPropertiesPanel extends StatelessWidget {
         const _PanelHeader('SYSTÈME'),
         ManufacturerSystemPicker(
           catalog: catalog,
+          selectedManufacturerId: draft.manufacturerId,
+          selectedSystemId: draft.systemId,
           selectedManufacturerName: draft.manufacturer.isEmpty
               ? null
               : draft.manufacturer,
@@ -1349,6 +1546,52 @@ class _NoSectionSelectedNotice extends StatelessWidget {
           'de la barre d\'outils.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Color(0xFF5B6B76)),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown in the Sections stage's right panel when a section IS selected
+/// but no valid [ProfileSystem] is resolved for the construction -- either
+/// none was ever selected, or one was selected and its id no longer
+/// resolves in the catalog (deleted system/manufacturer). See
+/// `_ConstructionEditorScreenState._resolvedSystem`'s doc comment.
+///
+/// [unresolved] distinguishes the two cases in the message shown (the
+/// underlying fact -- no profiles are available to assign -- is the same
+/// either way), matching Part 4's requirement that a deleted-system
+/// construction show an informative state, not crash or silently behave
+/// like nothing was ever selected.
+class _NoSystemSelectedNotice extends StatelessWidget {
+  final bool unresolved;
+
+  const _NoSystemSelectedNotice({required this.unresolved});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              unresolved ? Icons.link_off : Icons.info_outline,
+              color: const Color(0xFF5B6B76),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              unresolved
+                  ? 'Le système précédemment sélectionné n\'existe plus '
+                        'dans le catalogue. Sélectionnez un système valide '
+                        'dans l\'onglet Général pour gérer les profils.'
+                  : 'Sélectionnez un système dans l\'onglet Général pour '
+                        'pouvoir assigner des profils à cette section.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF5B6B76)),
+            ),
+          ],
         ),
       ),
     );
@@ -1460,6 +1703,285 @@ class _SectionPropertiesPanel extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Sections stage: assigns [Profile]s (from the currently resolved
+/// [ProfileSystem] ONLY -- see class doc) to [section] as [ProfileUsage]
+/// records.
+///
+/// This is intentionally a *separate* panel from [_SectionPropertiesPanel]
+/// rather than folded into it -- profile assignment is a distinct concern
+/// (which catalog profile plays which role) from section geometry (width/
+/// height/kind/opening), and keeping them visually separated (see
+/// `_buildPropertiesPanel`'s `Column` of two `Expanded` panels) avoids
+/// this becoming one long undifferentiated form, per the milestone's UI
+/// requirement.
+///
+/// [system]'s `.profiles` is the ONLY source of assignable profiles --
+/// this never reads `Construction.profiles` (the old, retired path; see
+/// `Construction`'s doc comment) and never lets the user pick a profile
+/// from any other system.
+class _SectionProfileAssignmentPanel extends StatelessWidget {
+  final Section section;
+  final ProfileSystem system;
+  final List<ProfileUsage> usages;
+  final void Function({
+    required String profileId,
+    required ProfileUsageRole role,
+  })
+  onAdd;
+  final void Function(ProfileUsage usage, int quantity) onQuantityChanged;
+  final ValueChanged<ProfileUsage> onRemove;
+
+  const _SectionProfileAssignmentPanel({
+    required this.section,
+    required this.system,
+    required this.usages,
+    required this.onAdd,
+    required this.onQuantityChanged,
+    required this.onRemove,
+  });
+
+  String _roleLabel(ProfileUsageRole role) {
+    switch (role) {
+      case ProfileUsageRole.left:
+        return 'Gauche';
+      case ProfileUsageRole.right:
+        return 'Droite';
+      case ProfileUsageRole.top:
+        return 'Haut';
+      case ProfileUsageRole.bottom:
+        return 'Bas';
+      case ProfileUsageRole.intermediate:
+        return 'Intermédiaire';
+    }
+  }
+
+  Profile? _profileFor(String profileId) {
+    for (final p in system.profiles) {
+      if (p.id == profileId) return p;
+    }
+    return null;
+  }
+
+  Future<void> _showAddDialog(BuildContext context) async {
+    if (system.profiles.isEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Aucun profil disponible'),
+          content: Text(
+            'Le système "${system.name}" ne contient encore aucun profil. '
+            'Ajoutez-en un via "Profils du système" dans l\'onglet Général.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Fermer'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    String? selectedProfileId = system.profiles.first.id;
+    var selectedRole = ProfileUsageRole.left;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              title: const Text('Assigner un profil'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedProfileId,
+                    decoration: const InputDecoration(labelText: 'Profil'),
+                    isExpanded: true,
+                    items: [
+                      for (final p in system.profiles)
+                        DropdownMenuItem(
+                          value: p.id,
+                          child: Text(
+                            '${p.reference} -- ${p.name}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => selectedProfileId = value),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<ProfileUsageRole>(
+                    initialValue: selectedRole,
+                    decoration: const InputDecoration(labelText: 'Rôle'),
+                    items: [
+                      for (final role in ProfileUsageRole.values)
+                        DropdownMenuItem(
+                          value: role,
+                          child: Text(_roleLabel(role)),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() => selectedRole = value);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Assigner'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed == true && selectedProfileId != null) {
+      onAdd(profileId: selectedProfileId!, role: selectedRole);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Row(
+            children: [
+              const Expanded(child: _PanelHeader('PROFILS ASSIGNÉS')),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                tooltip: 'Assigner un profil',
+                onPressed: () => _showAddDialog(context),
+              ),
+            ],
+          ),
+        ),
+        if (usages.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Aucun profil assigné à cette section.',
+              style: TextStyle(color: Color(0xFF5B6B76)),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              children: [
+                for (final usage in usages)
+                  _ProfileUsageTile(
+                    usage: usage,
+                    profile: _profileFor(usage.profileId),
+                    roleLabel: _roleLabel(usage.role),
+                    onQuantityChanged: (q) => onQuantityChanged(usage, q),
+                    onRemove: () => onRemove(usage),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// One row in [_SectionProfileAssignmentPanel]'s list.
+///
+/// [profile] is nullable to handle the (should-not-normally-happen but
+/// must not crash) case of a `ProfileUsage.profileId` that no longer
+/// resolves in the current system's profile list -- e.g. the profile was
+/// deleted from the system after this usage was created (see Part 4A's
+/// deletion-integrity requirement). Shown with a warning treatment rather
+/// than throwing or silently omitting the row, so the user can see and
+/// remove the broken assignment.
+class _ProfileUsageTile extends StatelessWidget {
+  final ProfileUsage usage;
+  final Profile? profile;
+  final String roleLabel;
+  final ValueChanged<int> onQuantityChanged;
+  final VoidCallback onRemove;
+
+  const _ProfileUsageTile({
+    required this.usage,
+    required this.profile,
+    required this.roleLabel,
+    required this.onQuantityChanged,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = profile;
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    p == null
+                        ? 'Profil introuvable (${usage.profileId})'
+                        : '${p.reference} -- ${p.name}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: p == null ? const Color(0xFFC62828) : null,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    roleLabel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF5B6B76),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline),
+              onPressed: usage.quantity > 1
+                  ? () => onQuantityChanged(usage.quantity - 1)
+                  : null,
+              tooltip: 'Réduire la quantité',
+            ),
+            Text('${usage.quantity}'),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: () => onQuantityChanged(usage.quantity + 1),
+              tooltip: 'Augmenter la quantité',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Retirer cette assignation',
+              onPressed: onRemove,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -70,6 +70,8 @@ extension ConstructionJson on Construction {
       'height': height,
       'manufacturer': manufacturer,
       'system': system,
+      'manufacturerId': manufacturerId,
+      'systemId': systemId,
       'layoutDirection': layoutDirection.name,
       'sections': sections.map((s) => s.toJson()).toList(),
       'profiles': profiles.map((p) => p.toJson()).toList(),
@@ -91,6 +93,13 @@ Construction constructionFromJson(Map<String, dynamic> json) {
     height: (json['height'] as num?)?.toDouble(),
     manufacturer: json['manufacturer'] as String,
     system: json['system'] as String,
+    // Absent in JSON saved before manufacturerId/systemId existed -- both
+    // simply resolve to null (see Construction's doc comment on why null
+    // here means "not selected yet" or "saved before ids existed", not an
+    // error), matching how every other optional field in this file
+    // defaults on old data.
+    manufacturerId: json['manufacturerId'] as String?,
+    systemId: json['systemId'] as String?,
     layoutDirection: SectionLayoutDirection.values.byName(
       json['layoutDirection'] as String? ?? 'horizontal',
     ),
