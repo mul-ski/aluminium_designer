@@ -77,6 +77,15 @@ class ConstructionCalculator {
   /// variable -- same behaviour as referencing any other unavailable
   /// variable, not a silent fallback to 0 or to the construction's
   /// overall dimensions.
+  ///
+  /// Every emitted [ProfileCut] carries `profileUsageId`/`sectionId`
+  /// copied directly from the [ProfileUsage] it was produced for -- see
+  /// `ProfileCut`'s doc comment. This is a straight pass-through of ids
+  /// already available in this loop, not a lookup or inference; a
+  /// caller that needs to group cuts by section does so itself (e.g. by
+  /// `sectionId`) rather than this method returning a pre-grouped
+  /// structure -- grouping is a display concern, not something the
+  /// calculator needs an opinion about.
   List<ProfileCut> calculate(
     Construction construction, {
     Map<String, Profile> profilesById = const {},
@@ -145,6 +154,8 @@ class ConstructionCalculator {
           quantity: rule.quantity.fixedCount,
           angleStart: rule.angles.start,
           angleEnd: rule.angles.end,
+          profileUsageId: usage.id,
+          sectionId: usage.sectionId,
         ),
       );
     }

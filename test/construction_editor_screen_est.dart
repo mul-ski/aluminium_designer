@@ -476,4 +476,98 @@ void main() {
       },
     );
   });
+
+  group('Calculate action', () {
+    testWidgets('Calculer toolbar button exists on the Sections stage', (
+      tester,
+    ) async {
+      await _pumpEditor(tester, _construction());
+
+      await tester.tap(find.text('Section 1'));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.calculate_outlined), findsOneWidget);
+    });
+
+    testWidgets(
+      'pressing Calculer with no system selected shows the "no rule set" '
+      'message rather than crashing or silently doing nothing',
+      (tester) async {
+        // Default _construction() has no systemId -- calculateConstructionCuts
+        // returns null for this before ever touching the (real, empty)
+        // loaded catalog, so this doesn't depend on catalog I/O timing.
+        await _pumpEditor(tester, _construction());
+
+        await tester.tap(find.text('Section 1'));
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(Icons.calculate_outlined), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.calculate_outlined));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Aucune règle de calcul disponible pour ce système.'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('the "no rule set" result banner is also shown with no section '
+        'selected -- results are construction-wide, not tied to selection', (
+      tester,
+    ) async {
+      await _pumpEditor(tester, _construction());
+
+      // Navigate to the Sections stage without selecting a section --
+      // via the left nav, since tapping a section in the tree would
+      // select it (see `_selectSection`'s forced stage switch).
+      await tester.tap(find.text('Sections'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.calculate_outlined));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Aucune règle de calcul disponible pour ce système.'),
+        findsOneWidget,
+      );
+      // The "select a section" prompt is still shown alongside it --
+      // the banner doesn't replace that notice, it sits above it.
+      expect(find.textContaining('Sélectionnez une section'), findsOneWidget);
+    });
+
+    testWidgets(
+      'editing a section after calculating clears the shown result -- a '
+      'stale result never silently stays on screen after a relevant edit',
+      (tester) async {
+        await _pumpEditor(tester, _construction());
+
+        await tester.tap(find.text('Section 1'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.calculate_outlined));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Aucune règle de calcul disponible pour ce système.'),
+          findsOneWidget,
+        );
+
+        // Edit the selected section's width -- _applySectionWidth goes
+        // through _replaceSection, which already calls
+        // _resetCalculationState(). _SyncedTextField fires onChanged per
+        // keystroke, so entering text alone is enough -- no submit needed.
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Largeur'),
+          '950',
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Aucune règle de calcul disponible pour ce système.'),
+          findsNothing,
+        );
+      },
+    );
+  });
 }

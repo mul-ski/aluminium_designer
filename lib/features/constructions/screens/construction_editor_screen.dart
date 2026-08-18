@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/logic/cut_grouping.dart';
+import '../../../core/logic/rule_set_resolution.dart';
 import '../../../core/logic/system_compatibility.dart';
 import '../../../core/models/catalog.dart';
 import '../../../core/models/construction.dart';
 import '../../../core/models/construction_type.dart';
+import '../../../core/models/cut.dart';
 import '../../../core/models/layout_direction.dart';
 import '../../../core/models/opening.dart';
 import '../../../core/models/profile.dart';
 import '../../../core/models/profile_system.dart';
 import '../../../core/models/profile_usage.dart';
 import '../../../core/models/project_json.dart' show ConstructionJson;
+import '../../../core/models/rules/system_rule_set.dart'
+    show AmbiguousRuleMatchException;
 import '../../../core/models/section.dart';
 import '../../../core/models/section_geometry.dart';
 import '../../../core/storage/catalog_store.dart';
@@ -246,6 +251,91 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   /// apart check `_draft.systemId` directly alongside this).
   ProfileSystem? get _resolvedSystem => _catalog.systemById(_draft.systemId);
 
+  /// Result of the last `_calculate()` run, or `null` if calculation
+  /// hasn't been run yet, the draft has changed since the last run (see
+  /// `_resetCalculationState`), or `calculateConstructionCuts` itself
+  /// returned `null` (no rule set could be resolved -- see that
+  /// function's doc comment). An empty (but non-null) list is a
+  /// meaningful, distinct result: the rule set resolved fine, there was
+  /// just nothing to cut (e.g. no profile usages assigned yet). Not part
+  /// of `_draft` -- it's a derived view, not saved data, so it must never
+  /// affect `_isDirty`/`toJson()` comparison or `_save()`.
+  List<ProfileCut>? _calculationResult;
+
+  /// Non-null exactly when the last `_calculate()` run failed, holding
+  /// either `AmbiguousRuleMatchException` or `StateError` (the two
+  /// exception types `calculateConstructionCuts`/
+  /// `ConstructionCalculator.calculate` can throw -- see their doc
+  /// comments). Cleared together with `_calculationResult` whenever the
+  /// draft changes, same reasoning as that field.
+  Object? _calculationError;
+
+  /// Whether `_calculate()` has been run at least once since the last
+  /// `_resetCalculationState()` (i.e. either `_calculationResult` or
+  /// `_calculationError` is set) but resolved no rule set at all
+  /// (`calculateConstructionCuts` returned `null`) -- distinct from a
+  /// resolved rule set that simply produced zero cuts
+  /// (`_calculationResult` is a non-null empty list). Only meaningful
+  /// once `_calculationHasRun` is true.
+  bool _calculationHadNoRuleSet = false;
+
+  /// Resets calculation state fields directly, with no `setState` of its
+  /// own -- every mutator that can affect a calculation result already
+  /// wraps its own change in a `setState` (e.g. `_replaceSection`,
+  /// `_applyWidth`, `_addProfileUsage`), so this is called from inside
+  /// that existing block rather than opening a second one.
+  void _resetCalculationState() {
+    _calculationResult = null;
+    _calculationError = null;
+    _calculationHadNoRuleSet = false;
+  }
+
+  /// Runs `calculateConstructionCuts(_draft, _catalog)` and stores the
+  /// outcome in `_calculationResult`/`_calculationError`/
+  /// `_calculationHadNoRuleSet` for `_buildPropertiesPanel`'s Sections
+  /// stage to display.
+  ///
+  /// `calculateConstructionCuts` returning `null` (unresolved
+  /// system/rule set -- see that function's doc comment) is recorded via
+  /// `_calculationHadNoRuleSet` rather than folded into an empty result
+  /// list, so the properties panel can tell "no rule set available for
+  /// this system yet" apart from "rule set resolved, zero cuts produced".
+  /// `StateError` (missing construction dimensions) and
+  /// `AmbiguousRuleMatchException` (genuine rule ambiguity -- see
+  /// `SystemRuleSet.select`'s doc comment) are both caught here rather
+  /// than left to crash the widget tree; either becomes
+  /// `_calculationError` for display. No other exception type is caught --
+  /// anything else is a real bug and should still surface as one.
+  void _calculate() {
+    try {
+      final cuts = calculateConstructionCuts(_draft, _catalog);
+      setState(() {
+        _calculationResult = cuts;
+        _calculationError = null;
+        _calculationHadNoRuleSet = cuts == null;
+      });
+    } on AmbiguousRuleMatchException catch (e) {
+      setState(() {
+        _calculationResult = null;
+        _calculationError = e;
+        _calculationHadNoRuleSet = false;
+      });
+    } on StateError catch (e) {
+      setState(() {
+        _calculationResult = null;
+        _calculationError = e;
+        _calculationHadNoRuleSet = false;
+      });
+    }
+  }
+
+  /// Whether `_calculate()` has been run at least once since the last
+  /// `_resetCalculationState()`.
+  bool get _calculationHasRun =>
+      _calculationResult != null ||
+      _calculationError != null ||
+      _calculationHadNoRuleSet;
+
   void _selectSection(String? id) {
     setState(() {
       _selectedSectionId = id;
@@ -305,7 +395,10 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   }
 
   void _applyType(ConstructionType type) {
-    setState(() => _draft = _draft.copyWith(type: type));
+    setState(() {
+      _draft = _draft.copyWith(type: type);
+      _resetCalculationState();
+    });
   }
 
   void _applyWidth(String value) {
@@ -328,6 +421,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         profiles: _draft.profiles,
         profileUsages: _draft.profileUsages,
       );
+      _resetCalculationState();
     });
   }
 
@@ -347,6 +441,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         profiles: _draft.profiles,
         profileUsages: _draft.profileUsages,
       );
+      _resetCalculationState();
     });
   }
 
@@ -429,6 +524,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
                   .where((u) => !incompatible.contains(u))
                   .toList(),
       );
+      _resetCalculationState();
     });
   }
 
@@ -450,6 +546,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
             if (s.id == updated.id) updated else s,
         ],
       );
+      _resetCalculationState();
     });
   }
 
@@ -544,6 +641,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
     );
     setState(() {
       _draft = _draft.copyWith(profileUsages: [..._draft.profileUsages, usage]);
+      _resetCalculationState();
     });
   }
 
@@ -565,6 +663,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
               u,
         ],
       );
+      _resetCalculationState();
     });
   }
 
@@ -575,6 +674,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
             .where((u) => u.id != usage.id)
             .toList(),
       );
+      _resetCalculationState();
     });
   }
 
@@ -592,6 +692,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
       // Match `_selectSection`'s behavior: a newly added section is only
       // useful to look at alongside the Sections stage's properties.
       _stage = _Stage.sections;
+      _resetCalculationState();
     });
   }
 
@@ -617,6 +718,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
     setState(() {
       _draft = _draft.copyWith(sections: reordered);
       _selectedSectionId = null;
+      _resetCalculationState();
     });
   }
 
@@ -915,6 +1017,12 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
             label: 'Ajuster à la vue',
             onPressed: _fitToView,
           ),
+          const VerticalDivider(width: 24, indent: 8, endIndent: 8),
+          _ToolbarButton(
+            icon: Icons.calculate_outlined,
+            label: 'Calculer',
+            onPressed: _calculate,
+          ),
         ],
       ),
     );
@@ -1037,9 +1145,15 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
           onLayoutDirectionChanged: _applyLayoutDirection,
         );
       case _Stage.sections:
+        final resultsBanner = _buildCalculationResultsBanner();
         final section = _selectedSection;
         if (section == null) {
-          return const _NoSectionSelectedNotice();
+          return Column(
+            children: [
+              if (resultsBanner != null) resultsBanner,
+              const Expanded(child: _NoSectionSelectedNotice()),
+            ],
+          );
         }
         final system = _resolvedSystem;
         if (system == null) {
@@ -1051,10 +1165,20 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
           // `_draft.systemId` directly, since the user benefits from
           // knowing which case they're in even though the *available
           // profiles* (none, either way) are the same.
-          return _NoSystemSelectedNotice(unresolved: _draft.systemId != null);
+          return Column(
+            children: [
+              if (resultsBanner != null) resultsBanner,
+              Expanded(
+                child: _NoSystemSelectedNotice(
+                  unresolved: _draft.systemId != null,
+                ),
+              ),
+            ],
+          );
         }
         return Column(
           children: [
+            if (resultsBanner != null) resultsBanner,
             Expanded(
               child: _SectionPropertiesPanel(
                 section: section,
@@ -1088,6 +1212,23 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
           ],
         );
     }
+  }
+
+  /// A compact summary of the last `_calculate()` run, shown above the
+  /// Sections stage's existing per-section panel regardless of whether a
+  /// section is currently selected (cuts are construction-wide, not
+  /// per-section, so tying visibility to section selection like the rest
+  /// of that panel would hide results whenever nothing is selected).
+  /// Returns `null` (renders nothing) when `_calculate()` hasn't run yet
+  /// since the last edit -- see `_calculationHasRun`.
+  Widget? _buildCalculationResultsBanner() {
+    if (!_calculationHasRun) return null;
+    return _CalculationResultsBanner(
+      result: _calculationResult,
+      error: _calculationError,
+      hadNoRuleSet: _calculationHadNoRuleSet,
+      sections: _draft.sections,
+    );
   }
 
   Widget _buildStatusBar() {
@@ -1591,7 +1732,145 @@ class _NoSystemSelectedNotice extends StatelessWidget {
   }
 }
 
-/// Right working zone, section-level: shown when a section is selected.
+/// Compact summary of the last calculation run, shown at the top of the
+/// Sections stage's right panel -- see
+/// `_ConstructionEditorScreenState._buildCalculationResultsBanner`'s doc
+/// comment for why this isn't gated on a section being selected the way
+/// the rest of that panel is.
+///
+/// Exactly one of [error], [hadNoRuleSet], or a non-null [result] is the
+/// active case -- `_calculate()` only ever sets one of the three. Cuts
+/// are grouped by `ProfileCut.sectionId` (see [_groupBySectionId]) so a
+/// list mixing several sections' pieces doesn't read as one undivided
+/// pile -- still a flat `Column` of `Text` per group, matching the plain
+/// informational style of `_NoSectionSelectedNotice`/
+/// `_NoSystemSelectedNotice` rather than introducing a new visual
+/// language (table, card, etc.) for what is still a placeholder-rule-set
+/// result, not real fabrication data -- see this milestone's "keep the
+/// UI simple, no redesign" constraint.
+class _CalculationResultsBanner extends StatelessWidget {
+  final List<ProfileCut>? result;
+  final Object? error;
+  final bool hadNoRuleSet;
+  final List<Section> sections;
+
+  const _CalculationResultsBanner({
+    required this.result,
+    required this.error,
+    required this.hadNoRuleSet,
+    required this.sections,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      color: const Color(0xFFF3F5F6),
+      child: _buildContent(),
+    );
+  }
+
+  /// See `groupCutsBySectionId` in `lib/core/logic/cut_grouping.dart`.
+  Map<String, List<ProfileCut>> _groupBySectionId(List<ProfileCut> cuts) =>
+      groupCutsBySectionId(cuts);
+
+  /// See `sectionLabelForCutGroup` in `lib/core/logic/cut_grouping.dart`.
+  String _sectionLabel(String sectionId) =>
+      sectionLabelForCutGroup(sectionId, sections);
+
+  Widget _buildContent() {
+    final error = this.error;
+    if (error != null) {
+      // AmbiguousRuleMatchException and StateError are the only two
+      // types `_calculate()` catches -- see that method's doc comment.
+      // Both already have a clear `toString()` (AmbiguousRuleMatchException
+      // names the tied rules; StateError carries the message it was
+      // thrown with), so it's shown directly rather than re-worded here.
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, color: Color(0xFFC62828), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              error is AmbiguousRuleMatchException
+                  ? 'Règles ambiguës : ${error.toString()}'
+                  : error.toString(),
+              style: const TextStyle(color: Color(0xFFC62828), fontSize: 12),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (hadNoRuleSet) {
+      return const Row(
+        children: [
+          Icon(Icons.info_outline, size: 18, color: Color(0xFF5B6B76)),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Aucune règle de calcul disponible pour ce système.',
+              style: TextStyle(color: Color(0xFF5B6B76), fontSize: 12),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final cuts = result;
+    if (cuts == null || cuts.isEmpty) {
+      return const Row(
+        children: [
+          Icon(Icons.info_outline, size: 18, color: Color(0xFF5B6B76)),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Calcul effectué : aucune coupe produite.',
+              style: TextStyle(color: Color(0xFF5B6B76), fontSize: 12),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final grouped = _groupBySectionId(cuts);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${cuts.length} coupe(s)',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        for (final entry in grouped.entries) ...[
+          Text(
+            _sectionLabel(entry.key),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF5B6B76),
+            ),
+          ),
+          for (final cut in entry.value)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2, left: 8),
+              child: Text(
+                '${cut.profile.name} — ${cut.length.toStringAsFixed(0)} mm '
+                '× ${cut.quantity} (${cut.angleStart.toStringAsFixed(0)}° / '
+                '${cut.angleEnd.toStringAsFixed(0)}°)',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          const SizedBox(height: 4),
+        ],
+      ],
+    );
+  }
+}
+
 class _SectionPropertiesPanel extends StatelessWidget {
   final Section section;
   final ValueChanged<String> onWidthChanged;

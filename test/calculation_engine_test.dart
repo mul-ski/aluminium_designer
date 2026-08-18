@@ -720,5 +720,112 @@ void main() {
         expect(cuts[1].length, 1000); // constructionWidth, unchanged
       });
     });
+
+    group('ProfileCut section/usage traceability', () {
+      test('every emitted cut carries the profileUsageId and sectionId of '
+          'the ProfileUsage it was produced from', () {
+        const calculator = ConstructionCalculator(
+          ruleSet: genericPlaceholderRuleSet,
+        );
+        final section = _section('s1');
+        final montant = _profile('M1', type: ProfileType.montant);
+        final traverse = _profile('T1', type: ProfileType.traverse);
+        final construction = _construction(
+          sections: [section],
+          profileUsages: [
+            _usage(
+              'u1',
+              profileId: 'M1',
+              sectionId: 's1',
+              role: ProfileUsageRole.left,
+            ),
+            _usage(
+              'u2',
+              profileId: 'T1',
+              sectionId: 's1',
+              role: ProfileUsageRole.top,
+            ),
+          ],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'M1': montant, 'T1': traverse},
+        );
+
+        expect(cuts.length, 2);
+        expect(cuts[0].profileUsageId, 'u1');
+        expect(cuts[0].sectionId, 's1');
+        expect(cuts[1].profileUsageId, 'u2');
+        expect(cuts[1].sectionId, 's1');
+      });
+
+      test('cuts from usages on different sections carry their own distinct '
+          'sectionId, not the first/last one seen', () {
+        const calculator = ConstructionCalculator(
+          ruleSet: genericPlaceholderRuleSet,
+        );
+        final sectionA = _section('sA');
+        final sectionB = _section('sB');
+        final montant = _profile('M1', type: ProfileType.montant);
+        final construction = _construction(
+          sections: [sectionA, sectionB],
+          profileUsages: [
+            _usage(
+              'u1',
+              profileId: 'M1',
+              sectionId: 'sA',
+              role: ProfileUsageRole.left,
+            ),
+            _usage(
+              'u2',
+              profileId: 'M1',
+              sectionId: 'sB',
+              role: ProfileUsageRole.left,
+            ),
+          ],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'M1': montant},
+        );
+
+        expect(cuts.length, 2);
+        expect(cuts[0].sectionId, 'sA');
+        expect(cuts[1].sectionId, 'sB');
+      });
+
+      test('a cut is still traceable to its usage/section id even when the '
+          "section itself doesn't resolve (stale sectionId) -- traceability "
+          'is preserved, not dropped, for the same case '
+          'openingWidth/openingHeight already treat as "unresolved, not an '
+          'error by itself"', () {
+        const calculator = ConstructionCalculator(
+          ruleSet: genericPlaceholderRuleSet,
+        );
+        final montant = _profile('M1', type: ProfileType.montant);
+        final construction = _construction(
+          sections: const [], // no sections at all
+          profileUsages: [
+            _usage(
+              'u1',
+              profileId: 'M1',
+              sectionId: 'ghost-section',
+              role: ProfileUsageRole.left,
+            ),
+          ],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'M1': montant},
+        );
+
+        expect(cuts.length, 1);
+        expect(cuts[0].profileUsageId, 'u1');
+        expect(cuts[0].sectionId, 'ghost-section');
+      });
+    });
   });
 }
