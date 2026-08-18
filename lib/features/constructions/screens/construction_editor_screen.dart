@@ -1150,7 +1150,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         if (section == null) {
           return Column(
             children: [
-              if (resultsBanner != null) resultsBanner,
+              ?resultsBanner,
               const Expanded(child: _NoSectionSelectedNotice()),
             ],
           );
@@ -1167,7 +1167,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
           // profiles* (none, either way) are the same.
           return Column(
             children: [
-              if (resultsBanner != null) resultsBanner,
+              ?resultsBanner,
               Expanded(
                 child: _NoSystemSelectedNotice(
                   unresolved: _draft.systemId != null,
@@ -1178,7 +1178,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         }
         return Column(
           children: [
-            if (resultsBanner != null) resultsBanner,
+            ?resultsBanner,
             Expanded(
               child: _SectionPropertiesPanel(
                 section: section,
