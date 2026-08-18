@@ -35,6 +35,9 @@ class ProfileSystem {
   /// can be swapped, versioned, or loaded independently of the profile
   /// catalogue -- but the two are linked by this id so
   /// `ConstructionCalculator` can find the right rules for a given system.
+  /// Resolve this id via `resolveRuleSetById`/`resolveRuleSetForSystem` in
+  /// `lib/core/logic/rule_set_resolution.dart` -- do not look it up ad hoc
+  /// elsewhere; that file is the single registry of known rule sets.
   final String ruleSetId;
 
   final List<Profile> profiles;

@@ -516,5 +516,209 @@ void main() {
       // section itself couldn't be resolved.
       expect(cuts.length, 1);
     });
+
+    group('openingWidth/openingHeight variables', () {
+      test('openingHeight is usable end-to-end in a real calculation', () {
+        // Section geometry deliberately differs from the construction's
+        // overall width/height, so a passing result proves the value came
+        // from the section, not from constructionWidth/constructionHeight.
+        const openingOnlyRuleSet = SystemRuleSet(
+          systemId: 'sys',
+          name: 'Opening height rule',
+          isPlaceholder: true,
+          rules: [
+            ProfileCalculationRule(
+              appliesTo: ProfileType.montant,
+              lengthExpression: DimensionExpression.variable(
+                DimensionVariable.openingHeight,
+              ),
+              quantity: CutQuantity.fixed(1),
+              angles: CutAngles.mitred45(),
+              isPlaceholder: true,
+            ),
+          ],
+        );
+        const calculator = ConstructionCalculator(ruleSet: openingOnlyRuleSet);
+        final profile = _profile('M1');
+        final section = _section('s1', width: 500, height: 850);
+        final construction = _construction(
+          width: 1000,
+          height: 1200,
+          sections: [section],
+          profileUsages: [_usage('u1', profileId: 'M1', sectionId: 's1')],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'M1': profile},
+        );
+
+        expect(cuts.length, 1);
+        expect(cuts[0].length, 850);
+      });
+
+      test('openingWidth is usable end-to-end in a real calculation', () {
+        const openingOnlyRuleSet = SystemRuleSet(
+          systemId: 'sys',
+          name: 'Opening width rule',
+          isPlaceholder: true,
+          rules: [
+            ProfileCalculationRule(
+              appliesTo: ProfileType.traverse,
+              lengthExpression: DimensionExpression.variable(
+                DimensionVariable.openingWidth,
+              ),
+              quantity: CutQuantity.fixed(1),
+              angles: CutAngles.square(),
+              isPlaceholder: true,
+            ),
+          ],
+        );
+        const calculator = ConstructionCalculator(ruleSet: openingOnlyRuleSet);
+        final profile = _profile('T1', type: ProfileType.traverse);
+        final section = _section('s1', width: 640, height: 900);
+        final construction = _construction(
+          width: 1000,
+          height: 1200,
+          sections: [section],
+          profileUsages: [_usage('u1', profileId: 'T1', sectionId: 's1')],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'T1': profile},
+        );
+
+        expect(cuts.length, 1);
+        expect(cuts[0].length, 640);
+      });
+
+      test('a rule combining opening and construction variables evaluates '
+          'both from their correct sources', () {
+        // height - 2 * (constructionHeight - openingHeight) is a
+        // deliberately synthetic (non-manufacturer) expression whose
+        // only purpose is proving both variable sources resolve
+        // correctly together in one expression, per usage.
+        const combinedRuleSet = SystemRuleSet(
+          systemId: 'sys',
+          name: 'Combined rule',
+          isPlaceholder: true,
+          rules: [
+            ProfileCalculationRule(
+              appliesTo: ProfileType.montant,
+              lengthExpression: BinaryExpression(
+                left: DimensionExpression.variable(
+                  DimensionVariable.openingWidth,
+                ),
+                operator: BinaryOperator.subtract,
+                right: DimensionExpression.variable(
+                  DimensionVariable.constructionWidth,
+                ),
+              ),
+              quantity: CutQuantity.fixed(1),
+              angles: CutAngles.mitred45(),
+              isPlaceholder: true,
+            ),
+          ],
+        );
+        const calculator = ConstructionCalculator(ruleSet: combinedRuleSet);
+        final profile = _profile('M1');
+        final section = _section('s1', width: 300, height: 1200);
+        final construction = _construction(
+          width: 1000,
+          height: 1200,
+          sections: [section],
+          profileUsages: [_usage('u1', profileId: 'M1', sectionId: 's1')],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'M1': profile},
+        );
+
+        expect(cuts.length, 1);
+        // openingWidth (300) - constructionWidth (1000) = -700
+        expect(cuts[0].length, -700);
+      });
+
+      test('throws StateError when a rule references openingWidth but the '
+          "usage's section did not resolve", () {
+        const openingOnlyRuleSet = SystemRuleSet(
+          systemId: 'sys',
+          name: 'Opening width rule',
+          isPlaceholder: true,
+          rules: [
+            ProfileCalculationRule(
+              appliesTo: ProfileType.montant,
+              lengthExpression: DimensionExpression.variable(
+                DimensionVariable.openingWidth,
+              ),
+              quantity: CutQuantity.fixed(1),
+              angles: CutAngles.mitred45(),
+              isPlaceholder: true,
+            ),
+          ],
+        );
+        const calculator = ConstructionCalculator(ruleSet: openingOnlyRuleSet);
+        final profile = _profile('M1');
+        // No sections at all -- usage's sectionId doesn't resolve, so
+        // openingWidth can never be populated for this usage.
+        final construction = _construction(
+          width: 1000,
+          height: 1200,
+          sections: const [],
+          profileUsages: [
+            _usage('u1', profileId: 'M1', sectionId: 'ghost-section'),
+          ],
+        );
+
+        expect(
+          () =>
+              calculator.calculate(construction, profilesById: {'M1': profile}),
+          throwsStateError,
+        );
+      });
+
+      test('construction width/height rules are unaffected by section '
+          'geometry (existing behaviour still works)', () {
+        const calculator = ConstructionCalculator(
+          ruleSet: genericPlaceholderRuleSet,
+        );
+        // Section geometry deliberately differs from the construction's
+        // overall dimensions -- constructionWidth/Height must still come
+        // from the construction, not leak values from the section.
+        final section = _section('s1', width: 400, height: 500);
+        final montant = _profile('M1', type: ProfileType.montant);
+        final traverse = _profile('T1', type: ProfileType.traverse);
+        final construction = _construction(
+          width: 1000,
+          height: 1200,
+          sections: [section],
+          profileUsages: [
+            _usage(
+              'u1',
+              profileId: 'M1',
+              sectionId: 's1',
+              role: ProfileUsageRole.left,
+            ),
+            _usage(
+              'u2',
+              profileId: 'T1',
+              sectionId: 's1',
+              role: ProfileUsageRole.top,
+            ),
+          ],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'M1': montant, 'T1': traverse},
+        );
+
+        expect(cuts.length, 2);
+        expect(cuts[0].length, 1200); // constructionHeight, unchanged
+        expect(cuts[1].length, 1000); // constructionWidth, unchanged
+      });
+    });
   });
 }
