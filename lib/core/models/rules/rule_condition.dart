@@ -2,6 +2,7 @@ import '../construction.dart';
 import '../construction_type.dart';
 import '../opening.dart';
 import '../profile.dart';
+import '../profile_usage.dart';
 import '../section.dart';
 
 /// Everything a [RuleCondition] might need to decide whether a rule applies.
@@ -24,10 +25,23 @@ class CalculationContext {
   /// [OpeningTypeCondition].
   final Section? section;
 
+  /// The specific placement (section, role, quantity) that [profile] is
+  /// being evaluated for, if known. Distinct from [section]: `section`
+  /// says *which section*, `usage` additionally says *which role within
+  /// that section* -- e.g. left montant vs right montant, both of which
+  /// share the same profile and section. Nullable because not every
+  /// calculation context is tied to a specific `ProfileUsage` record (the
+  /// legacy `Construction.profiles` path has no usages at all -- see
+  /// `Construction`'s "PROFILE PATH" doc comment). Conditions that need
+  /// role-specific data simply don't match when this is `null` -- see
+  /// [ProfileUsageRoleCondition].
+  final ProfileUsage? usage;
+
   const CalculationContext({
     required this.construction,
     required this.profile,
     this.section,
+    this.usage,
   });
 }
 
@@ -107,6 +121,26 @@ class SectionKindCondition extends RuleCondition {
   @override
   bool matches(CalculationContext context) {
     return context.section?.kind == kind;
+  }
+}
+
+/// Matches when the [CalculationContext.usage] being evaluated has the
+/// given [ProfileUsageRole] (left/right/top/bottom/intermediate).
+///
+/// This is what lets a rule distinguish "left montant" from "right
+/// montant" -- both share the same `ProfileType.montant` and may share
+/// the same `Section`, so `SectionKindCondition`/`OpeningTypeCondition`
+/// alone cannot tell them apart. Fails safely (does not match) when
+/// `context.usage` is `null`, consistent with every other section/usage
+/// -scoped condition in this file.
+class ProfileUsageRoleCondition extends RuleCondition {
+  final ProfileUsageRole role;
+
+  const ProfileUsageRoleCondition(this.role);
+
+  @override
+  bool matches(CalculationContext context) {
+    return context.usage?.role == role;
   }
 }
 
