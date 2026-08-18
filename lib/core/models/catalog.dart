@@ -49,4 +49,23 @@ class Catalog {
         .where((system) => system.manufacturerId == manufacturerId)
         .toList();
   }
+
+  /// The [ProfileSystem] whose `id` equals [id], or `null` if [id] is
+  /// `null` (no system selected yet) or doesn't match anything in
+  /// [profileSystems] (the previously selected system has since been
+  /// deleted from the catalog -- "unresolved", per
+  /// `Construction.systemId`'s doc comment). Both cases collapse to the
+  /// same `null` result rather than being distinguished here, mirroring
+  /// `ConstructionEditorScreen._resolvedSystem`, which this replaces as
+  /// the single reusable implementation of that same lookup -- callers
+  /// that need to tell "never selected" apart from "selected but
+  /// deleted" check the id itself (e.g. `construction.systemId != null`)
+  /// alongside this, same as that getter's callers already do.
+  ProfileSystem? systemById(String? id) {
+    if (id == null) return null;
+    for (final system in profileSystems) {
+      if (system.id == id) return system;
+    }
+    return null;
+  }
 }

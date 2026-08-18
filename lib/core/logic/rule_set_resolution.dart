@@ -1,5 +1,10 @@
 library;
 
+import '../engine/construction_calculator.dart';
+import '../models/catalog.dart';
+import '../models/construction.dart';
+import '../models/cut.dart';
+import '../models/profile.dart';
 import '../models/profile_system.dart';
 import '../models/rules/generic_placeholder_rules.dart';
 import '../models/rules/system_rule_set.dart';
@@ -64,4 +69,81 @@ SystemRuleSet? resolveRuleSetById(String ruleSetId) {
 SystemRuleSet? resolveRuleSetForSystem(ProfileSystem? system) {
   if (system == null) return null;
   return resolveRuleSetById(system.ruleSetId);
+}
+
+/// Resolves the full chain from [construction] to its [SystemRuleSet]:
+/// `Construction.systemId` -> `Catalog.systemById` -> `ProfileSystem` ->
+/// `ProfileSystem.ruleSetId` -> [resolveRuleSetById] -> `SystemRuleSet`.
+///
+/// Returns `null` if any link in that chain doesn't resolve -- no system
+/// selected yet, the selected system was deleted from [catalog], or the
+/// system's `ruleSetId` doesn't match anything in [builtInRuleSets]. Every
+/// one of those is a distinct real-world state, but all of them mean the
+/// same thing to a caller trying to calculate: there is no usable rule
+/// set right now. This function does not throw and does not fall back to
+/// [genericPlaceholderRuleSet] -- per the same "unresolved -> nothing
+/// usable, not a guess" precedent as [resolveRuleSetForSystem] and
+/// `system_compatibility.dart`'s `compatibleProfileIds`. A caller that
+/// wants to actually calculate must check for `null` and decide what to
+/// show the user (e.g. "no calculation rules available for this system
+/// yet") rather than silently producing placeholder cuts for a
+/// construction the user never chose the placeholder system for.
+///
+/// This is the one place `Construction`/`Catalog` (application-layer
+/// models) meet the rule engine's resolution logic -- `Catalog` is
+/// intentionally not imported by `rule_set_resolution.dart`'s other
+/// functions, and `ConstructionCalculator` itself still takes a
+/// `SystemRuleSet` directly and knows nothing about `Catalog` at all; see
+/// `construction_calculator.dart`'s class doc for why it stays
+/// catalog-agnostic.
+SystemRuleSet? resolveRuleSetForConstruction(
+  Construction construction,
+  Catalog catalog,
+) {
+  final system = catalog.systemById(construction.systemId);
+  return resolveRuleSetForSystem(system);
+}
+
+/// Calculates [construction]'s cuts by resolving its `SystemRuleSet` and
+/// profile catalogue from [catalog] and running
+/// `ConstructionCalculator.calculate` -- the full application-layer
+/// pipeline described in this file's module doc, made directly callable
+/// with just a `Construction` and a `Catalog` rather than requiring the
+/// caller to manually resolve the system, rule set, and profile map
+/// itself first.
+///
+/// Returns `null` if [resolveRuleSetForConstruction] can't resolve a rule
+/// set (no system selected, system deleted from the catalog, or its
+/// `ruleSetId` doesn't match anything registered) -- same "unresolved ->
+/// nothing usable, not a guess" behaviour as the rest of this file. This
+/// does NOT fall back to [genericPlaceholderRuleSet]; a caller wanting
+/// that behaviour must ask for it explicitly by resolving the rule set
+/// itself and constructing a `ConstructionCalculator` directly, the same
+/// way `ConstructionCalculator`'s own default constructor argument
+/// already allows.
+///
+/// `ConstructionCalculator` itself is still constructed fresh here with
+/// no stored state and no `Catalog` reference of its own -- this function
+/// is where `Catalog`/`Construction` (application-layer concerns) meet
+/// the calculator, not a change to the calculator's own catalog-agnostic
+/// design (see `construction_calculator.dart`'s class doc).
+///
+/// [ConstructionCalculator.calculate] can still throw `StateError` if
+/// [construction] doesn't have both overall dimensions set, or propagate
+/// `AmbiguousRuleMatchException` from rule selection -- this function
+/// does not catch either; see `ConstructionCalculator.calculate`'s doc
+/// for both.
+List<ProfileCut>? calculateConstructionCuts(
+  Construction construction,
+  Catalog catalog,
+) {
+  final ruleSet = resolveRuleSetForConstruction(construction, catalog);
+  if (ruleSet == null) return null;
+
+  final system = catalog.systemById(construction.systemId);
+  final profilesById = system?.profilesById ?? const <String, Profile>{};
+
+  return ConstructionCalculator(
+    ruleSet: ruleSet,
+  ).calculate(construction, profilesById: profilesById);
 }

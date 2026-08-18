@@ -57,4 +57,17 @@ class ProfileSystem {
     required this.supportedOpenings,
     required this.isBuiltIn,
   });
+
+  /// This system's [profiles], keyed by [Profile.id].
+  ///
+  /// Convenience for feeding `ConstructionCalculator.calculate`'s
+  /// `profilesById` parameter directly from a resolved `ProfileSystem`
+  /// (see `rule_set_resolution.dart`'s `resolveRuleSetForConstruction` for
+  /// how a `ProfileSystem` gets resolved in the first place) -- built
+  /// fresh from [profiles] each time rather than cached, since a
+  /// `ProfileSystem` is an immutable value and this is cheap for the
+  /// profile-list sizes involved here.
+  Map<String, Profile> get profilesById => {
+    for (final profile in profiles) profile.id: profile,
+  };
 }

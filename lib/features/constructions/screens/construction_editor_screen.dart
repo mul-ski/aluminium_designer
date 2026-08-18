@@ -244,14 +244,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   /// see `Construction.systemId`'s doc comment for why those two cases
   /// are NOT distinguished by this getter; callers that need to tell them
   /// apart check `_draft.systemId` directly alongside this).
-  ProfileSystem? get _resolvedSystem {
-    final id = _draft.systemId;
-    if (id == null) return null;
-    for (final s in _catalog.profileSystems) {
-      if (s.id == id) return s;
-    }
-    return null;
-  }
+  ProfileSystem? get _resolvedSystem => _catalog.systemById(_draft.systemId);
 
   void _selectSection(String? id) {
     setState(() {
