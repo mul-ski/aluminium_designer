@@ -251,23 +251,43 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   /// apart check `_draft.systemId` directly alongside this).
   ProfileSystem? get _resolvedSystem => _catalog.systemById(_draft.systemId);
 
+  /// Whether `_calculationResult`/`_calculationError`/
+  /// `_calculationHadNoRuleSet` reflect the CURRENT `_draft`, or an
+  /// earlier one -- `true` means the draft has changed since the last
+  /// `_calculate()` run (see `_resetCalculationState`) and the fields
+  /// above are stale, not necessarily still accurate for `_draft` as it
+  /// stands now. Recalculation stays manual (the user presses Calculer)
+  /// rather than automatic -- deliberately, so an edit never triggers a
+  /// calculation pass on its own; today's `genericPlaceholderRuleSet` is
+  /// cheap, but a real per-manufacturer rule set is not guaranteed to
+  /// be, and several mutators (e.g. `_applySectionWidth`) fire on every
+  /// keystroke via `_SyncedTextField`'s `onChanged` -- auto-recalculating
+  /// there would mean re-running the calculator once per character
+  /// typed. Instead of silently clearing the last result on every edit
+  /// (which is what happened before this field existed), the stale
+  /// result/error is kept and shown with a "stale" indicator -- see
+  /// `_CalculationResultsBanner.isStale`/`_LeftPanel`'s badge -- so
+  /// going out of date is visible rather than invisible, without ever
+  /// triggering extra calculation work.
+  bool _calculationIsStale = false;
+
   /// Result of the last `_calculate()` run, or `null` if calculation
-  /// hasn't been run yet, the draft has changed since the last run (see
-  /// `_resetCalculationState`), or `calculateConstructionCuts` itself
+  /// hasn't been run yet, or `calculateConstructionCuts` itself
   /// returned `null` (no rule set could be resolved -- see that
   /// function's doc comment). An empty (but non-null) list is a
   /// meaningful, distinct result: the rule set resolved fine, there was
   /// just nothing to cut (e.g. no profile usages assigned yet). Not part
   /// of `_draft` -- it's a derived view, not saved data, so it must never
-  /// affect `_isDirty`/`toJson()` comparison or `_save()`.
+  /// affect `_isDirty`/`toJson()` comparison or `_save()`. May be stale
+  /// relative to the current `_draft` -- see `_calculationIsStale`.
   List<ProfileCut>? _calculationResult;
 
   /// Non-null exactly when the last `_calculate()` run failed, holding
   /// either `AmbiguousRuleMatchException` or `StateError` (the two
   /// exception types `calculateConstructionCuts`/
   /// `ConstructionCalculator.calculate` can throw -- see their doc
-  /// comments). Cleared together with `_calculationResult` whenever the
-  /// draft changes, same reasoning as that field.
+  /// comments). May be stale relative to the current `_draft` -- see
+  /// `_calculationIsStale`.
   Object? _calculationError;
 
   /// Whether `_calculate()` has been run at least once since the last
@@ -276,18 +296,21 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   /// (`calculateConstructionCuts` returned `null`) -- distinct from a
   /// resolved rule set that simply produced zero cuts
   /// (`_calculationResult` is a non-null empty list). Only meaningful
-  /// once `_calculationHasRun` is true.
+  /// once `_calculationHasRun` is true. May be stale relative to the
+  /// current `_draft` -- see `_calculationIsStale`.
   bool _calculationHadNoRuleSet = false;
 
-  /// Resets calculation state fields directly, with no `setState` of its
-  /// own -- every mutator that can affect a calculation result already
-  /// wraps its own change in a `setState` (e.g. `_replaceSection`,
+  /// Marks the current calculation outcome as stale, with no `setState`
+  /// of its own -- every mutator that can affect a calculation result
+  /// already wraps its own change in a `setState` (e.g. `_replaceSection`,
   /// `_applyWidth`, `_addProfileUsage`), so this is called from inside
-  /// that existing block rather than opening a second one.
+  /// that existing block rather than opening a second one. Deliberately
+  /// does NOT clear `_calculationResult`/`_calculationError`/
+  /// `_calculationHadNoRuleSet` -- see `_calculationIsStale`'s doc
+  /// comment for why the last outcome is kept, marked stale, rather than
+  /// discarded.
   void _resetCalculationState() {
-    _calculationResult = null;
-    _calculationError = null;
-    _calculationHadNoRuleSet = false;
+    _calculationIsStale = true;
   }
 
   /// Runs `calculateConstructionCuts(_draft, _catalog)` and stores the
@@ -313,18 +336,21 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         _calculationResult = cuts;
         _calculationError = null;
         _calculationHadNoRuleSet = cuts == null;
+        _calculationIsStale = false;
       });
     } on AmbiguousRuleMatchException catch (e) {
       setState(() {
         _calculationResult = null;
         _calculationError = e;
         _calculationHadNoRuleSet = false;
+        _calculationIsStale = false;
       });
     } on StateError catch (e) {
       setState(() {
         _calculationResult = null;
         _calculationError = e;
         _calculationHadNoRuleSet = false;
+        _calculationIsStale = false;
       });
     }
   }
@@ -878,6 +904,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
                           onSelectConstruction: () => _selectSection(null),
                           onSelectSection: _selectSection,
                           calculationResult: _calculationResult,
+                          calculationIsStale: _calculationIsStale,
                         ),
                       ),
                       const VerticalDivider(width: 1),
@@ -1220,8 +1247,11 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   /// section is currently selected (cuts are construction-wide, not
   /// per-section, so tying visibility to section selection like the rest
   /// of that panel would hide results whenever nothing is selected).
-  /// Returns `null` (renders nothing) when `_calculate()` hasn't run yet
-  /// since the last edit -- see `_calculationHasRun`.
+  /// Returns `null` (renders nothing) when `_calculate()` has never been
+  /// run at all -- see `_calculationHasRun`. Once it has run at least
+  /// once, the banner keeps showing that outcome (marked stale via
+  /// `_calculationIsStale` if `_draft` has since changed) rather than
+  /// disappearing -- see `_calculationIsStale`'s doc comment.
   Widget? _buildCalculationResultsBanner() {
     if (!_calculationHasRun) return null;
     return _CalculationResultsBanner(
@@ -1229,6 +1259,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
       error: _calculationError,
       hadNoRuleSet: _calculationHadNoRuleSet,
       sections: _draft.sections,
+      isStale: _calculationIsStale,
     );
   }
 
@@ -1398,18 +1429,30 @@ class _LeftPanel extends StatelessWidget {
   final VoidCallback onSelectConstruction;
   final ValueChanged<String> onSelectSection;
 
-  /// The last `_calculate()` result, or `null` if calculation hasn't been
-  /// run since the last relevant edit -- same meaning as
-  /// `_ConstructionEditorScreenState._calculationResult`/
-  /// `_calculationHasRun`, passed straight through rather than this
-  /// widget re-deriving it. `null` here covers BOTH "never calculated"
-  /// and "calculation ran but failed/found no rule set" -- this tree
-  /// only shows a per-section count when there's an actual cut list to
-  /// count, same rule `_CalculationResultsBanner` already applies to
-  /// itself; it does not try to show its own error/no-rule-set state,
-  /// since that's already shown once in the results banner and repeating
-  /// it here per section would be redundant, not more informative.
+  /// The last `_calculate()` result, or `null` if calculation has never
+  /// been run at all -- same meaning as
+  /// `_ConstructionEditorScreenState._calculationResult`, passed
+  /// straight through rather than this widget re-deriving it. `null`
+  /// here covers BOTH "never calculated" and "calculation ran but
+  /// failed/found no rule set" -- this tree only shows a per-section
+  /// count when there's an actual cut list to count, same rule
+  /// `_CalculationResultsBanner` already applies to itself; it does not
+  /// try to show its own error/no-rule-set state, since that's already
+  /// shown once in the results banner and repeating it here per section
+  /// would be redundant, not more informative. May be stale relative to
+  /// `construction` if `_draft` has changed since the last calculation --
+  /// see [calculationIsStale]; a stale result is still shown here, not
+  /// hidden, matching `_calculationIsStale`'s doc comment on why the last
+  /// outcome is kept rather than discarded on edit.
   final List<ProfileCut>? calculationResult;
+
+  /// Whether [calculationResult] (if non-null) reflects the CURRENT
+  /// [construction], or an earlier one -- see
+  /// `_ConstructionEditorScreenState._calculationIsStale`'s doc comment.
+  /// When true, a badge is still shown (never hidden -- recalculation is
+  /// manual, so hiding it would just mean the count is gone every time
+  /// the user makes an edit) but visually marked as outdated.
+  final bool calculationIsStale;
 
   const _LeftPanel({
     required this.construction,
@@ -1419,6 +1462,7 @@ class _LeftPanel extends StatelessWidget {
     required this.onSelectConstruction,
     required this.onSelectSection,
     required this.calculationResult,
+    required this.calculationIsStale,
   });
 
   @override
@@ -1487,7 +1531,10 @@ class _LeftPanel extends StatelessWidget {
                   section.kind == SectionKind.fixed ? 'Fixe' : 'Ouvrant',
                 ),
                 trailing: cutsBySection.containsKey(section.id)
-                    ? _CutCountBadge(count: cutsBySection[section.id]!.length)
+                    ? _CutCountBadge(
+                        count: cutsBySection[section.id]!.length,
+                        isStale: calculationIsStale,
+                      )
                     : null,
                 selected: section.id == selectedSectionId,
                 selectedTileColor: const Color(0xFFE3EEFB),
@@ -1510,22 +1557,34 @@ class _LeftPanel extends StatelessWidget {
 /// case is distinguished here, since both mean "nothing to show", and
 /// `_CalculationResultsBanner` already states which one it is at the
 /// construction level.
+///
+/// [isStale] dims the badge (rather than hiding it) when `_draft` has
+/// changed since [count] was computed -- see
+/// `_ConstructionEditorScreenState._calculationIsStale`'s doc comment
+/// for why the count stays visible instead of disappearing on edit.
 class _CutCountBadge extends StatelessWidget {
   final int count;
+  final bool isStale;
 
-  const _CutCountBadge({required this.count});
+  const _CutCountBadge({required this.count, required this.isStale});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFE3EEFB),
+        color: isStale
+            ? const Color(0xFFE3EEFB).withValues(alpha: 0.5)
+            : const Color(0xFFE3EEFB),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         '$count',
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: isStale ? const Color(0xFF5B6B76) : null,
+        ),
       ),
     );
   }
@@ -1800,17 +1859,25 @@ class _NoSystemSelectedNotice extends StatelessWidget {
 /// language (table, card, etc.) for what is still a placeholder-rule-set
 /// result, not real fabrication data -- see this milestone's "keep the
 /// UI simple, no redesign" constraint.
+///
+/// [isStale] shows a small "outdated" notice above whichever outcome is
+/// active, when `_draft` has changed since that outcome was computed --
+/// see `_ConstructionEditorScreenState._calculationIsStale`'s doc
+/// comment. The outcome itself is never hidden or replaced on staleness,
+/// only flagged -- recalculation stays a manual, explicit action.
 class _CalculationResultsBanner extends StatelessWidget {
   final List<ProfileCut>? result;
   final Object? error;
   final bool hadNoRuleSet;
   final List<Section> sections;
+  final bool isStale;
 
   const _CalculationResultsBanner({
     required this.result,
     required this.error,
     required this.hadNoRuleSet,
     required this.sections,
+    required this.isStale,
   });
 
   @override
@@ -1819,7 +1886,30 @@ class _CalculationResultsBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       color: const Color(0xFFF3F5F6),
-      child: _buildContent(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isStale) ...[
+            const Row(
+              children: [
+                Icon(Icons.update, size: 14, color: Color(0xFF8A6D00)),
+                SizedBox(width: 6),
+                Text(
+                  'Résultat obsolète -- appuyez sur Calculer pour '
+                  'actualiser.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: Color(0xFF8A6D00),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+          ],
+          _buildContent(),
+        ],
+      ),
     );
   }
 

@@ -538,8 +538,9 @@ void main() {
     });
 
     testWidgets(
-      'editing a section after calculating clears the shown result -- a '
-      'stale result never silently stays on screen after a relevant edit',
+      'editing a section after calculating keeps the last shown result '
+      'but marks it stale -- recalculation stays manual, the result is '
+      'never silently discarded on edit',
       (tester) async {
         await _pumpEditor(tester, _construction());
 
@@ -552,6 +553,7 @@ void main() {
           find.text('Aucune règle de calcul disponible pour ce système.'),
           findsOneWidget,
         );
+        expect(find.textContaining('Résultat obsolète'), findsNothing);
 
         // Edit the selected section's width -- _applySectionWidth goes
         // through _replaceSection, which already calls
@@ -563,10 +565,19 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        // The outcome is still shown, not cleared...
         expect(
           find.text('Aucune règle de calcul disponible pour ce système.'),
-          findsNothing,
+          findsOneWidget,
         );
+        // ...but now flagged as stale.
+        expect(find.textContaining('Résultat obsolète'), findsOneWidget);
+
+        // Recalculating clears the stale flag again without changing the
+        // outcome (still no system selected).
+        await tester.tap(find.byIcon(Icons.calculate_outlined));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Résultat obsolète'), findsNothing);
       },
     );
 
