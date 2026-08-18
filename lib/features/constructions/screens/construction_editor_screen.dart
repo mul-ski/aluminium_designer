@@ -877,6 +877,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
                           onStageSelected: _goToStage,
                           onSelectConstruction: () => _selectSection(null),
                           onSelectSection: _selectSection,
+                          calculationResult: _calculationResult,
                         ),
                       ),
                       const VerticalDivider(width: 1),
@@ -1397,6 +1398,19 @@ class _LeftPanel extends StatelessWidget {
   final VoidCallback onSelectConstruction;
   final ValueChanged<String> onSelectSection;
 
+  /// The last `_calculate()` result, or `null` if calculation hasn't been
+  /// run since the last relevant edit -- same meaning as
+  /// `_ConstructionEditorScreenState._calculationResult`/
+  /// `_calculationHasRun`, passed straight through rather than this
+  /// widget re-deriving it. `null` here covers BOTH "never calculated"
+  /// and "calculation ran but failed/found no rule set" -- this tree
+  /// only shows a per-section count when there's an actual cut list to
+  /// count, same rule `_CalculationResultsBanner` already applies to
+  /// itself; it does not try to show its own error/no-rule-set state,
+  /// since that's already shown once in the results banner and repeating
+  /// it here per section would be redundant, not more informative.
+  final List<ProfileCut>? calculationResult;
+
   const _LeftPanel({
     required this.construction,
     required this.stage,
@@ -1404,12 +1418,16 @@ class _LeftPanel extends StatelessWidget {
     required this.onStageSelected,
     required this.onSelectConstruction,
     required this.onSelectSection,
+    required this.calculationResult,
   });
 
   @override
   Widget build(BuildContext context) {
     final ordered = [...construction.sections]
       ..sort((a, b) => a.order.compareTo(b.order));
+    final cutsBySection = calculationResult == null
+        ? const <String, List<ProfileCut>>{}
+        : groupCutsBySectionId(calculationResult!);
 
     return Material(
       color: const Color(0xFFFAFAFA),
@@ -1468,12 +1486,46 @@ class _LeftPanel extends StatelessWidget {
                 subtitle: Text(
                   section.kind == SectionKind.fixed ? 'Fixe' : 'Ouvrant',
                 ),
+                trailing: cutsBySection.containsKey(section.id)
+                    ? _CutCountBadge(count: cutsBySection[section.id]!.length)
+                    : null,
                 selected: section.id == selectedSectionId,
                 selectedTileColor: const Color(0xFFE3EEFB),
                 onTap: () => onSelectSection(section.id),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small pill showing how many cuts a section produced in the last
+/// calculation -- only ever built for a section that
+/// `_LeftPanel.calculationResult` actually has cuts for (see that
+/// build's `cutsBySection.containsKey` check), so [count] is always >=
+/// 1; a section with zero cuts (no profile usages assigned, or usages
+/// whose rule matched but produced nothing) simply shows no badge at
+/// all, same as a section that hasn't been calculated yet -- neither
+/// case is distinguished here, since both mean "nothing to show", and
+/// `_CalculationResultsBanner` already states which one it is at the
+/// construction level.
+class _CutCountBadge extends StatelessWidget {
+  final int count;
+
+  const _CutCountBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3EEFB),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$count',
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
       ),
     );
   }

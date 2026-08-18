@@ -569,5 +569,48 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      'no per-section cut count badge appears in the structure tree when '
+      'calculation has not run or found no rule set -- no fabricated '
+      'zero/stale counts',
+      (tester) async {
+        await _pumpEditor(tester, _construction());
+
+        // Before calculating at all -- Section 1's ListTile should have
+        // no trailing badge.
+        final tileBefore = tester.widget<ListTile>(
+          find
+              .ancestor(
+                of: find.text('Section 1'),
+                matching: find.byType(ListTile),
+              )
+              .first,
+        );
+        expect(tileBefore.trailing, isNull);
+
+        await tester.tap(find.text('Section 1'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.calculate_outlined));
+        await tester.pumpAndSettle();
+
+        // "No rule set" result -- _calculationResult stays null, so the
+        // tree must still show no badge for Section 1.
+        expect(
+          find.text('Aucune règle de calcul disponible pour ce système.'),
+          findsOneWidget,
+        );
+        final tileAfter = tester.widget<ListTile>(
+          find
+              .ancestor(
+                of: find.text('Section 1'),
+                matching: find.byType(ListTile),
+              )
+              .first,
+        );
+        expect(tileAfter.trailing, isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }
