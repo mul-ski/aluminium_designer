@@ -355,8 +355,10 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
     }
   }
 
-  /// Whether `_calculate()` has been run at least once since the last
-  /// `_resetCalculationState()`.
+  /// Whether `_calculate()` has been run at least once, ever -- true once
+  /// any of the three fields below has been set, and stays true across
+  /// edits (`_resetCalculationState()` only sets `_calculationIsStale`,
+  /// it no longer clears these -- see that method's doc comment).
   bool get _calculationHasRun =>
       _calculationResult != null ||
       _calculationError != null ||
