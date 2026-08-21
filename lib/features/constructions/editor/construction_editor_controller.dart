@@ -248,15 +248,14 @@ class ConstructionEditorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Applies a typed width. An empty/unparseable field means "not set yet".
+  /// Applies a typed width. An empty/unparseable field means "not set yet"
+  /// (`copyWith` cannot express clearing `width` back to `null` -- its null
+  /// means "leave unchanged" -- so the draft is rebuilt directly here
+  /// instead of via copyWith).
   ///
-  /// DEBT PRESERVED DELIBERATELY: `copyWith` cannot express clearing
-  /// `width` back to `null` (its null means "leave unchanged"), which is
-  /// why the draft is rebuilt directly here instead of via copyWith. The
-  /// historical rebuild also omitted `manufacturerId`/`systemId`, silently
-  /// resetting both ids to null while keeping the display-name strings --
-  /// that quirk is reproduced verbatim here because this refactor must be
-  /// behaviour-preserving; fixing it is a separate, deliberate decision.
+  /// Every other field, including the authoritative `manufacturerId`/
+  /// `systemId`, is carried over unchanged: dimension edits must never
+  /// detach the construction from its selected manufacturer/system.
   void setWidth(String value) {
     final parsed = double.tryParse(value);
     _draft = Construction(
@@ -267,6 +266,8 @@ class ConstructionEditorController extends ChangeNotifier {
       height: _draft.height,
       manufacturer: _draft.manufacturer,
       system: _draft.system,
+      manufacturerId: _draft.manufacturerId,
+      systemId: _draft.systemId,
       sections: _draft.sections,
       layoutDirection: _draft.layoutDirection,
       profiles: _draft.profiles,
@@ -276,7 +277,8 @@ class ConstructionEditorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Applies a typed height. See [setWidth] for the preserved rebuild debt.
+  /// Applies a typed height. See [setWidth] for why this rebuilds the draft
+  /// directly and carries every non-dimension field over unchanged.
   void setHeight(String value) {
     final parsed = double.tryParse(value);
     _draft = Construction(
@@ -287,6 +289,8 @@ class ConstructionEditorController extends ChangeNotifier {
       height: parsed,
       manufacturer: _draft.manufacturer,
       system: _draft.system,
+      manufacturerId: _draft.manufacturerId,
+      systemId: _draft.systemId,
       sections: _draft.sections,
       layoutDirection: _draft.layoutDirection,
       profiles: _draft.profiles,
