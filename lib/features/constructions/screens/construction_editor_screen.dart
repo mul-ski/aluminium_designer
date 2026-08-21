@@ -543,25 +543,15 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
             ],
           );
         }
+        // Section GEOMETRY editing (dimensions, fixed/ouvrant, opening
+        // type, vantaux) has no dependency on the catalog, so it stays
+        // available regardless of whether a system resolves -- a user
+        // must not have to pick a manufacturer system before they can
+        // type a section's dimensions. Only profile ASSIGNMENT is gated
+        // on system resolution: without a system there is nothing to
+        // assign profiles from, so that half of the panel is replaced by
+        // an explanatory notice instead.
         final system = _controller.resolvedSystem;
-        if (system == null) {
-          // Covers BOTH "no system selected yet" (systemId == null)
-          // and "selected system no longer exists in the catalog"
-          // (systemId is set but doesn't resolve); the message below
-          // distinguishes them via the id itself, since the user benefits
-          // from knowing which case they're in even though the available
-          // profiles (none, either way) are the same.
-          return Column(
-            children: [
-              ?resultsBanner,
-              Expanded(
-                child: NoSystemSelectedNotice(
-                  unresolved: _controller.draft.systemId != null,
-                ),
-              ),
-            ],
-          );
-        }
         return Column(
           children: [
             ?resultsBanner,
@@ -584,23 +574,36 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
               ),
             ),
             const Divider(height: 1),
-            Expanded(
-              child: SectionProfileAssignmentPanel(
-                section: section,
-                system: system,
-                usages: _controller.draft.profileUsages
-                    .where((u) => u.sectionId == section.id)
-                    .toList(),
-                onAdd: ({required profileId, required role}) =>
-                    _controller.addProfileUsage(
-                      profileId: profileId,
-                      sectionId: section.id,
-                      role: role,
-                    ),
-                onQuantityChanged: _controller.updateProfileUsageQuantity,
-                onRemove: _controller.removeProfileUsage,
+            if (system != null)
+              Expanded(
+                child: SectionProfileAssignmentPanel(
+                  section: section,
+                  system: system,
+                  usages: _controller.draft.profileUsages
+                      .where((u) => u.sectionId == section.id)
+                      .toList(),
+                  onAdd: ({required profileId, required role}) =>
+                      _controller.addProfileUsage(
+                        profileId: profileId,
+                        sectionId: section.id,
+                        role: role,
+                      ),
+                  onQuantityChanged: _controller.updateProfileUsageQuantity,
+                  onRemove: _controller.removeProfileUsage,
+                ),
+              )
+            else
+              Expanded(
+                // Covers BOTH "no system selected yet" (systemId == null)
+                // and "selected system no longer exists in the catalog"
+                // (systemId is set but doesn't resolve); the message below
+                // distinguishes them via the id itself, since the user
+                // benefits from knowing which case they're in even though
+                // the available profiles (none, either way) are the same.
+                child: NoSystemSelectedNotice(
+                  unresolved: _controller.draft.systemId != null,
+                ),
               ),
-            ),
           ],
         );
     }
