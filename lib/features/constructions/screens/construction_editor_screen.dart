@@ -79,7 +79,21 @@ const double _kMinDesktopWidth = 900;
 /// section selection itself implies the Sections stage).
 class ConstructionEditorScreen extends StatefulWidget {
   final Construction construction;
-  const ConstructionEditorScreen({super.key, required this.construction});
+
+  /// Where this screen loads its [Catalog] snapshot from (and persists
+  /// picker-created manufacturers/systems to). Defaults to the real
+  /// on-disk [CatalogStore]; tests may inject a stub so widget tests never
+  /// depend on platform channels or file I/O -- neither of which can
+  /// complete under Flutter test fake-async, which would otherwise leave
+  /// the catalog spinner spinning forever and make the editor's test
+  /// suite unrunnable in isolation.
+  final CatalogStore? catalogStore;
+
+  const ConstructionEditorScreen({
+    super.key,
+    required this.construction,
+    this.catalogStore,
+  });
 
   @override
   State<ConstructionEditorScreen> createState() =>
@@ -90,7 +104,8 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   late final ConstructionEditorController _controller =
       ConstructionEditorController(construction: widget.construction);
 
-  final CatalogStore _catalogStore = CatalogStore();
+  late final CatalogStore _catalogStore =
+      widget.catalogStore ?? CatalogStore();
 
   /// Whether the persisted catalog has been loaded yet -- while false, the
   /// right panel shows a spinner rather than panels that would resolve
