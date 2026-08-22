@@ -1,0 +1,106 @@
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:aluminium_designer/core/geometry/section_layout.dart';
+import 'package:aluminium_designer/core/models/construction.dart';
+import 'package:aluminium_designer/core/models/construction_type.dart';
+import 'package:aluminium_designer/core/models/layout_direction.dart';
+import 'package:aluminium_designer/core/models/section.dart';
+import 'package:aluminium_designer/features/constructions/widgets/construction_painter.dart';
+
+/// Regression tests for a runtime crash where _paintSectionLabel called
+/// TextPainter.layout with a NEGATIVE maxWidth whenever a section rendered
+/// narrower than 8 px on screen (e.g. a narrow section while zoomed out to
+/// the viewport minimum scale of 0.2). Since the first-class viewport
+/// rewrite, the paint-time transform is the LIVE zoom -- unlike the old
+/// InteractiveViewer architecture where labels were always laid out at the
+/// internal fit scale regardless of zoom -- which made this latent bug
+/// reachable and crashed every painted frame.
+///
+/// The fix requires the legibility guard to run BEFORE layout so
+/// TextPainter only ever receives valid, positive constraints.
+
+Construction _constructionWithSliverSection() {
+  // A realistic mixed facade: mostly wide panels plus one narrow 30 mm
+  // sliver. At scale 0.2 the sliver renders 6 px wide -> available label
+  // width was -2 px.
+  Section fixed(String id, int order, double width) => Section(
+    id: id,
+    order: order,
+    kind: SectionKind.fixed,
+    width: width,
+    height: 1200,
+  );
+
+  return Construction(
+    id: 'c1',
+    name: 'Facade',
+    type: ConstructionType.window,
+    width: 1830,
+    height: 1200,
+    manufacturer: '',
+    system: '',
+    sections: [
+      fixed('s1', 0, 900),
+      fixed('sliver', 1, 30),
+      fixed('s3', 2, 900),
+    ],
+    layoutDirection: SectionLayoutDirection.horizontal,
+    profiles: const [],
+  );
+}
+
+void _paintWith(ConstructionPainter painter) {
+  final recorder = ui.PictureRecorder();
+  final canvas = ui.Canvas(recorder);
+  // Must not throw; assertions inside paint propagate here synchronously.
+  painter.paint(canvas, const Size(800, 600));
+}
+
+void main() {
+  test(
+    'painting a narrow section at minimum zoom does not produce an '
+    'invalid TextPainter constraint (regression)',
+    () {
+      final construction = _constructionWithSliverSection();
+      final layout = layoutConstruction(construction)!;
+
+      // Minimum reachable viewport scale: a 30 mm section is 6 px wide.
+      const minScale = 0.2;
+      final painter = ConstructionPainter(
+        construction: construction,
+        selectedSectionId: null,
+        transform: FittedTransform(scale: minScale, offsetX: 20, offsetY: 20),
+      );
+
+      expect(layout.sections[1].width * minScale, lessThan(8)); // precondition
+
+      _paintWith(painter);
+    },
+  );
+
+  test('labels still lay out normally at ordinary scales', () {
+    final construction = _constructionWithSliverSection();
+
+    final painter = ConstructionPainter(
+      construction: construction,
+      selectedSectionId: null,
+      transform: const FittedTransform(scale: 0.35, offsetX: 40, offsetY: 40),
+    );
+
+    _paintWith(painter);
+  });
+
+  test('painting tolerates degenerate zero-area transforms without '
+      'throwing', () {
+    final painter = ConstructionPainter(
+      construction: _constructionWithSliverSection(),
+      selectedSectionId: null,
+      transform: const FittedTransform(scale: 0, offsetX: 0, offsetY: 0),
+    );
+
+    _paintWith(painter); // early-out path; nothing drawn, nothing thrown
+  });
+}

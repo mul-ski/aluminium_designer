@@ -215,6 +215,23 @@ class ConstructionPainter extends CustomPainter {
 
     final text = lines.join('\n');
 
+    // Skip the label entirely when the section is too small on screen to
+    // hold it legibly. This check MUST run before layout: once a section
+    // renders narrower than its horizontal padding -- possible at high
+    // zoom-out now that the paint-time transform is the live viewport zoom
+    // rather than the fixed internal fit -- `pixelRect.width - 8` becomes
+    // negative and TextPainter rejects the constraint outright, crashing
+    // every painted frame. Only ever hand TextPainter usable, finite,
+    // positive space.
+    final availableWidth = pixelRect.width - 8;
+    final availableHeight = pixelRect.height - 4;
+    if (!availableWidth.isFinite ||
+        !availableHeight.isFinite ||
+        availableWidth <= 0 ||
+        availableHeight <= 0) {
+      return;
+    }
+
     final painter = TextPainter(
       text: TextSpan(
         text: text,
@@ -226,12 +243,12 @@ class ConstructionPainter extends CustomPainter {
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: pixelRect.width - 8);
+    )..layout(maxWidth: availableWidth);
 
-    // Skip the label entirely if the section is too small on screen to
-    // hold it legibly, rather than drawing overlapping/clipped text.
-    if (painter.width > pixelRect.width - 4 ||
-        painter.height > pixelRect.height - 4) {
+    // Skip the label entirely if the text does not fit inside the section
+    // even though there was room to measure it.
+    if (painter.width > availableWidth + 4 ||
+        painter.height > availableHeight + 4) {
       return;
     }
 
