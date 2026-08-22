@@ -73,12 +73,17 @@ class ConstructionPainter extends CustomPainter {
     this.activeSnap,
   });
 
-  static const _fixedFill = Color(0xFFDCE3E8);
-  static const _ouvrantFill = Color(0xFFCDE7D8);
-  static const _outerStroke = Color(0xFF2D3A45);
-  static const _sectionStroke = Color(0xFF5B6B76);
-  static const _dimensionColor = Color(0xFF445059);
-  static const _selectionStroke = Color(0xFF1565C0);
+  // Palette tuned for ConstructionEditorScreen's DARK SLATE canvas
+  // background (Color(0xFF262C33)): mid-tone section fills with light
+  // strokes keep aluminium geometry clearly readable, while dimension
+  // text uses a muted cool gray. Selection/snap blue is brightened
+  // against the dark ground.
+  static const _fixedFill = Color(0xFF46525C);
+  static const _ouvrantFill = Color(0xFF3E5A4F);
+  static const _outerStroke = Color(0xFFB7C4CE);
+  static const _sectionStroke = Color(0xFF8FA1AD);
+  static const _dimensionColor = Color(0xFFAEB9C2);
+  static const _selectionStroke = Color(0xFF64B5F6);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -339,6 +344,16 @@ class ConstructionPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant ConstructionPainter oldDelegate) {
     return oldDelegate.construction != construction ||
-        oldDelegate.selectedSectionId != selectedSectionId;
+        oldDelegate.selectedSectionId != selectedSectionId ||
+        oldDelegate.activeSnap != activeSnap ||
+        // The transform lives INSIDE this painter since the live-viewport
+        // rewrite, so any pan/zoom/fit must trigger a repaint. Without
+        // this comparison the canvas keeps displaying the very first
+        // frame -- painted with the pre-fit identity matrix, where
+        // millimetre-space rects are enormous and flood the whole view --
+        // even though the viewport itself has long been fitted.
+        oldDelegate.transform.scale != transform.scale ||
+        oldDelegate.transform.offsetX != transform.offsetX ||
+        oldDelegate.transform.offsetY != transform.offsetY;
   }
 }

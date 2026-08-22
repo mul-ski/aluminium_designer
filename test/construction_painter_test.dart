@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:aluminium_designer/core/geometry/section_layout.dart';
+import 'package:aluminium_designer/core/geometry/snap.dart';
 import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
 import 'package:aluminium_designer/core/models/layout_direction.dart';
@@ -103,4 +104,56 @@ void main() {
 
     _paintWith(painter); // early-out path; nothing drawn, nothing thrown
   });
+
+  test(
+    'shouldRepaint reacts to transform and activeSnap changes (regression): '
+    'the live viewport hands the painter a NEW transform on every pan, zoom '
+    'and fit -- a shouldRepaint that ignores it left the canvas displaying '
+    'the first, pre-fit identity-transform frame for the whole session',
+    () {
+      final construction = _constructionWithSliverSection();
+
+      ConstructionPainter painterWith(FittedTransform t) =>
+          ConstructionPainter(
+            construction: construction,
+            selectedSectionId: null,
+            transform: t,
+          );
+
+      final fitted = painterWith(
+        const FittedTransform(scale: 0.3, offsetX: 30, offsetY: 30),
+      );
+      // Same construction + selection, but the viewport has since panned
+      // and zoomed -- the paint MUST be refreshed.
+      expect(
+        fitted.shouldRepaint(
+          painterWith(const FittedTransform(scale: 1, offsetX: 0, offsetY: 0)),
+        ),
+        isTrue,
+      );
+      // A pure translation is equally repaint-worthy.
+      expect(
+        fitted.shouldRepaint(
+          painterWith(const FittedTransform(scale: 0.3, offsetX: 45, offsetY: 30)),
+        ),
+        isTrue,
+      );
+      // Identical transforms with identical content need no repaint --
+      // e.g. unrelated widget rebuilds between frames.
+      expect(fitted.shouldRepaint(painterWith(fitted.transform)), isFalse);
+
+      // A snap highlight appearing/disappearing/changing must also repaint:
+      // like the transform, its visual lives inside this painter.
+      final withSnap = ConstructionPainter(
+        construction: construction,
+        selectedSectionId: null,
+        transform: fitted.transform,
+        activeSnap: ActiveSnap(
+          positionMm: 900,
+          kind: SnapTargetKind.sectionBoundary,
+        ),
+      );
+      expect(withSnap.shouldRepaint(fitted), isTrue);
+    },
+  );
 }

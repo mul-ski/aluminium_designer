@@ -12,6 +12,11 @@ import 'package:aluminium_designer/core/models/section.dart';
 import 'package:aluminium_designer/core/storage/catalog_store.dart';
 import 'package:aluminium_designer/features/constructions/editor/editor_viewport.dart';
 import 'package:aluminium_designer/features/constructions/editor/widgets/editor_canvas.dart';
+import 'package:aluminium_designer/features/constructions/editor/widgets/editor_properties_panels.dart';
+import 'package:aluminium_designer/features/constructions/editor/widgets/editor_status_bar.dart';
+import 'package:aluminium_designer/features/constructions/editor/widgets/editor_structure_panel.dart';
+import 'package:aluminium_designer/features/constructions/editor/widgets/editor_toolbar.dart';
+import 'package:aluminium_designer/features/constructions/widgets/construction_painter.dart';
 import 'package:aluminium_designer/features/constructions/screens/construction_editor_screen.dart';
 
 /// Wide enough to clear the workspace's `_kMinDesktopWidth` (900) floor.
@@ -786,6 +791,51 @@ void main() {
       );
       expect(undoButton.onPressed, isNull);
     });
+  });
+
+  group('Workspace layout contract', () {
+    testWidgets(
+      'canvas is strictly bounded by toolbar, panels and status bar; '
+      'painting is clipped to the canvas',
+      (tester) async {
+        await _pumpEditor(tester, _construction());
+
+        final canvasRect = tester.getRect(find.byType(EditorCanvas));
+        final leftRect = tester.getRect(find.byType(EditorStructurePanel));
+        final rightRect = tester.getRect(
+          find.byType(EditorGeneralPropertiesPanel),
+        );
+        final toolbarRect = tester.getRect(find.byType(EditorToolbar));
+        final statusRect = tester.getRect(find.byType(EditorStatusBar));
+
+        // One-pixel dividers may sit between regions; nothing may overlap.
+        expect(leftRect.right, lessThanOrEqualTo(canvasRect.left + 0.5));
+        expect(rightRect.left, greaterThanOrEqualTo(canvasRect.right - 0.5));
+        expect(toolbarRect.bottom, lessThanOrEqualTo(canvasRect.top + 0.5));
+        expect(statusRect.top, greaterThanOrEqualTo(canvasRect.bottom - 0.5));
+
+        // The painter must be clipped to the canvas: RenderCustomPaint
+        // does NOT clip on its own, so without the ClipRect a panned or
+        // zoomed-out construction paints over neighbouring UI.
+        expect(
+          find.ancestor(
+            of: find.byWidgetPredicate(
+              (widget) =>
+                  widget is CustomPaint &&
+                  widget.painter is ConstructionPainter,
+            ),
+            matching: find.byType(ClipRect),
+          ),
+          findsOneWidget,
+        );
+
+        // The viewport receives the REAL central-canvas size -- this is
+        // what fit-to-content and screen<->model conversion are based on.
+        final viewport =
+            tester.widget<EditorCanvas>(find.byType(EditorCanvas)).viewport;
+        expect(viewport.canvasSize, tester.getSize(find.byType(EditorCanvas)));
+      },
+    );
   });
 
   group('Calculate action', () {

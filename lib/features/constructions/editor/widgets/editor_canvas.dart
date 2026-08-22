@@ -428,7 +428,11 @@ class _EditorCanvasState extends State<EditorCanvas> {
     final problems = validateSectionGeometry(widget.construction);
 
     return Container(
-      color: const Color(0xFFF3F5F6),
+      // Dark slate technical workspace, visually distinct from the light
+      // surrounding panels (structure/properties/status) -- the classic
+      // CAD chrome-vs-viewport split. Painter colors are tuned to this
+      // background; see ConstructionPainter's constants.
+      color: const Color(0xFF262C33),
       child: Stack(
         children: [
           Positioned.fill(
@@ -443,31 +447,44 @@ class _EditorCanvasState extends State<EditorCanvas> {
                   _reportSize(size);
                 });
 
-                return MouseRegion(
-                  cursor: _hoverCursor,
-                  onHover: (event) => _updateHover(event.localPosition),
-                  onExit: (_) => _updateHover(null),
-                  child: Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerDown: _handlePointerDown,
-                    onPointerUp: (_) => _clearPointerDown(),
-                    onPointerCancel: (_) => _clearPointerDown(),
-                    onPointerSignal: _handlePointerScroll,
-                    child: GestureDetector(
+                // CLIP IS LOAD-BEARING: RenderCustomPaint does NOT clip its
+                // painter. The live viewport transform freely places
+                // geometry at negative/oversized coordinates while panning
+                // or zooming; without this rect the construction paints
+                // straight over the toolbar and side panels. Everything
+                // interactive stays inside so hit-testing coordinates are
+                // unaffected.
+                return ClipRect(
+                  child: MouseRegion(
+                    cursor: _hoverCursor,
+                    onHover: (event) => _updateHover(event.localPosition),
+                    onExit: (_) => _updateHover(null),
+                    child: Listener(
                       behavior: HitTestBehavior.opaque,
-                      onTapUp: (details) => _handleTapUp(details.localPosition),
-                      onScaleStart: _handleScaleStart,
-                      onScaleUpdate: _handleScaleUpdate,
-                      onScaleEnd: _handleScaleEnd,
-                      child: ListenableBuilder(
-                        listenable: widget.viewport,
-                        builder: (context, _) => CustomPaint(
-                          size: size,
-                          painter: ConstructionPainter(
-                            construction: _dragPreview ?? widget.construction,
-                            selectedSectionId: widget.selectedSectionId,
-                            transform: widget.viewport.transform,
-                            activeSnap: _activeSnap,
+                      onPointerDown: _handlePointerDown,
+                      onPointerUp: (_) => _clearPointerDown(),
+                      onPointerCancel: (_) => _clearPointerDown(),
+                      onPointerSignal: _handlePointerScroll,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapUp: (details) =>
+                            _handleTapUp(details.localPosition),
+                        onScaleStart: _handleScaleStart,
+                        onScaleUpdate: _handleScaleUpdate,
+                        onScaleEnd: _handleScaleEnd,
+                        child: RepaintBoundary(
+                          child: ListenableBuilder(
+                            listenable: widget.viewport,
+                            builder: (context, _) => CustomPaint(
+                              size: size,
+                              painter: ConstructionPainter(
+                                construction:
+                                    _dragPreview ?? widget.construction,
+                                selectedSectionId: widget.selectedSectionId,
+                                transform: widget.viewport.transform,
+                                activeSnap: _activeSnap,
+                              ),
+                            ),
                           ),
                         ),
                       ),
