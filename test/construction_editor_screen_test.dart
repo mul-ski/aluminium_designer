@@ -1,15 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:aluminium_designer/core/models/catalog.dart';
 import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
 import 'package:aluminium_designer/core/models/layout_direction.dart';
 import 'package:aluminium_designer/core/models/opening.dart';
 import 'package:aluminium_designer/core/models/section.dart';
+import 'package:aluminium_designer/core/storage/catalog_store.dart';
 import 'package:aluminium_designer/features/constructions/screens/construction_editor_screen.dart';
 
 /// Wide enough to clear the workspace's `_kMinDesktopWidth` (900) floor.
 const _desktopSize = Size(1400, 900);
+
+/// Deterministic stand-in for the real [CatalogStore]: serves a fixed
+/// empty catalog and swallows saves without touching platform channels or
+/// the filesystem. Neither of those can complete under flutter_test's
+/// fake-async zone, which is what previously left the editor's catalog
+/// spinner spinning forever and made this file unrunnable standalone.
+///
+/// Injected through `ConstructionEditorScreen.catalogStore` -- proper
+/// dependency injection, no production test hooks involved.
+class _StubCatalogStore extends CatalogStore {
+  @override
+  Future<Catalog> load() async => const Catalog();
+
+  @override
+  Future<void> save(Catalog catalog) async {}
+}
+
+final _stubCatalogStore = _StubCatalogStore();
 
 Section _fixedSection({String id = 's1', int order = 0}) => Section(
   id: id,
@@ -48,7 +68,12 @@ Future<void> _pumpEditor(WidgetTester tester, Construction construction) async {
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    MaterialApp(home: ConstructionEditorScreen(construction: construction)),
+    MaterialApp(
+      home: ConstructionEditorScreen(
+        construction: construction,
+        catalogStore: _stubCatalogStore,
+      ),
+    ),
   );
   await tester.pumpAndSettle();
 }
@@ -64,8 +89,17 @@ void main() {
       expect(find.byIcon(Icons.zoom_out), findsOneWidget);
       expect(find.byIcon(Icons.fit_screen_outlined), findsOneWidget);
 
-      // Left structure tree shows construction + both sections.
-      expect(find.text('Test Window'), findsOneWidget);
+      // Left structure tree shows construction + both sections. The
+      // construction name also legitimately appears in the app bar title
+      // and in the General panel's name field (an EditableText), so the
+      // app-bar occurrence is asserted specifically rather than by count.
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('Test Window'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Section 1'), findsOneWidget);
       expect(find.text('Section 2'), findsOneWidget);
 
@@ -117,9 +151,11 @@ void main() {
 
       expect(find.textContaining('SECTION 1'), findsOneWidget);
       expect(find.text('TYPE'), findsOneWidget);
-      // General/Geometry-only sections absent.
+      // General/Geometry-only content absent. ('DIMENSIONS' is NOT a
+      // valid marker here: the section panel has its own DIMENSIONS
+      // header for per-section width/height.)
       expect(find.text('SYSTÈME'), findsNothing);
-      expect(find.text('DIMENSIONS'), findsNothing);
+      expect(find.text('DISPOSITION'), findsNothing);
     });
 
     testWidgets('fixed section does not show opening controls', (tester) async {
@@ -139,7 +175,13 @@ void main() {
 
       expect(find.text('OUVERTURE'), findsOneWidget);
       expect(find.text("Type d'ouverture"), findsOneWidget);
-      expect(find.text('Vantaux :'), findsOneWidget);
+      // The section properties panel scrolls: at the suite's window size
+      // the vantaux row sits just below the fold, so bring it into view
+      // before asserting on it.
+      final vantauxFinder = find.text('Vantaux :', skipOffstage: false);
+      await tester.ensureVisible(vantauxFinder);
+      await tester.pumpAndSettle();
+      expect(vantauxFinder, findsOneWidget);
     });
 
     testWidgets('add section adds a new section and appears in tree', (
@@ -171,7 +213,10 @@ void main() {
       await tester.tap(find.text('Section 1'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.delete_outline).last);
+      // Target the toolbar's remove button via its unique tooltip --
+      // icon-based finders are ambiguous here because the app bar also
+      // contains a delete icon (for deleting the whole construction).
+      await tester.tap(find.byTooltip('Supprimer la sélection'));
       await tester.pumpAndSettle();
 
       expect(find.text('1 section(s)'), findsOneWidget);
@@ -194,8 +239,8 @@ void main() {
         await _pumpEditor(tester, _construction());
 
         final removeButton = tester.widget<IconButton>(
-          find.ancestor(
-            of: find.byIcon(Icons.delete_outline).first,
+          find.descendant(
+            of: find.byTooltip('Supprimer la sélection'),
             matching: find.byType(IconButton),
           ),
         );
@@ -218,6 +263,7 @@ void main() {
                     MaterialPageRoute(
                       builder: (_) => ConstructionEditorScreen(
                         construction: _construction(),
+                        catalogStore: _stubCatalogStore,
                       ),
                     ),
                   );
@@ -259,6 +305,7 @@ void main() {
                       MaterialPageRoute(
                         builder: (_) => ConstructionEditorScreen(
                           construction: _construction(),
+                          catalogStore: _stubCatalogStore,
                         ),
                       ),
                     );
@@ -277,7 +324,10 @@ void main() {
         await tester.tap(find.text('open'));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byIcon(Icons.delete_outline).first);
+        // Target the app bar's delete action via its unique tooltip --
+        // the toolbar also contains a delete icon (for removing the
+        // selected section), so an icon-based finder is ambiguous.
+        await tester.tap(find.byTooltip('Supprimer la construction'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Supprimer').last);
         await tester.pumpAndSettle();
@@ -358,6 +408,7 @@ void main() {
                     MaterialPageRoute(
                       builder: (_) => ConstructionEditorScreen(
                         construction: _construction(),
+                        catalogStore: _stubCatalogStore,
                       ),
                     ),
                   );
@@ -404,6 +455,7 @@ void main() {
                       MaterialPageRoute(
                         builder: (_) => ConstructionEditorScreen(
                           construction: _construction(),
+                          catalogStore: _stubCatalogStore,
                         ),
                       ),
                     );
