@@ -646,50 +646,44 @@ void main() {
     Future<void> editWidth(WidgetTester tester, String value) async {
       await tester.tap(find.text('Geometry'));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Largeur'),
-        value,
-      );
+      await tester.enterText(find.widgetWithText(TextField, 'Largeur'), value);
       await tester.pumpAndSettle();
     }
 
-    IconButton undoButton(WidgetTester tester) =>
-        tester.widget<IconButton>(
-          find.descendant(
-            of: find.byTooltip('Annuler'),
-            matching: find.byType(IconButton),
-          ),
-        );
-
-    IconButton redoButton(WidgetTester tester) =>
-        tester.widget<IconButton>(
-          find.descendant(
-            of: find.byTooltip('Rétablir'),
-            matching: find.byType(IconButton),
-          ),
-        );
-
-    testWidgets(
-      'toolbar undo/redo buttons gate on history availability',
-      (tester) async {
-        await _pumpEditor(tester, _construction());
-
-        // Nothing mutated yet: both disabled.
-        expect(undoButton(tester).onPressed, isNull);
-        expect(redoButton(tester).onPressed, isNull);
-
-        await editWidth(tester, '999');
-        expect(undoButton(tester).onPressed, isNotNull);
-        expect(redoButton(tester).onPressed, isNull);
-
-        await tester.tap(find.byTooltip('Annuler'));
-        await tester.pumpAndSettle();
-        expect(undoButton(tester).onPressed, isNull);
-        expect(redoButton(tester).onPressed, isNotNull);
-        // The width edit really was undone.
-        expect(find.textContaining('1800'), findsWidgets);
-      },
+    IconButton undoButton(WidgetTester tester) => tester.widget<IconButton>(
+      find.descendant(
+        of: find.byTooltip('Annuler'),
+        matching: find.byType(IconButton),
+      ),
     );
+
+    IconButton redoButton(WidgetTester tester) => tester.widget<IconButton>(
+      find.descendant(
+        of: find.byTooltip('Rétablir'),
+        matching: find.byType(IconButton),
+      ),
+    );
+
+    testWidgets('toolbar undo/redo buttons gate on history availability', (
+      tester,
+    ) async {
+      await _pumpEditor(tester, _construction());
+
+      // Nothing mutated yet: both disabled.
+      expect(undoButton(tester).onPressed, isNull);
+      expect(redoButton(tester).onPressed, isNull);
+
+      await editWidth(tester, '999');
+      expect(undoButton(tester).onPressed, isNotNull);
+      expect(redoButton(tester).onPressed, isNull);
+
+      await tester.tap(find.byTooltip('Annuler'));
+      await tester.pumpAndSettle();
+      expect(undoButton(tester).onPressed, isNull);
+      expect(redoButton(tester).onPressed, isNotNull);
+      // The width edit really was undone.
+      expect(find.textContaining('1800'), findsWidgets);
+    });
 
     testWidgets(
       'Ctrl+Z triggers construction undo -- even while a text field holds '
@@ -709,13 +703,12 @@ void main() {
       },
     );
 
-    testWidgets('undo/redo never touches the viewport transform',
-        (tester) async {
+    testWidgets('undo/redo never touches the viewport transform', (
+      tester,
+    ) async {
       await _pumpEditor(tester, _construction());
 
-      final canvas = tester.widget<EditorCanvas>(
-        find.byType(EditorCanvas),
-      );
+      final canvas = tester.widget<EditorCanvas>(find.byType(EditorCanvas));
       final viewport = canvas.viewport;
 
       // Zoom in twice so the transform is distinctly non-initial.
@@ -737,6 +730,61 @@ void main() {
       // history contains Construction snapshots only.
       expect(viewport.matrix[0], zoomedScale);
       expect(Offset(viewport.matrix[12], viewport.matrix[13]), zoomedOffset);
+    });
+  });
+
+  group('Boundary drag integration', () {
+    testWidgets('dragging the interior boundary commits exactly one mutation '
+        '(one undo entry) and updates the construction', (tester) async {
+      await _pumpEditor(tester, _construction()); // [1000, 800], W=1800
+
+      final viewport = tester
+          .widget<EditorCanvas>(find.byType(EditorCanvas))
+          .viewport;
+
+      // Grab the single interior boundary (at 1000 mm) and drag it
+      // 60 logical px to the right.
+      final grabPoint =
+          tester.getTopLeft(find.byType(EditorCanvas)) +
+          viewport.modelToScreen(const Offset(1000, 600));
+      final scaleBefore = viewport.scale;
+
+      final gesture = await tester.startGesture(grabPoint);
+      await tester.pump();
+      await gesture.moveBy(const Offset(60, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      final expectedLeft = 1000 + 60 / scaleBefore;
+
+      // Select section 1 and read its width from the properties field --
+      // the status bar deliberately still shows the OVERALL dimensions
+      // (invariant under boundary moves), so the section editor is the
+      // observable here.
+      await tester.tap(find.text('Section 1'));
+      await tester.pumpAndSettle();
+      final widthField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Largeur'),
+      );
+      expect(widthField.controller!.text, expectedLeft.toStringAsFixed(0));
+
+      // Exactly ONE undo entry: a single Annuler restores the original
+      // section size, and undo is then exhausted.
+      await tester.tap(find.byTooltip('Annuler'));
+      await tester.pumpAndSettle();
+      final restoredField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Largeur'),
+      );
+      expect(restoredField.controller!.text, '1000');
+
+      final undoButton = tester.widget<IconButton>(
+        find.descendant(
+          of: find.byTooltip('Annuler'),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(undoButton.onPressed, isNull);
     });
   });
 

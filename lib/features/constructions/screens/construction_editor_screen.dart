@@ -586,6 +586,9 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
       // The canvas learns its size after the first layout pass -- exactly
       // when the one-time initial fit becomes possible.
       onCanvasSizeChanged: _maybeInitialFit,
+      // One completed boundary drag = exactly one committed mutation.
+      onBoundaryDragCompleted: (boundaryIndex, positionMm) => _controller
+          .moveBoundary(boundaryIndex: boundaryIndex, positionMm: positionMm),
     );
   }
 
