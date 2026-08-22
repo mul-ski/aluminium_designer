@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/geometry/section_layout.dart';
 import '../../../core/models/catalog.dart';
 import '../../../core/models/construction.dart';
 import '../../../core/models/construction_type.dart';
@@ -7,6 +8,7 @@ import '../../../core/storage/catalog_store.dart';
 import '../editor/construction_editor_controller.dart';
 import '../editor/construction_editor_result.dart';
 import '../editor/editor_stage.dart';
+import '../editor/editor_viewport.dart';
 import '../editor/widgets/calculation_results_banner.dart';
 import '../editor/widgets/editor_canvas.dart';
 import '../editor/widgets/editor_properties_panels.dart';
@@ -104,15 +106,22 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   late final ConstructionEditorController _controller =
       ConstructionEditorController(construction: widget.construction);
 
-  late final CatalogStore _catalogStore =
-      widget.catalogStore ?? CatalogStore();
+  late final CatalogStore _catalogStore = widget.catalogStore ?? CatalogStore();
 
   /// Whether the persisted catalog has been loaded yet -- while false, the
   /// right panel shows a spinner rather than panels that would resolve
   /// against an (not-yet-loaded) empty catalog.
   bool _loadingCatalog = true;
 
-  final TransformationController _viewController = TransformationController();
+  /// The single authoritative model→screen transform of the canvas. All
+  /// pan/zoom/fit interactions -- toolbar buttons, wheel, gestures, and
+  /// the one-time initial fit -- go through this instance; the canvas and
+  /// painter only read from it.
+  final EditorViewport _viewport = EditorViewport();
+
+  /// Whether the one-time automatic fit has already happened (or been
+  /// superseded by a manual fit). See [_maybeInitialFit].
+  bool _didInitialFit = false;
 
   @override
   void initState() {
@@ -123,6 +132,34 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
 
   void _onControllerChanged() {
     if (mounted) setState(() {});
+    // A dimension edit may have just made an incomplete construction
+    // complete -- that is the auto-fit window closing moment.
+    _maybeInitialFit();
+  }
+
+  /// Performs the ONE-TIME automatic fit-to-content, as soon as both the
+  /// canvas size and a complete construction are available for the first
+  /// time. Deliberately never runs again afterwards: re-fitting on every
+  /// dimension keystroke would yank the view out from under the user's
+  /// cursor while they type. A manual "Ajuster à la vue" also closes this
+  /// window -- once the user has taken control of the viewport, automatic
+  /// fitting stays out of the way.
+  void _maybeInitialFit() {
+    if (_didInitialFit) return;
+    final canvas = _viewport.canvasSize;
+    if (canvas == null || canvas.width <= 0 || canvas.height <= 0) return;
+    // Wait until there is actual content to frame -- not just overall
+    // dimensions partially typed in -- so the single automatic fit lands
+    // on something meaningful.
+    if (_controller.draft.sections.isEmpty) return;
+    final layout = layoutConstruction(_controller.draft);
+    if (layout == null) return;
+
+    _didInitialFit = true;
+    _viewport.fitToContent(
+      contentWidth: layout.width,
+      contentHeight: layout.height,
+    );
   }
 
   Future<void> _loadCatalog() async {
@@ -138,20 +175,24 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   void dispose() {
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
-    _viewController.dispose();
+    _viewport.dispose();
     super.dispose();
   }
 
   // ---- Viewport controls ----
 
   void _zoomBy(double factor) {
-    final matrix = _viewController.value.clone();
-    matrix.scaleByDouble(factor, factor, 1, 1);
-    _viewController.value = matrix;
+    _viewport.zoomBy(factor);
   }
 
   void _fitToView() {
-    _viewController.value = Matrix4.identity();
+    final layout = layoutConstruction(_controller.draft);
+    if (layout == null) return; // Nothing to fit yet.
+    _didInitialFit = true; // Manual fit supersedes the automatic one.
+    _viewport.fitToContent(
+      contentWidth: layout.width,
+      contentHeight: layout.height,
+    );
   }
 
   // ---- Editing actions that involve dialogs/navigation ----
@@ -256,9 +297,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         title: const Text('Supprimer la construction'),
         content: Text(
           'Supprimer '
-          '"${_controller.draft.name.isEmpty
-              ? _typeLabel(_controller.draft.type)
-              : _controller.draft.name}" '
+          '"${_controller.draft.name.isEmpty ? _typeLabel(_controller.draft.type) : _controller.draft.name}" '
           '? Cette action est irréversible.',
         ),
         actions: [
@@ -276,7 +315,10 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
 
     if (confirmed != true || !mounted) return;
 
-    Navigator.pop(context, ConstructionEditorResult.deleted(_controller.draft.id));
+    Navigator.pop(
+      context,
+      ConstructionEditorResult.deleted(_controller.draft.id),
+    );
   }
 
   /// Handles the top-bar back action and any other attempt to leave the
@@ -500,8 +542,11 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
     return EditorCanvas(
       construction: _controller.draft,
       selectedSectionId: _controller.selectedSectionId,
-      transformationController: _viewController,
+      viewport: _viewport,
       onSectionTap: _controller.selectSection,
+      // The canvas learns its size after the first layout pass -- exactly
+      // when the one-time initial fit becomes possible.
+      onCanvasSizeChanged: _maybeInitialFit,
     );
   }
 
@@ -558,14 +603,10 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
             Expanded(
               child: SectionPropertiesPanel(
                 section: section,
-                onWidthChanged: (v) => _controller.applySectionWidth(
-                  section,
-                  v,
-                ),
-                onHeightChanged: (v) => _controller.applySectionHeight(
-                  section,
-                  v,
-                ),
+                onWidthChanged: (v) =>
+                    _controller.applySectionWidth(section, v),
+                onHeightChanged: (v) =>
+                    _controller.applySectionHeight(section, v),
                 onKindChanged: (k) => _controller.applySectionKind(section, k),
                 onOpeningTypeChanged: (t) =>
                     _controller.applySectionOpeningType(section, t),

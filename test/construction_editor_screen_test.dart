@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:aluminium_designer/core/geometry/section_layout.dart';
 import 'package:aluminium_designer/core/models/catalog.dart';
 import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
@@ -8,6 +9,8 @@ import 'package:aluminium_designer/core/models/layout_direction.dart';
 import 'package:aluminium_designer/core/models/opening.dart';
 import 'package:aluminium_designer/core/models/section.dart';
 import 'package:aluminium_designer/core/storage/catalog_store.dart';
+import 'package:aluminium_designer/features/constructions/editor/editor_viewport.dart';
+import 'package:aluminium_designer/features/constructions/editor/widgets/editor_canvas.dart';
 import 'package:aluminium_designer/features/constructions/screens/construction_editor_screen.dart';
 
 /// Wide enough to clear the workspace's `_kMinDesktopWidth` (900) floor.
@@ -103,8 +106,8 @@ void main() {
       expect(find.text('Section 1'), findsOneWidget);
       expect(find.text('Section 2'), findsOneWidget);
 
-      // Center canvas exists.
-      expect(find.byType(InteractiveViewer), findsOneWidget);
+      // Center canvas exists, driven by the editor's own viewport.
+      expect(find.byType(EditorCanvas), findsOneWidget);
       expect(find.byType(CustomPaint), findsWidgets);
 
       // Bottom status bar shows dimensions and section count.
@@ -527,6 +530,112 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  });
+
+  group('Canvas viewport interaction', () {
+    /// The global screen position of a model-space (millimetre) point on
+    /// the canvas, computed with the same pinned fit math the viewport
+    /// uses for its initial fit. Importing `fitConstructionToCanvas` here
+    /// is deliberate coupling: that function's outputs are already
+    /// exhaustively unit-tested in section_layout_test.dart, so the test
+    /// stays honest about where geometry lands on screen without
+    /// duplicating any logic under test.
+    Offset canvasPointFor(WidgetTester tester, double modelX, double modelY) {
+      final topLeft = tester.getTopLeft(find.byType(EditorCanvas));
+      final size = tester.getSize(find.byType(EditorCanvas));
+      final fit = fitConstructionToCanvas(
+        contentWidth: 1800,
+        contentHeight: 1200,
+        canvasWidth: size.width,
+        canvasHeight: size.height,
+        padding: kViewportFitPadding,
+      );
+      return topLeft +
+          Offset(
+            fit.offsetX + modelX * fit.scale,
+            fit.offsetY + modelY * fit.scale,
+          );
+    }
+
+    testWidgets('tapping a section on the canvas selects it', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      // Section 1 spans 0..1000 mm wide; its centre is (500, 600) mm.
+      await tester.tapAt(canvasPointFor(tester, 500, 600));
+      await tester.pumpAndSettle();
+
+      // Selection drives the whole workspace: Sections stage opens with
+      // the selected section's properties panel.
+      expect(find.textContaining('SECTION 1'), findsOneWidget);
+    });
+
+    testWidgets('tapping empty canvas space selects the construction root', (
+      tester,
+    ) async {
+      await _pumpEditor(tester, _construction());
+
+      await tester.tap(find.text('Section 1'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('SECTION 1'), findsOneWidget);
+
+      // The top-left corner of the canvas lies inside the fit padding
+      // margin -- model coordinates there are outside every section.
+      final topLeft = tester.getTopLeft(find.byType(EditorCanvas));
+      await tester.tapAt(topLeft + const Offset(8, 8));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('SECTION 1'), findsNothing);
+      expect(find.textContaining('Sélectionnez une section'), findsOneWidget);
+    });
+
+    testWidgets(
+      'toolbar zoom scales about the center and Ajuster à la vue restores '
+      'the fitted view',
+      (tester) async {
+        await _pumpEditor(tester, _construction());
+
+        final viewport = tester
+            .widget<EditorCanvas>(find.byType(EditorCanvas))
+            .viewport;
+
+        // The one-time initial fit has run by now -- the viewport does not
+        // sit at identity.
+        final fittedScale = viewport.matrix[0];
+        final fittedOffset = Offset(viewport.matrix[12], viewport.matrix[13]);
+        expect(fittedScale, isNot(1.0));
+
+        await tester.tap(find.byTooltip('Zoom avant'));
+        await tester.pumpAndSettle();
+
+        expect(viewport.matrix[0], closeTo(fittedScale * 1.2, 1e-9));
+
+        await tester.tap(find.byTooltip('Ajuster à la vue'));
+        await tester.pumpAndSettle();
+
+        // Deterministic refit reproduces exactly the original transform.
+        expect(viewport.matrix[0], fittedScale);
+        expect(Offset(viewport.matrix[12], viewport.matrix[13]), fittedOffset);
+      },
+    );
+
+    testWidgets('editing dimensions after the initial fit does not re-fit '
+        '(auto-fit runs at most once per session)', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      final viewport = tester
+          .widget<EditorCanvas>(find.byType(EditorCanvas))
+          .viewport;
+      final before = Offset(viewport.matrix[12], viewport.matrix[13]);
+
+      await tester.tap(find.text('Geometry'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Largeur'), '2400');
+      await tester.pumpAndSettle();
+
+      // The transform is untouched by dimension edits -- only the
+      // toolbar button or a fresh session re-fits.
+      expect(Offset(viewport.matrix[12], viewport.matrix[13]), before);
+    });
   });
 
   group('Calculate action', () {

@@ -30,21 +30,36 @@ String openingTypeLabel(OpeningType type) {
 /// profile cross-sections, no hardware, no mullions/frame thickness: those
 /// would be fabrication geometry, which this milestone explicitly excludes
 /// (see [layoutConstruction]'s doc for why section geometry and profile
-/// geometry are kept separate). All positions come from
-/// [layoutConstruction] and [fitConstructionToCanvas] -- this painter owns
-/// no geometry state of its own, only drawing.
+/// geometry are kept separate).
+///
+/// The model(millimetre)→screen(pixel) mapping comes in via [transform],
+/// supplied by the editor's single authoritative `EditorViewport` -- this
+/// painter computes NO transform of its own (the previous internal
+/// `fitConstructionToCanvas` call was the second of the two stacked
+/// transforms and is gone). It owns no geometry state beyond drawing: hit
+/// testing lives in `sectionAtPoint` + `EditorViewport.screenToModel`, not
+/// here.
 class ConstructionPainter extends CustomPainter {
   final Construction construction;
 
   /// The id of the currently selected [Section], or `null` if the
   /// construction root is selected (no section highlighted). This mirrors
-  /// exactly what `ConstructionEditorScreen._selectedId` holds -- the
-  /// painter does not keep its own idea of "selected", it only visualizes
-  /// the one shared selection value passed in, matching the requirement
-  /// that canvas and left-panel selection never diverge.
+  /// exactly what the editor controller holds -- the painter does not keep
+  /// its own idea of "selected", it only visualizes the one shared
+  /// selection value passed in, matching the requirement that canvas and
+  /// left-panel selection never diverge.
   final String? selectedSectionId;
 
-  ConstructionPainter({required this.construction, this.selectedSectionId});
+  /// The current viewport transform. Text labels are drawn at projected
+  /// anchor points with UNSCALED font sizes, so labels stay legible at any
+  /// zoom level while moving with their geometry.
+  final FittedTransform transform;
+
+  ConstructionPainter({
+    required this.construction,
+    required this.selectedSectionId,
+    required this.transform,
+  });
 
   static const _fixedFill = Color(0xFFDCE3E8);
   static const _ouvrantFill = Color(0xFFCDE7D8);
@@ -64,15 +79,8 @@ class ConstructionPainter extends CustomPainter {
       return;
     }
 
-    final transform = fitConstructionToCanvas(
-      contentWidth: layout.width,
-      contentHeight: layout.height,
-      canvasWidth: size.width,
-      canvasHeight: size.height,
-    );
-
-    // Degenerate canvas (e.g. not yet laid out with real constraints) --
-    // nothing usable to draw.
+    // Degenerate transform (e.g. zero-area canvas) -- nothing usable to
+    // draw.
     if (transform.scale <= 0) {
       return;
     }
@@ -83,45 +91,6 @@ class ConstructionPainter extends CustomPainter {
 
     _paintOuterOutline(canvas, layout, transform);
     _paintOverallDimensions(canvas, layout, transform);
-  }
-
-  /// Returns the [SectionRect] under [localPosition] (in the same pixel
-  /// space the canvas was painted in), or `null` if the tap didn't land on
-  /// any section -- used by the editor to turn a tap on the canvas into a
-  /// selection change. Recomputes layout/transform the same way [paint]
-  /// does rather than caching them, since this painter owns no state
-  /// between frames (see class doc) and hit-testing must stay consistent
-  /// with whatever was actually drawn for this [size].
-  ///
-  /// Deliberately not named `hitTest` -- `CustomPainter` already declares
-  /// `bool? hitTest(Offset position)` (a different signature, for a
-  /// different purpose: opting a painter in/out of hit-testing entirely).
-  /// Reusing that name here would silently fail as an invalid `@override`
-  /// rather than adding a new method.
-  SectionRect? sectionAt(Offset localPosition, Size size) {
-    final layout = layoutConstruction(construction);
-    if (layout == null) return null;
-
-    final transform = fitConstructionToCanvas(
-      contentWidth: layout.width,
-      contentHeight: layout.height,
-      canvasWidth: size.width,
-      canvasHeight: size.height,
-    );
-    if (transform.scale <= 0) return null;
-
-    for (final rect in layout.sections) {
-      final pixelRect = Rect.fromLTWH(
-        transform.toPixelX(rect.x),
-        transform.toPixelY(rect.y),
-        transform.toPixelLength(rect.width),
-        transform.toPixelLength(rect.height),
-      );
-      if (pixelRect.contains(localPosition)) {
-        return rect;
-      }
-    }
-    return null;
   }
 
   void _paintSection(Canvas canvas, SectionRect rect, FittedTransform t) {

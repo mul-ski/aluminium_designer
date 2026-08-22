@@ -56,6 +56,13 @@ class EditorViewport extends ChangeNotifier {
   /// this class.
   Matrix4 get matrix => _matrix;
 
+  /// The same authoritative transform as [matrix], in the
+  /// [FittedTransform] value form `ConstructionPainter` consumes
+  /// (scale + centered offset). A second *view*, not a second source of
+  /// truth -- both are derived from [_matrix] alone.
+  FittedTransform get transform =>
+      FittedTransform(scale: _scale, offsetX: _tx, offsetY: _ty);
+
   /// The canvas widget's current logical size, as reported via
   /// [setCanvasSize], or null before the first layout pass.
   Size? get canvasSize => _canvasSize;
