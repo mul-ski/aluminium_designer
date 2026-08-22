@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/logic/boundary_manipulation.dart';
 import '../../../core/logic/rule_set_resolution.dart';
 import '../../../core/logic/system_compatibility.dart';
 import '../../../core/models/catalog.dart';
@@ -756,6 +757,25 @@ class ConstructionEditorController extends ChangeNotifier {
       invalidatesCalculation: true,
     );
     _selectedSectionId = null;
+  }
+
+  /// Moves the interior boundary after [boundaryIndex] (ordered-section
+  /// convention, 1..sectionCount-1) to [positionMm] along the layout axis,
+  /// redistributing exactly the two adjacent sections. See
+  /// `withBoundaryMoved` for the geometry invariants: total preserved,
+  /// neighbors floored at [kMinSectionSizeMm], all other fields untouched.
+  ///
+  /// Called ONCE per completed drag gesture -- never per pointer-move
+  /// event -- so one drag produces exactly one undo entry. The tag is
+  /// deliberately null: consecutive drags of the same boundary are
+  /// distinct user operations and must stay individually undoable rather
+  /// than coalesce.
+  void moveBoundary({required int boundaryIndex, required double positionMm}) {
+    _updateDraft(
+      withBoundaryMoved(_draft, boundaryIndex, positionMm),
+      tag: null,
+      invalidatesCalculation: true,
+    );
   }
 
   // ---- Calculation ----
