@@ -1,3 +1,5 @@
+import 'dart:ui' show Offset;
+
 import 'package:flutter/foundation.dart';
 
 import '../models/construction.dart';
@@ -129,6 +131,32 @@ ConstructionLayout? layoutConstruction(Construction construction) {
   }
 
   return ConstructionLayout(width: width, height: height, sections: rects);
+}
+
+/// Returns the [SectionRect] containing [point] (millimetre space), or
+/// null when the point lies outside every section rectangle.
+///
+/// Pure hit-testing over a [ConstructionLayout]: no pixels, no transforms
+/// -- callers convert their point into millimetre space first (e.g. via
+/// `EditorViewport.screenToModel`). Sections are checked in layout order
+/// and the first containing rectangle wins; for the valid layouts this
+/// model produces, rectangles never overlap, so order only matters as a
+/// deterministic tie-break for inconsistent (invalid-but-displayed)
+/// geometry.
+///
+/// Boundary points (exactly on an edge/corner) count as contained, using
+/// inclusive comparisons -- consistent with `Rect.contains`-style hit
+/// tests users expect when tapping a section's outline.
+SectionRect? sectionAtPoint(ConstructionLayout layout, Offset point) {
+  for (final rect in layout.sections) {
+    if (point.dx >= rect.x &&
+        point.dx <= rect.x + rect.width &&
+        point.dy >= rect.y &&
+        point.dy <= rect.y + rect.height) {
+      return rect;
+    }
+  }
+  return null;
 }
 
 /// A uniform millimetre-to-pixel transform plus the pixel-space offset

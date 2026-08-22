@@ -151,7 +151,11 @@ void main() {
     });
 
     test('returns null when neither dimension is set yet', () {
-      final construction = _buildConstruction(width: null, height: null, sections: []);
+      final construction = _buildConstruction(
+        width: null,
+        height: null,
+        sections: [],
+      );
 
       expect(layoutConstruction(construction), isNull);
     });
@@ -240,6 +244,71 @@ void main() {
       );
 
       expect(transform.scale, 0);
+    });
+  });
+
+  group('sectionAtPoint', () {
+    test('finds the section containing the point (horizontal layout)', () {
+      final construction = _buildConstruction(
+        width: 1800,
+        height: 1200,
+        sections: [
+          _fixedSection(id: 's1', order: 0, width: 1000, height: 1200),
+          _fixedSection(id: 's2', order: 1, width: 800, height: 1200),
+        ],
+      );
+      final layout = layoutConstruction(construction)!;
+
+      expect(sectionAtPoint(layout, const Offset(500, 600))!.section.id, 's1');
+      expect(sectionAtPoint(layout, const Offset(1500, 600))!.section.id, 's2');
+    });
+
+    test('finds the section containing the point (vertical layout)', () {
+      final construction = _buildConstruction(
+        width: 1000,
+        height: 2000,
+        layoutDirection: SectionLayoutDirection.vertical,
+        sections: [
+          _fixedSection(id: 'top', order: 0, width: 1000, height: 700),
+          _fixedSection(id: 'bottom', order: 1, width: 1000, height: 1300),
+        ],
+      );
+      final layout = layoutConstruction(construction)!;
+
+      expect(sectionAtPoint(layout, const Offset(500, 350))!.section.id, 'top');
+      expect(
+        sectionAtPoint(layout, const Offset(500, 1500))!.section.id,
+        'bottom',
+      );
+    });
+
+    test('returns null outside every section', () {
+      final construction = _buildConstruction(
+        width: 1000,
+        height: 1000,
+        sections: [
+          _fixedSection(id: 's1', order: 0, width: 1000, height: 1000),
+        ],
+      );
+      final layout = layoutConstruction(construction)!;
+
+      expect(sectionAtPoint(layout, const Offset(-1, 500)), isNull);
+      expect(sectionAtPoint(layout, const Offset(1001, 500)), isNull);
+      expect(sectionAtPoint(layout, const Offset(500, -0.5)), isNull);
+    });
+
+    test('counts boundary points as contained', () {
+      final construction = _buildConstruction(
+        width: 1000,
+        height: 1000,
+        sections: [
+          _fixedSection(id: 's1', order: 0, width: 1000, height: 1000),
+        ],
+      );
+      final layout = layoutConstruction(construction)!;
+
+      expect(sectionAtPoint(layout, Offset.zero), isNotNull);
+      expect(sectionAtPoint(layout, const Offset(1000, 1000)), isNotNull);
     });
   });
 }
