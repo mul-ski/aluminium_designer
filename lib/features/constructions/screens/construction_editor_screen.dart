@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 
 import '../../../core/geometry/section_layout.dart';
 import '../../../core/models/catalog.dart';
@@ -393,64 +394,102 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
         if (didPop) return;
         _handleBackPressed();
       },
-      child: Scaffold(
-        appBar: _buildTopAppBar(),
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < _kMinDesktopWidth) {
-              return _NarrowViewportNotice(minWidth: _kMinDesktopWidth);
-            }
-            return Column(
-              children: [
-                EditorToolbar(
-                  canRemoveSection: _controller.selectedSection != null,
-                  onAddSection: _addSection,
-                  onRemoveSelectedSection: () =>
-                      _controller.removeSelectedSection(),
-                  onZoomIn: () => _zoomBy(1.2),
-                  onZoomOut: () => _zoomBy(1 / 1.2),
-                  onFitToView: _fitToView,
-                  onCalculate: _controller.calculate,
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 260,
-                        child: EditorStructurePanel(
-                          construction: _controller.draft,
-                          stage: _controller.stage,
-                          selectedSectionId: _controller.selectedSectionId,
-                          calculationResult: _controller.calculationResult,
-                          calculationIsStale: _controller.calculationIsStale,
-                          onStageSelected: _controller.goToStage,
-                          onSelectConstruction: () =>
-                              _controller.selectSection(null),
-                          onSelectSection: _controller.selectSection,
-                        ),
-                      ),
-                      const VerticalDivider(width: 1),
-                      Expanded(child: _buildCanvas()),
-                      const VerticalDivider(width: 1),
-                      SizedBox(
-                        width: 320,
-                        child: _loadingCatalog
-                            ? const Center(child: CircularProgressIndicator())
-                            : _buildPropertiesPanel(),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                EditorStatusBar(
-                  construction: _controller.draft,
-                  selectedSection: _controller.selectedSection,
-                  isDirty: _controller.isDirty,
-                ),
-              ],
-            );
+      child: Shortcuts(
+        // Desktop undo/redo shortcuts driving CONSTRUCTION history. The
+        // editor's TextFields carry no undo controller of their own, so
+        // there is exactly one undo system: Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y
+        // always operate on the Construction draft, never on individual
+        // characters inside a field.
+        shortcuts: const <ShortcutActivator, Intent>{
+          SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+              _UndoEditorIntent(),
+          SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
+              _RedoEditorIntent(),
+          SingleActivator(LogicalKeyboardKey.keyY, control: true):
+              _RedoEditorIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            _UndoEditorIntent: CallbackAction<_UndoEditorIntent>(
+              onInvoke: (_) {
+                if (_controller.canUndo) _controller.undo();
+                return null;
+              },
+            ),
+            _RedoEditorIntent: CallbackAction<_RedoEditorIntent>(
+              onInvoke: (_) {
+                if (_controller.canRedo) _controller.redo();
+                return null;
+              },
+            ),
           },
+          child: Scaffold(
+            appBar: _buildTopAppBar(),
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < _kMinDesktopWidth) {
+                  return _NarrowViewportNotice(minWidth: _kMinDesktopWidth);
+                }
+                return Column(
+                  children: [
+                    EditorToolbar(
+                      canRemoveSection: _controller.selectedSection != null,
+                      onAddSection: _addSection,
+                      onRemoveSelectedSection: () =>
+                          _controller.removeSelectedSection(),
+                      onZoomIn: () => _zoomBy(1.2),
+                      onZoomOut: () => _zoomBy(1 / 1.2),
+                      onFitToView: _fitToView,
+                      onCalculate: _controller.calculate,
+                      canUndo: _controller.canUndo,
+                      canRedo: _controller.canRedo,
+                      onUndo: _controller.undo,
+                      onRedo: _controller.redo,
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 260,
+                            child: EditorStructurePanel(
+                              construction: _controller.draft,
+                              stage: _controller.stage,
+                              selectedSectionId: _controller.selectedSectionId,
+                              calculationResult: _controller.calculationResult,
+                              calculationIsStale:
+                                  _controller.calculationIsStale,
+                              onStageSelected: _controller.goToStage,
+                              onSelectConstruction: () =>
+                                  _controller.selectSection(null),
+                              onSelectSection: _controller.selectSection,
+                            ),
+                          ),
+                          const VerticalDivider(width: 1),
+                          Expanded(child: _buildCanvas()),
+                          const VerticalDivider(width: 1),
+                          SizedBox(
+                            width: 320,
+                            child: _loadingCatalog
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
+                                : _buildPropertiesPanel(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    EditorStatusBar(
+                      construction: _controller.draft,
+                      selectedSection: _controller.selectedSection,
+                      isDirty: _controller.isDirty,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -673,6 +712,17 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
 /// so "cancel", "discard", and "save" can never be confused with each other
 /// or with "dialog dismissed" (`null`, handled the same as `cancel`).
 enum _UnsavedChangesChoice { cancel, discard, save }
+
+/// Intents for the editor-wide undo/redo keyboard shortcuts. Deliberately
+/// private and distinct from Flutter's text-editing intents so the two
+/// shortcut systems can never intercept each other's activations.
+class _UndoEditorIntent extends Intent {
+  const _UndoEditorIntent();
+}
+
+class _RedoEditorIntent extends Intent {
+  const _RedoEditorIntent();
+}
 
 /// Small "unsaved changes" pill shown in the top app bar's title next to
 /// the construction name whenever the draft has unsaved edits.

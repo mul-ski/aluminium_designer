@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:aluminium_designer/core/geometry/section_layout.dart';
@@ -635,6 +636,107 @@ void main() {
       // The transform is untouched by dimension edits -- only the
       // toolbar button or a fresh session re-fits.
       expect(Offset(viewport.matrix[12], viewport.matrix[13]), before);
+    });
+  });
+
+  group('Undo / redo', () {
+    /// Navigates to the Geometry stage and types [value] into the width
+    /// field, leaving focus inside the field (callers decide whether to
+    /// unfocus before keyboard shortcuts).
+    Future<void> editWidth(WidgetTester tester, String value) async {
+      await tester.tap(find.text('Geometry'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Largeur'),
+        value,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    IconButton undoButton(WidgetTester tester) =>
+        tester.widget<IconButton>(
+          find.descendant(
+            of: find.byTooltip('Annuler'),
+            matching: find.byType(IconButton),
+          ),
+        );
+
+    IconButton redoButton(WidgetTester tester) =>
+        tester.widget<IconButton>(
+          find.descendant(
+            of: find.byTooltip('Rétablir'),
+            matching: find.byType(IconButton),
+          ),
+        );
+
+    testWidgets(
+      'toolbar undo/redo buttons gate on history availability',
+      (tester) async {
+        await _pumpEditor(tester, _construction());
+
+        // Nothing mutated yet: both disabled.
+        expect(undoButton(tester).onPressed, isNull);
+        expect(redoButton(tester).onPressed, isNull);
+
+        await editWidth(tester, '999');
+        expect(undoButton(tester).onPressed, isNotNull);
+        expect(redoButton(tester).onPressed, isNull);
+
+        await tester.tap(find.byTooltip('Annuler'));
+        await tester.pumpAndSettle();
+        expect(undoButton(tester).onPressed, isNull);
+        expect(redoButton(tester).onPressed, isNotNull);
+        // The width edit really was undone.
+        expect(find.textContaining('1800'), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'Ctrl+Z triggers construction undo -- even while a text field holds '
+      'focus, since fields have no undo controller of their own',
+      (tester) async {
+        await _pumpEditor(tester, _construction());
+        await editWidth(tester, '999');
+        expect(find.textContaining('999 ×'), findsWidgets);
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('1800'), findsWidgets);
+        expect(find.textContaining('999 ×'), findsNothing);
+      },
+    );
+
+    testWidgets('undo/redo never touches the viewport transform',
+        (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      final canvas = tester.widget<EditorCanvas>(
+        find.byType(EditorCanvas),
+      );
+      final viewport = canvas.viewport;
+
+      // Zoom in twice so the transform is distinctly non-initial.
+      await tester.tap(find.byTooltip('Zoom avant'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Zoom avant'));
+      await tester.pumpAndSettle();
+      final zoomedScale = viewport.matrix[0];
+      final zoomedOffset = Offset(viewport.matrix[12], viewport.matrix[13]);
+
+      // Mutate, then undo it via the toolbar.
+      await editWidth(tester, '999');
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      await tester.tap(find.byTooltip('Annuler'));
+      await tester.pumpAndSettle();
+
+      // The pan/zoom state survived the entire mutate+undo cycle untouched:
+      // history contains Construction snapshots only.
+      expect(viewport.matrix[0], zoomedScale);
+      expect(Offset(viewport.matrix[12], viewport.matrix[13]), zoomedOffset);
     });
   });
 

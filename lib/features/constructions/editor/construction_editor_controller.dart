@@ -10,11 +10,40 @@ import '../../../core/models/layout_direction.dart';
 import '../../../core/models/opening.dart';
 import '../../../core/models/profile_system.dart';
 import '../../../core/models/profile_usage.dart';
-import '../../../core/models/project_json.dart' show ConstructionJson;
+import '../../../core/models/project_json.dart'
+    show ConstructionJson, ProfileUsageJson;
 import '../../../core/models/rules/system_rule_set.dart'
     show AmbiguousRuleMatchException;
 import '../../../core/models/section.dart';
 import 'editor_stage.dart';
+
+/// Maximum number of past states retained on the editor's undo stack.
+///
+/// Entries are references to immutable `Construction` trees -- tiny object
+/// graphs of a handful of sections/usages -- so even the cap itself costs
+/// kilobytes at worst; the cap exists so an unbounded editing session can
+/// never grow history indefinitely.
+const int kUndoHistoryLimit = 100;
+
+/// Tag identifying a construction-name edit run for undo coalescing --
+/// consecutive name keystrokes collapse into a single history entry.
+const String kUndoTagName = 'construction.name';
+
+/// Tag for construction-type edits.
+const String kUndoTagType = 'construction.type';
+
+/// Tag for overall-width edits -- consecutive typing collapses.
+const String kUndoTagWidth = 'construction.width';
+
+/// Tag for overall-height edits -- consecutive typing collapses.
+const String kUndoTagHeight = 'construction.height';
+
+/// Tag for layout-direction switches.
+const String kUndoTagLayoutDirection = 'construction.layoutDirection';
+
+/// Tag for manufacturer/system selection changes (including the atomic
+/// pruning of now-incompatible profile usages).
+const String kUndoTagSystem = 'construction.system';
 
 /// Owns the editable session state of one [Construction] being edited, and
 /// is the single place where editor mutations happen.
@@ -50,6 +79,17 @@ import 'editor_stage.dart';
 /// snackbars, Navigator, or storage. Confirmations (unsaved changes,
 /// system-switch incompatibility, delete) and persistence hand-off stay
 /// the screen's job -- see `ConstructionEditorScreen`'s class doc.
+///
+/// UNDO / REDO: every accepted draft mutation is recorded as an immutable
+/// Construction snapshot (a reference -- no copying) on a bounded stack,
+/// with same-tag consecutive edits coalescing into single entries so
+/// text-field keystrokes don't flood history. Only the Construction is
+/// historical: stage, section selection, catalog snapshot, viewport
+/// transform, and the calculation outcome are presentation/derived state
+/// that stays outside the stacks -- selection merely reconciles after a
+/// jump (falls back to root when its section no longer exists), and the
+/// outcome's staleness is recomputed against the calculator-relevant
+/// inputs of whatever draft a jump restores.
 class ConstructionEditorController extends ChangeNotifier {
   /// The construction being edited. Every mutation replaces this with a
   /// new immutable instance; nothing mutates a `Construction` in place.
@@ -79,6 +119,22 @@ class ConstructionEditorController extends ChangeNotifier {
   /// loading the persisted catalog from disk (the load itself stays in the
   /// screen -- see `ConstructionEditorScreen._loadCatalog`).
   Catalog _catalog = const Catalog();
+
+  // ---- Undo / redo history ----
+
+  /// Past immutable drafts, newest last. References only -- snapshots are
+  /// free because every mutation already produced a fresh tree.
+  final List<Construction> _undoStack = [];
+
+  /// Future drafts invalidated by an undo, oldest first. Cleared by any
+  /// new accepted mutation.
+  final List<Construction> _redoStack = [];
+
+  /// Tag of the most recent ACCEPTED mutation, used to coalesce runs of
+  /// the same continuous edit (e.g. typing a width digit by digit) into a
+  /// single history entry. Reset to null by undo/redo jumps so the next
+  /// edit always starts a fresh entry.
+  String? _lastMutationTag;
 
   // ---- Last calculation outcome ----
 
@@ -114,6 +170,13 @@ class ConstructionEditorController extends ChangeNotifier {
   /// edit, the stale result/error is kept and shown with a "stale"
   /// indicator so going out of date is visible rather than invisible.
   bool _calculationIsStale = false;
+
+  /// Fingerprint of the calculator-relevant inputs (overall dimensions,
+  /// selected system, profile usages) as they were when [calculate] last
+  /// ran. After an undo/redo jump this is what decides whether the
+  /// recorded outcome is stale -- see
+  /// [_reconcileCalculationStalenessAfterJump]. Null until the first run.
+  String? _calculationInputFingerprint;
 
   /// Creates a controller editing [construction], against an empty
   /// catalog -- the screen replaces it via [setCatalog] once the persisted
@@ -174,6 +237,110 @@ class ConstructionEditorController extends ChangeNotifier {
   bool get calculationHadNoRuleSet => _calculationHadNoRuleSet;
 
   bool get calculationIsStale => _calculationIsStale;
+
+  // ---- Undo / redo ----
+
+  /// Whether at least one past construction state exists to undo to.
+  bool get canUndo => _undoStack.isNotEmpty;
+
+  /// Whether at least one undone state exists to redo to.
+  bool get canRedo => _redoStack.isNotEmpty;
+
+  /// Restores the most recent past draft. Selection reconciles (a
+  /// selection whose section no longer exists falls back to the root);
+  /// stage, catalog, and viewport state are untouched -- history covers
+  /// the Construction only.
+  void undo() {
+    if (_undoStack.isEmpty) return;
+    _redoStack.add(_draft);
+    _lastMutationTag = null;
+    _draft = _undoStack.removeLast();
+    _afterHistoryJump();
+  }
+
+  /// Re-applies the most recently undone mutation. Cleared by any new
+  /// accepted mutation.
+  void redo() {
+    if (_redoStack.isEmpty) return;
+    _undoStack.add(_draft);
+    _lastMutationTag = null;
+    _draft = _redoStack.removeLast();
+    _afterHistoryJump();
+  }
+
+  /// Shared post-jump bookkeeping for [undo]/[redo].
+  void _afterHistoryJump() {
+    // Selection is presentation state, not history: keep it when the
+    // restored draft still contains the section, fall back to the root
+    // when it does not.
+    final selectedId = _selectedSectionId;
+    if (selectedId != null && !_draft.sections.any((s) => s.id == selectedId)) {
+      _selectedSectionId = null;
+    }
+    _reconcileCalculationStalenessAfterJump();
+    notifyListeners();
+  }
+
+  /// Recomputes staleness precisely after an undo/redo: the recorded
+  /// outcome is stale exactly when the calculator-relevant inputs of the
+  /// restored draft differ from what [calculate] actually ran against.
+  ///
+  /// Undoing back to the calculated-for state therefore legitimately
+  /// un-stales the result again, while jumping anywhere else re-stales it.
+  /// This complements (does not replace) the per-mutator
+  /// [_markCalculationStale] calls used on live edits.
+  void _reconcileCalculationStalenessAfterJump() {
+    if (!calculationHasRun) return;
+    _calculationIsStale =
+        _calculatorInputFingerprint(_draft) != _calculationInputFingerprint;
+  }
+
+  /// The single integration point for every draft mutation. Records the
+  /// previous draft onto the undo stack (with tag-based coalescing),
+  /// clears the redo stack, applies [next], marks the calculation stale
+  /// when the caller says the change affects calculator inputs, and
+  /// notifies listeners.
+  ///
+  /// No-op mutations (next equals current by persisted-JSON content) do
+  /// NOT create history; they still notify, matching the pre-history
+  /// behaviour where every mutator call notified.
+  ///
+  /// Coalescing: when [tag] equals the previous accepted mutation's tag,
+  /// the run continues -- the anchor already sitting on the undo stack
+  /// represents "before this whole run", so no new entry is pushed. Any
+  /// different/absent tag starts a new entry.
+  void _updateDraft(
+    Construction next, {
+    required String? tag,
+    required bool invalidatesCalculation,
+  }) {
+    final unchanged = _persistedJson(next) == _persistedJson(_draft);
+
+    if (!unchanged) {
+      final coalesce = tag != null && tag == _lastMutationTag;
+      if (!coalesce) {
+        _undoStack.add(_draft);
+        if (_undoStack.length > kUndoHistoryLimit) _undoStack.removeAt(0);
+        _redoStack.clear();
+      }
+      _lastMutationTag = tag;
+      _draft = next;
+      if (invalidatesCalculation) _markCalculationStale();
+    }
+
+    notifyListeners();
+  }
+
+  /// The exact JSON representation `ProjectStore` persists -- the basis
+  /// for both no-op detection here and dirty-state comparison.
+  static String _persistedJson(Construction c) => c.toJson().toString();
+
+  /// Fingerprint of ONLY the inputs `ConstructionCalculator` reads:
+  /// overall dimensions, the authoritative system id, and the profile
+  /// usages with their placements/quantities.
+  static String _calculatorInputFingerprint(Construction c) =>
+      '${c.width}|${c.height}|${c.systemId}'
+      '|${c.profileUsages.map((u) => u.toJson().toString()).join(';')}';
 
   // ---- Selection / stage navigation ----
 
@@ -238,14 +405,19 @@ class ConstructionEditorController extends ChangeNotifier {
   void setName(String value) {
     // Renaming does not invalidate a calculation outcome: the cut list
     // depends on dimensions/usages, never on the display name.
-    _draft = _draft.copyWith(name: value);
-    notifyListeners();
+    _updateDraft(
+      _draft.copyWith(name: value),
+      tag: kUndoTagName,
+      invalidatesCalculation: false,
+    );
   }
 
   void setType(ConstructionType type) {
-    _draft = _draft.copyWith(type: type);
-    _markCalculationStale();
-    notifyListeners();
+    _updateDraft(
+      _draft.copyWith(type: type),
+      tag: kUndoTagType,
+      invalidatesCalculation: true,
+    );
   }
 
   /// Applies a typed width. An empty/unparseable field means "not set yet"
@@ -258,54 +430,61 @@ class ConstructionEditorController extends ChangeNotifier {
   /// detach the construction from its selected manufacturer/system.
   void setWidth(String value) {
     final parsed = double.tryParse(value);
-    _draft = Construction(
-      id: _draft.id,
-      name: _draft.name,
-      type: _draft.type,
-      width: parsed,
-      height: _draft.height,
-      manufacturer: _draft.manufacturer,
-      system: _draft.system,
-      manufacturerId: _draft.manufacturerId,
-      systemId: _draft.systemId,
-      sections: _draft.sections,
-      layoutDirection: _draft.layoutDirection,
-      profiles: _draft.profiles,
-      profileUsages: _draft.profileUsages,
+    _updateDraft(
+      Construction(
+        id: _draft.id,
+        name: _draft.name,
+        type: _draft.type,
+        width: parsed,
+        height: _draft.height,
+        manufacturer: _draft.manufacturer,
+        system: _draft.system,
+        manufacturerId: _draft.manufacturerId,
+        systemId: _draft.systemId,
+        sections: _draft.sections,
+        layoutDirection: _draft.layoutDirection,
+        profiles: _draft.profiles,
+        profileUsages: _draft.profileUsages,
+      ),
+      tag: kUndoTagWidth,
+      invalidatesCalculation: true,
     );
-    _markCalculationStale();
-    notifyListeners();
   }
 
   /// Applies a typed height. See [setWidth] for why this rebuilds the draft
   /// directly and carries every non-dimension field over unchanged.
   void setHeight(String value) {
     final parsed = double.tryParse(value);
-    _draft = Construction(
-      id: _draft.id,
-      name: _draft.name,
-      type: _draft.type,
-      width: _draft.width,
-      height: parsed,
-      manufacturer: _draft.manufacturer,
-      system: _draft.system,
-      manufacturerId: _draft.manufacturerId,
-      systemId: _draft.systemId,
-      sections: _draft.sections,
-      layoutDirection: _draft.layoutDirection,
-      profiles: _draft.profiles,
-      profileUsages: _draft.profileUsages,
+    _updateDraft(
+      Construction(
+        id: _draft.id,
+        name: _draft.name,
+        type: _draft.type,
+        width: _draft.width,
+        height: parsed,
+        manufacturer: _draft.manufacturer,
+        system: _draft.system,
+        manufacturerId: _draft.manufacturerId,
+        systemId: _draft.systemId,
+        sections: _draft.sections,
+        layoutDirection: _draft.layoutDirection,
+        profiles: _draft.profiles,
+        profileUsages: _draft.profileUsages,
+      ),
+      tag: kUndoTagHeight,
+      invalidatesCalculation: true,
     );
-    _markCalculationStale();
-    notifyListeners();
   }
 
   void setLayoutDirection(SectionLayoutDirection direction) {
     // Layout direction affects rendering and validation, not the rule-set
     // inputs the calculator reads, so the calculation outcome is not
     // marked stale here -- matching the original mutator.
-    _draft = _draft.copyWith(layoutDirection: direction);
-    notifyListeners();
+    _updateDraft(
+      _draft.copyWith(layoutDirection: direction),
+      tag: kUndoTagLayoutDirection,
+      invalidatesCalculation: false,
+    );
   }
 
   /// Which of the draft's profile usages would become incompatible with
@@ -335,21 +514,23 @@ class ConstructionEditorController extends ChangeNotifier {
     final newSystem = systemId == null ? null : _catalog.systemById(systemId);
     final incompatible = incompatibleUsages(_draft.profileUsages, newSystem);
 
-    _draft = _draft.copyWith(
-      manufacturer: manufacturerName,
-      system: systemName,
-      manufacturerId: manufacturerId,
-      clearManufacturerId: manufacturerId == null,
-      systemId: systemId,
-      clearSystemId: systemId == null,
-      profileUsages: incompatible.isEmpty
-          ? _draft.profileUsages
-          : _draft.profileUsages
-                .where((u) => !incompatible.contains(u))
-                .toList(),
+    _updateDraft(
+      _draft.copyWith(
+        manufacturer: manufacturerName,
+        system: systemName,
+        manufacturerId: manufacturerId,
+        clearManufacturerId: manufacturerId == null,
+        systemId: systemId,
+        clearSystemId: systemId == null,
+        profileUsages: incompatible.isEmpty
+            ? _draft.profileUsages
+            : _draft.profileUsages
+                  .where((u) => !incompatible.contains(u))
+                  .toList(),
+      ),
+      tag: kUndoTagSystem,
+      invalidatesCalculation: true,
     );
-    _markCalculationStale();
-    notifyListeners();
   }
 
   /// Replaces the catalog snapshot (after the screen loads it from disk,
@@ -364,13 +545,19 @@ class ConstructionEditorController extends ChangeNotifier {
   void applySectionWidth(Section section, String value) {
     final parsed = double.tryParse(value);
     if (parsed == null || parsed <= 0) return;
-    _replaceSection(_withSectionFields(section, width: parsed));
+    _replaceSection(
+      _withSectionFields(section, width: parsed),
+      tag: 'section.width:${section.id}',
+    );
   }
 
   void applySectionHeight(Section section, String value) {
     final parsed = double.tryParse(value);
     if (parsed == null || parsed <= 0) return;
-    _replaceSection(_withSectionFields(section, height: parsed));
+    _replaceSection(
+      _withSectionFields(section, height: parsed),
+      tag: 'section.height:${section.id}',
+    );
   }
 
   void applySectionKind(Section section, SectionKind kind) {
@@ -383,6 +570,7 @@ class ConstructionEditorController extends ChangeNotifier {
           width: section.width,
           height: section.height,
         ),
+        tag: 'section.kind:${section.id}',
       );
     } else {
       _replaceSection(
@@ -395,30 +583,41 @@ class ConstructionEditorController extends ChangeNotifier {
           openingType: section.openingType ?? OpeningType.francaise,
           vantauxCount: section.vantauxCount < 1 ? 1 : section.vantauxCount,
         ),
+        tag: 'section.kind:${section.id}',
       );
     }
   }
 
   void applySectionOpeningType(Section section, OpeningType type) {
-    _replaceSection(_withSectionFields(section, openingType: type));
+    _replaceSection(
+      _withSectionFields(section, openingType: type),
+      tag: 'section.openingType:${section.id}',
+    );
   }
 
   void applySectionVantauxCount(Section section, int count) {
     if (count < 1) return;
-    _replaceSection(_withSectionFields(section, vantauxCount: count));
+    _replaceSection(
+      _withSectionFields(section, vantauxCount: count),
+      tag: 'section.vantauxCount:${section.id}',
+    );
   }
 
   /// Replaces exactly the section with [updated]'s id, keeping every other
-  /// section untouched.
-  void _replaceSection(Section updated) {
-    _draft = _draft.copyWith(
-      sections: [
-        for (final s in _draft.sections)
-          if (s.id == updated.id) updated else s,
-      ],
+  /// section untouched. [tag] scopes undo coalescing to this
+  /// section+field pair so consecutive edits of the same field on the same
+  /// section merge into one history entry.
+  void _replaceSection(Section updated, {required String tag}) {
+    _updateDraft(
+      _draft.copyWith(
+        sections: [
+          for (final s in _draft.sections)
+            if (s.id == updated.id) updated else s,
+        ],
+      ),
+      tag: tag,
+      invalidatesCalculation: true,
     );
-    _markCalculationStale();
-    notifyListeners();
   }
 
   /// Builds a new [Section] carrying [section]'s identity/order/kind with
@@ -465,40 +664,49 @@ class ConstructionEditorController extends ChangeNotifier {
       sectionId: sectionId,
       role: role,
     );
-    _draft = _draft.copyWith(profileUsages: [..._draft.profileUsages, usage]);
-    _markCalculationStale();
-    notifyListeners();
+    _updateDraft(
+      _draft.copyWith(profileUsages: [..._draft.profileUsages, usage]),
+      // Unique per usage: consecutive adds must stay individually
+      // undoable, never coalesce.
+      tag: 'usage.add:${usage.id}',
+      invalidatesCalculation: true,
+    );
   }
 
   void updateProfileUsageQuantity(ProfileUsage usage, int quantity) {
     if (quantity < 1) return;
-    _draft = _draft.copyWith(
-      profileUsages: [
-        for (final u in _draft.profileUsages)
-          if (u.id == usage.id)
-            ProfileUsage(
-              id: u.id,
-              profileId: u.profileId,
-              sectionId: u.sectionId,
-              role: u.role,
-              quantity: quantity,
-            )
-          else
-            u,
-      ],
+    _updateDraft(
+      _draft.copyWith(
+        profileUsages: [
+          for (final u in _draft.profileUsages)
+            if (u.id == usage.id)
+              ProfileUsage(
+                id: u.id,
+                profileId: u.profileId,
+                sectionId: u.sectionId,
+                role: u.role,
+                quantity: quantity,
+              )
+            else
+              u,
+        ],
+      ),
+      // Same usage+field: the +/- spinner clicks coalesce into one entry.
+      tag: 'usage.quantity:${usage.id}',
+      invalidatesCalculation: true,
     );
-    _markCalculationStale();
-    notifyListeners();
   }
 
   void removeProfileUsage(ProfileUsage usage) {
-    _draft = _draft.copyWith(
-      profileUsages: _draft.profileUsages
-          .where((u) => u.id != usage.id)
-          .toList(),
+    _updateDraft(
+      _draft.copyWith(
+        profileUsages: _draft.profileUsages
+            .where((u) => u.id != usage.id)
+            .toList(),
+      ),
+      tag: 'usage.remove:${usage.id}',
+      invalidatesCalculation: true,
     );
-    _markCalculationStale();
-    notifyListeners();
   }
 
   // ---- Section add/remove ----
@@ -508,11 +716,14 @@ class ConstructionEditorController extends ChangeNotifier {
   /// added section is only useful to look at alongside the Sections
   /// stage's properties.
   void addSection(Section section) {
-    _draft = _draft.copyWith(sections: [..._draft.sections, section]);
+    _updateDraft(
+      _draft.copyWith(sections: [..._draft.sections, section]),
+      // Unique per section: each add is individually undoable.
+      tag: 'section.add:${section.id}',
+      invalidatesCalculation: true,
+    );
     _selectedSectionId = section.id;
     _stage = EditorStage.sections;
-    _markCalculationStale();
-    notifyListeners();
   }
 
   /// Removes the currently selected section and renumbers the remaining
@@ -539,10 +750,12 @@ class ConstructionEditorController extends ChangeNotifier {
         ),
     ];
 
-    _draft = _draft.copyWith(sections: reordered);
+    _updateDraft(
+      _draft.copyWith(sections: reordered),
+      tag: 'section.remove:${target.id}',
+      invalidatesCalculation: true,
+    );
     _selectedSectionId = null;
-    _markCalculationStale();
-    notifyListeners();
   }
 
   // ---- Calculation ----
@@ -560,6 +773,10 @@ class ConstructionEditorController extends ChangeNotifier {
   /// exception type is caught -- anything else is a real bug and should
   /// still surface as one.
   void calculate() {
+    // Snapshot the calculator-relevant inputs so an undo/redo jump can
+    // decide precisely whether this outcome still applies (see
+    // _reconcileCalculationStalenessAfterJump).
+    _calculationInputFingerprint = _calculatorInputFingerprint(_draft);
     try {
       final cuts = calculateConstructionCuts(_draft, _catalog);
       _calculationResult = cuts;

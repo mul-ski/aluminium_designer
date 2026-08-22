@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 /// The editor's toolbar: selection indicator, section add/remove, viewport
-/// zoom controls, and the manual Calculate action.
+/// zoom controls, the manual Calculate action, and undo/redo.
 ///
 /// Purely presentational -- every button delegates to a callback supplied
 /// by `ConstructionEditorScreen`, which owns the controller and the
-/// viewport's `TransformationController`. Button order, icons, and
-/// tooltips match the original toolbar exactly.
+/// viewport. Button order, icons, and tooltips are stable so tests can
+/// target them by tooltip.
 class EditorToolbar extends StatelessWidget {
   /// Whether a section (as opposed to the construction root) is currently
   /// selected -- gates the remove button.
@@ -19,6 +19,14 @@ class EditorToolbar extends StatelessWidget {
   final VoidCallback onFitToView;
   final VoidCallback onCalculate;
 
+  /// Whether history has past/future states -- gates the undo/redo
+  /// buttons exactly as the controller's canUndo/canRedo gate the
+  /// keyboard shortcuts.
+  final bool canUndo;
+  final bool canRedo;
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
+
   const EditorToolbar({
     super.key,
     required this.canRemoveSection,
@@ -28,6 +36,10 @@ class EditorToolbar extends StatelessWidget {
     required this.onZoomOut,
     required this.onFitToView,
     required this.onCalculate,
+    required this.canUndo,
+    required this.canRedo,
+    required this.onUndo,
+    required this.onRedo,
   });
 
   @override
@@ -74,6 +86,17 @@ class EditorToolbar extends StatelessWidget {
             icon: Icons.calculate_outlined,
             label: 'Calculer',
             onPressed: onCalculate,
+          ),
+          const VerticalDivider(width: 24, indent: 8, endIndent: 8),
+          _ToolbarButton(
+            icon: Icons.undo,
+            label: 'Annuler',
+            onPressed: canUndo ? onUndo : null,
+          ),
+          _ToolbarButton(
+            icon: Icons.redo,
+            label: 'Rétablir',
+            onPressed: canRedo ? onRedo : null,
           ),
         ],
       ),
