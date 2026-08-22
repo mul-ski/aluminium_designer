@@ -56,13 +56,18 @@ class CalculationResultsBanner extends StatelessWidget {
               children: [
                 Icon(Icons.update, size: 14, color: Color(0xFF8A6D00)),
                 SizedBox(width: 6),
-                Text(
-                  'Résultat obsolète -- appuyez sur Calculer pour '
-                  'actualiser.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
-                    color: Color(0xFF8A6D00),
+                // Expanded so the long notice wraps on narrow panels
+                // instead of overflowing the Row horizontally (every
+                // other text row in this banner is already Expanded).
+                Expanded(
+                  child: Text(
+                    'Résultat obsolète -- appuyez sur Calculer pour '
+                    'actualiser.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: Color(0xFF8A6D00),
+                    ),
                   ),
                 ),
               ],
