@@ -223,4 +223,22 @@ void main() {
       expect(notifications, 1);
     });
   });
+
+  group('scale accessor', () {
+    test('reflects the uniform transform scale through fit and zoom', () {
+      final viewport = _viewport()
+        ..fitToContent(contentWidth: 2000, contentHeight: 1000);
+
+      expect(viewport.scale, viewport.matrix[0]);
+
+      final scaleBefore = viewport.scale;
+      viewport.zoomBy(2);
+      expect(viewport.scale, closeTo(scaleBefore * 2, 1e-9));
+      expect(viewport.matrix[0], closeTo(scaleBefore * 2, 1e-9));
+    });
+
+    test('starts at identity scale', () {
+      expect(_viewport().scale, 1.0);
+    });
+  });
 }

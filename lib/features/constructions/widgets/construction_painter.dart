@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/geometry/section_layout.dart';
+import '../../../core/geometry/snap.dart';
 import '../../../core/models/construction.dart';
+import '../../../core/models/layout_direction.dart';
 import '../../../core/models/opening.dart';
 import '../../../core/models/section.dart';
 
@@ -55,10 +57,20 @@ class ConstructionPainter extends CustomPainter {
   /// zoom level while moving with their geometry.
   final FittedTransform transform;
 
+  /// A currently-highlighted snap to visualize, or null for none.
+  ///
+  /// Dormant plumbing: nothing produces an [ActiveSnap] yet -- the field
+  /// arrives with drag manipulation, which will own its lifecycle (set
+  /// during a gesture, cleared on end). When present, a 1 px accent line
+  /// is drawn across the full construction extent at the snapped position,
+  /// in the same blue as selection highlights.
+  final ActiveSnap? activeSnap;
+
   ConstructionPainter({
     required this.construction,
     required this.selectedSectionId,
     required this.transform,
+    this.activeSnap,
   });
 
   static const _fixedFill = Color(0xFFDCE3E8);
@@ -91,6 +103,39 @@ class ConstructionPainter extends CustomPainter {
 
     _paintOuterOutline(canvas, layout, transform);
     _paintOverallDimensions(canvas, layout, transform);
+
+    final snap = activeSnap;
+    if (snap != null) {
+      _paintActiveSnap(canvas, layout, snap);
+    }
+  }
+
+  /// Draws the accent line for [snap]: perpendicular to the layout axis,
+  /// spanning the construction's full extent at the snapped position.
+  void _paintActiveSnap(
+    Canvas canvas,
+    ConstructionLayout layout,
+    ActiveSnap snap,
+  ) {
+    final paint = Paint()
+      ..color = _selectionStroke
+      ..strokeWidth = 1;
+
+    if (construction.layoutDirection == SectionLayoutDirection.horizontal) {
+      final x = transform.toPixelX(snap.positionMm);
+      canvas.drawLine(
+        Offset(x, transform.toPixelY(0)),
+        Offset(x, transform.toPixelY(layout.height)),
+        paint,
+      );
+    } else {
+      final y = transform.toPixelY(snap.positionMm);
+      canvas.drawLine(
+        Offset(transform.toPixelX(0), y),
+        Offset(transform.toPixelX(layout.width), y),
+        paint,
+      );
+    }
   }
 
   void _paintSection(Canvas canvas, SectionRect rect, FittedTransform t) {

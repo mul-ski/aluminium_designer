@@ -63,6 +63,14 @@ class EditorViewport extends ChangeNotifier {
   FittedTransform get transform =>
       FittedTransform(scale: _scale, offsetX: _tx, offsetY: _ty);
 
+  /// The uniform model→screen scale in pixels per millimetre.
+  ///
+  /// The tolerance-conversion seam for screen-perceived interactions such
+  /// as snapping: a consumer converts a perceptual pixel constant into
+  /// model space as `constantPx / scale`, keeping the grab window constant
+  /// on screen while precision improves as you zoom in.
+  double get scale => _scale;
+
   /// The canvas widget's current logical size, as reported via
   /// [setCanvasSize], or null before the first layout pass.
   Size? get canvasSize => _canvasSize;

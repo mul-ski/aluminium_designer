@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart'
 import 'package:flutter/material.dart';
 
 import '../../../../core/geometry/section_layout.dart';
+import '../../../../core/geometry/snap.dart';
 import '../../../../core/models/construction.dart';
 import '../../../../core/models/section_geometry.dart';
 import '../editor_viewport.dart';
@@ -58,6 +59,15 @@ class EditorCanvas extends StatefulWidget {
   /// its initial fit.
   final VoidCallback? onCanvasSizeChanged;
 
+  /// A currently-highlighted snap to visualize, or null.
+  ///
+  /// Dormant plumbing for the snapping foundation: nothing produces an
+  /// [ActiveSnap] yet. When drag manipulation arrives it will own this
+  /// value's lifecycle (the screen will hold it as presentation state,
+  /// gestures will set/clear it via the pure snap engine) -- the canvas
+  /// only forwards it to the painter today.
+  final ActiveSnap? activeSnap;
+
   const EditorCanvas({
     super.key,
     required this.construction,
@@ -65,6 +75,7 @@ class EditorCanvas extends StatefulWidget {
     required this.viewport,
     required this.onSectionTap,
     this.onCanvasSizeChanged,
+    this.activeSnap,
   });
 
   @override
@@ -139,6 +150,7 @@ class _EditorCanvasState extends State<EditorCanvas> {
                           construction: widget.construction,
                           selectedSectionId: widget.selectedSectionId,
                           transform: widget.viewport.transform,
+                          activeSnap: widget.activeSnap,
                         ),
                       ),
                     ),
