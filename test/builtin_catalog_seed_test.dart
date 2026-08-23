@@ -7,6 +7,8 @@ import 'package:aluminium_designer/core/data/builtin_catalog_seed.dart';
 import 'package:aluminium_designer/core/models/catalog.dart';
 import 'package:aluminium_designer/core/models/catalog_json.dart';
 import 'package:aluminium_designer/core/models/manufacturer.dart';
+import 'package:aluminium_designer/core/models/opening.dart';
+import 'package:aluminium_designer/core/models/profile.dart';
 import 'package:aluminium_designer/core/models/profile_system.dart';
 import 'package:aluminium_designer/core/storage/catalog_store.dart';
 
@@ -20,58 +22,180 @@ void main() {
       final seeded = withBuiltInCatalogSeed(const Catalog());
 
       expect(
-        seeded.manufacturers.any((m) => m.id == aluminiumDuMarocId),
+        seeded.manufacturers.any((m) => m.id == maghrebExtrusionId),
         isTrue,
       );
       expect(
-        seeded.manufacturers.firstWhere((m) => m.id == aluminiumDuMarocId).name,
-        'Aluminium du Maroc',
+        seeded.manufacturers
+            .firstWhere((m) => m.id == maghrebExtrusionId)
+            .name,
+        'Maghreb Extrusion (ME)',
       );
     });
 
-    test('Cuzco 713 OM belongs to Aluminium du Maroc', () {
+    test('Série 14600 belongs to Maghreb Extrusion and is reachable via '
+        'the picker lookup path', () {
       final seeded = withBuiltInCatalogSeed(const Catalog());
 
       final system = seeded.profileSystems.firstWhere(
-        (s) => s.id == cuzco713OmId,
+        (s) => s.id == meSerie14600Id,
       );
-      expect(system.manufacturerId, aluminiumDuMarocId);
-      expect(system.name, 'Cuzco 713 OM');
-
-      // Confirms it's reachable via the same lookup the picker UI uses.
+      expect(system.manufacturerId, maghrebExtrusionId);
+      expect(system.name, 'Série 14600 Coulissant');
       expect(
-        seeded.systemsFor(aluminiumDuMarocId).map((s) => s.id),
-        contains(cuzco713OmId),
+        seeded.systemsFor(maghrebExtrusionId).map((s) => s.id),
+        contains(meSerie14600Id),
       );
     });
 
-    test('no fake profiles were created -- Cuzco 713 OM.profiles is empty', () {
+    test('seeded profiles are the verified transcription -- spot-checked '
+        'values against the source sheets', () {
       final seeded = withBuiltInCatalogSeed(const Catalog());
-
       final system = seeded.profileSystems.firstWhere(
-        (s) => s.id == cuzco713OmId,
+        (s) => s.id == meSerie14600Id,
       );
-      expect(system.profiles, isEmpty);
 
-      // Also confirms nothing anywhere in the seeded catalog carries a
-      // Profile -- the only System introduced by this seed is Cuzco 713
-      // OM, and it must be the empty-profiles case exactly as specified.
-      final totalProfiles = seeded.profileSystems.fold<int>(
-        0,
-        (sum, s) => sum + s.profiles.length,
+      // The document's own profile count as transcribed (see
+      // docs/VERIFIED_SOURCES.md for the full per-page table).
+      expect(system.profiles, hasLength(38));
+
+      Profile profileByRef(String reference) => system.profiles.firstWhere(
+        (p) => p.reference == reference,
       );
-      expect(totalProfiles, 0);
+
+      // p.4 DORMANTS (hi-dpi verified).
+      final p14626 = profileByRef('14 626');
+      expect(p14626.type, ProfileType.dormant);
+      expect(p14626.width, 44.66);
+      expect(p14626.depth, 66.34);
+
+      // p.7 MONTANTS LATERAUX: 56 mm series.
+      final p14622 = profileByRef('14 622');
+      expect(p14622.type, ProfileType.montant);
+      expect(p14622.width, 33.0);
+      expect(p14622.depth, 56.0);
+
+      // p.8 MONTANTS CENTRAUX: the one profile with both dims labeled.
+      final p14619 = profileByRef('14 619');
+      expect(p14619.type, ProfileType.mullion);
+      expect(p14619.width, 41.3);
+      expect(p14619.depth, 33.6);
+
+      // p.9 TRAVERSE: depth labeled, face not -> width 0 = unknown.
+      final p14621 = profileByRef('14 621');
+      expect(p14621.type, ProfileType.traverse);
+      expect(p14621.width, 0);
+      expect(p14621.depth, 63.0);
     });
 
-    test('merging is idempotent -- running it twice does not duplicate', () {
+    test('every seeded profile carries the owning manufacturer/system '
+        'names and the 0-means-unknown convention is used consistently',
+        () {
+      final seeded = withBuiltInCatalogSeed(const Catalog());
+      final system = seeded.profileSystems.firstWhere(
+        (s) => s.id == meSerie14600Id,
+      );
+
+      for (final profile in system.profiles) {
+        expect(profile.manufacturer, 'Maghreb Extrusion (ME)');
+        expect(profile.system, 'Série 14600 Coulissant');
+        expect(profile.id, startsWith('builtin-me-14600-'));
+        // No sheet states a weight per metre -- none may be invented.
+        expect(profile.weightPerMeter, 0);
+        // A dimension is either the transcribed value or the explicit
+        // unknown marker; nothing in between.
+        expect(
+          profile.width == 0 || profile.width > 0,
+          isTrue,
+          reason: '${profile.reference}: width must be 0 or positive',
+        );
+        expect(
+          profile.depth == 0 || profile.depth > 0,
+          isTrue,
+          reason: '${profile.reference}: depth must be 0 or positive',
+        );
+      }
+
+      // The profiles whose sheets label no face width must stay unknown,
+      // not silently carry another profile's width.
+      final unknownWidthRefs = [
+        '14 640', // p.5: only horizontal dims labeled
+        '14 633', // p.7: reinforced companion, face not labeled
+        '14 623', // p.7: reinforced companion, face not labeled
+        '14 650', // p.8: only vertical 96.19 labeled
+        '14 621', // p.9: depth 63 only
+        '14 631', // p.9: depth 63.00 only
+      ];
+      for (final reference in unknownWidthRefs) {
+        expect(
+          system.profiles
+              .firstWhere((p) => p.reference == reference)
+              .width,
+          0,
+          reason: '$reference: face width not labeled on its sheet',
+        );
+      }
+    });
+
+    test('system-level metadata carries exactly the facts the document '
+        'states -- including what it does NOT state', () {
+      final seeded = withBuiltInCatalogSeed(const Catalog());
+      final system = seeded.profileSystems.firstWhere(
+        (s) => s.id == meSerie14600Id,
+      );
+
+      final metadata = system.metadata;
+      expect(metadata, isNotNull);
+      expect(metadata!.frameDepthOptionsMm, [44.0, 66.34]);
+      expect(metadata.sashStileDepthOptionsMm, [56.0, 69.2]);
+      // The document states the central mullion FACE (41 mm), not a
+      // meeting-stile depth -- the depth field must stay null rather
+      // than hold a face value.
+      expect(metadata.sashMeetingStileDepthMm, isNull);
+      expect(metadata.glazingRebateMm, 26.0);
+      expect(metadata.glazingMinMm, 6.0);
+      expect(metadata.glazingMaxMm, 22.0);
+      // Never stated in the document -> null, not false.
+      expect(metadata.thermalBreak, isNull);
+      expect(metadata.assemblyNote, isNotNull);
+      expect(metadata.drainageNote, isNotNull);
+      expect(metadata.finishNote, isNotNull);
+      expect(metadata.sourceDescription, isNotEmpty);
+
+      // p.27's two certified test sizes, stored as two envelopes.
+      expect(metadata.dimensionLimits, hasLength(2));
+      expect(metadata.dimensionLimits[0].maxWidthMm, 1600);
+      expect(metadata.dimensionLimits[0].maxHeightMm, 1800);
+      expect(metadata.dimensionLimits[0].openingType, isNull);
+      expect(metadata.dimensionLimits[1].maxWidthMm, 2500);
+      expect(metadata.dimensionLimits[1].maxHeightMm, 2500);
+    });
+
+    test('rule set stays the honest generic placeholder -- the débitage '
+        'formulas are documented, not half-encoded', () {
+      final seeded = withBuiltInCatalogSeed(const Catalog());
+      final system = seeded.profileSystems.firstWhere(
+        (s) => s.id == meSerie14600Id,
+      );
+
+      expect(system.ruleSetId, 'generic-placeholder');
+      expect(system.supportedOpenings, [OpeningType.coulissante]);
+      expect(system.isBuiltIn, isTrue);
+    });
+
+    test('merging is idempotent -- running it twice does not duplicate',
+        () {
       final once = withBuiltInCatalogSeed(const Catalog());
       final twice = withBuiltInCatalogSeed(once);
 
       expect(
-        twice.manufacturers.where((m) => m.id == aluminiumDuMarocId).length,
+        twice.manufacturers.where((m) => m.id == maghrebExtrusionId).length,
         1,
       );
-      expect(twice.profileSystems.where((s) => s.id == cuzco713OmId).length, 1);
+      expect(
+        twice.profileSystems.where((s) => s.id == meSerie14600Id).length,
+        1,
+      );
     });
 
     test('does not touch existing user-created manufacturers/systems', () {
@@ -100,108 +224,81 @@ void main() {
       expect(seeded.manufacturers, contains(userManufacturer));
       expect(seeded.profileSystems, contains(userSystem));
       expect(
-        seeded.manufacturers.any((m) => m.id == aluminiumDuMarocId),
+        seeded.manufacturers.any((m) => m.id == maghrebExtrusionId),
         isTrue,
       );
     });
 
-    test('catalogue survives a JSON round-trip after seeding', () {
+    test('catalogue survives a JSON round-trip after seeding -- profiles '
+        'and metadata included', () {
       final seeded = withBuiltInCatalogSeed(const Catalog());
       final restored = catalogFromJson(seeded.toJson());
 
       expect(
-        restored.manufacturers.any((m) => m.id == aluminiumDuMarocId),
+        restored.manufacturers.any((m) => m.id == maghrebExtrusionId),
         isTrue,
       );
       final restoredSystem = restored.profileSystems.firstWhere(
-        (s) => s.id == cuzco713OmId,
+        (s) => s.id == meSerie14600Id,
       );
-      expect(restoredSystem.name, 'Cuzco 713 OM');
-      expect(restoredSystem.manufacturerId, aluminiumDuMarocId);
-      expect(restoredSystem.profiles, isEmpty);
+      expect(restoredSystem.name, 'Série 14600 Coulissant');
+      expect(restoredSystem.manufacturerId, maghrebExtrusionId);
+      expect(restoredSystem.profiles, hasLength(38));
+      expect(restoredSystem.metadata, isNotNull);
+      expect(restoredSystem.metadata!.frameDepthOptionsMm, [44.0, 66.34]);
+      expect(restoredSystem.metadata!.thermalBreak, isNull);
+      expect(restoredSystem.metadata!.dimensionLimits, hasLength(2));
+      expect(
+        restoredSystem.profiles
+            .firstWhere((p) => p.reference == '14 626')
+            .depth,
+        66.34,
+      );
     });
 
-    test(
-      'Sepalumic Maroc and its three Coulissant systems exist after seeding',
-      () {
-        final seeded = withBuiltInCatalogSeed(const Catalog());
-
-        expect(seeded.manufacturers.any((m) => m.id == sepalumicId), isTrue);
-        final sepalumicSystems = seeded.systemsFor(sepalumicId);
-        expect(sepalumicSystems.map((s) => s.id).toSet(), {
-          sepalumic8800Id,
-          sepalumic6700Id,
-          sepalumic6900Id,
-        });
-        // Every Sepalumic system carries zero profiles, same as Cuzco 713
-        // OM -- no numeric/profile data was verified for any of them.
-        expect(sepalumicSystems.every((s) => s.profiles.isEmpty), isTrue);
-      },
-    );
-
-    test('low-confidence Targa Plus and DOMAL entries exist but carry no '
-        'supportedOpenings beyond what was actually verified', () {
+    test('seeding produces exactly 1 manufacturer and 1 profile system',
+        () {
       final seeded = withBuiltInCatalogSeed(const Catalog());
 
-      final targaPlus = seeded.profileSystems.firstWhere(
-        (s) => s.id == menaraTargaPlusId,
-      );
-      expect(targaPlus.manufacturerId, menaraProfilId);
-      expect(targaPlus.profiles, isEmpty);
-      // Category itself is unverified for Targa Plus -- no OpeningType
-      // is asserted here as fitting, unlike every other seeded system.
-      expect(targaPlus.supportedOpenings, isEmpty);
-
-      final domal = seeded.profileSystems.firstWhere((s) => s.id == meDomalId);
-      expect(domal.manufacturerId, maghrebExtrusionId);
-      expect(domal.profiles, isEmpty);
+      expect(seeded.manufacturers, hasLength(1));
+      expect(seeded.profileSystems, hasLength(1));
     });
 
-    test('seeding produces exactly 4 manufacturers and 6 profile systems, '
-        'all with zero total profiles', () {
-      final seeded = withBuiltInCatalogSeed(const Catalog());
-
-      expect(seeded.manufacturers, hasLength(4));
-      expect(seeded.profileSystems, hasLength(6));
-      final totalProfiles = seeded.profileSystems.fold<int>(
-        0,
-        (sum, s) => sum + s.profiles.length,
-      );
-      expect(totalProfiles, 0);
-    });
-
-    test('each record is added independently -- pre-seeding one built-in '
-        'system does not block any of the others from being added by a '
-        'single withBuiltInCatalogSeed call', () {
-      // Start with only Cuzco 713 OM's manufacturer/system already
-      // present (as if a previous partial seed, or a hand-crafted
-      // catalog, already had exactly these two records).
+    test('each record is added independently -- pre-seeding the built-in '
+        'manufacturer does not block the system from being added', () {
       final partial = Catalog(
-        manufacturers: const [aluminiumDuMaroc],
-        profileSystems: const [cuzco713Om],
+        manufacturers: const [maghrebExtrusion],
       );
 
       final seeded = withBuiltInCatalogSeed(partial);
 
-      // Cuzco 713 OM's pair isn't duplicated...
       expect(
-        seeded.manufacturers.where((m) => m.id == aluminiumDuMarocId).length,
+        seeded.manufacturers.where((m) => m.id == maghrebExtrusionId).length,
         1,
       );
       expect(
-        seeded.profileSystems.where((s) => s.id == cuzco713OmId).length,
+        seeded.profileSystems.where((s) => s.id == meSerie14600Id).length,
         1,
       );
-      // ...and every other built-in record still gets added in the
-      // same call, proving each id is evaluated independently rather
-      // than the whole seed being skipped once *anything* is present.
-      expect(seeded.manufacturers.any((m) => m.id == sepalumicId), isTrue);
+    });
+
+    test('pre-seeding the built-in system does not block the manufacturer '
+        'from being added (records evaluated independently)', () {
+      final systemOnly = withBuiltInCatalogSeed(
+        const Catalog(),
+      ).profileSystems.where((s) => s.id == meSerie14600Id).toList();
+      final partial = Catalog(profileSystems: systemOnly);
+
+      final seeded = withBuiltInCatalogSeed(partial);
+
       expect(
-        seeded.profileSystems.where((s) => s.id == sepalumic8800Id).length,
+        seeded.manufacturers.where((m) => m.id == maghrebExtrusionId).length,
         1,
       );
-      expect(seeded.manufacturers, hasLength(4));
-      expect(seeded.profileSystems, hasLength(6));
+      expect(
+        seeded.profileSystems.where((s) => s.id == meSerie14600Id).length,
+        1,
+      );
     });
   });
 
@@ -224,10 +321,10 @@ void main() {
       final catalog = await store.load();
 
       expect(
-        catalog.manufacturers.any((m) => m.id == aluminiumDuMarocId),
+        catalog.manufacturers.any((m) => m.id == maghrebExtrusionId),
         isTrue,
       );
-      expect(catalog.profileSystems.any((s) => s.id == cuzco713OmId), isTrue);
+      expect(catalog.profileSystems.any((s) => s.id == meSerie14600Id), isTrue);
     });
 
     test('app restart persistence: a fresh CatalogStore instance still sees '
@@ -241,10 +338,10 @@ void main() {
       final reloaded = await secondRun.load();
 
       expect(
-        reloaded.manufacturers.any((m) => m.id == aluminiumDuMarocId),
+        reloaded.manufacturers.any((m) => m.id == maghrebExtrusionId),
         isTrue,
       );
-      expect(reloaded.profileSystems.any((s) => s.id == cuzco713OmId), isTrue);
+      expect(reloaded.profileSystems.any((s) => s.id == meSerie14600Id), isTrue);
     });
 
     test('deleting the built-in manufacturer and reloading does not '
@@ -256,10 +353,10 @@ void main() {
       // system) via the existing delete UI, then saving.
       final withoutBuiltIns = catalog.copyWith(
         manufacturers: catalog.manufacturers
-            .where((m) => m.id != aluminiumDuMarocId)
+            .where((m) => m.id != maghrebExtrusionId)
             .toList(),
         profileSystems: catalog.profileSystems
-            .where((s) => s.id != cuzco713OmId)
+            .where((s) => s.id != meSerie14600Id)
             .toList(),
       );
       await store.save(withoutBuiltIns);
@@ -269,10 +366,13 @@ void main() {
       final reloaded = await reloadedStore.load();
 
       expect(
-        reloaded.manufacturers.any((m) => m.id == aluminiumDuMarocId),
+        reloaded.manufacturers.any((m) => m.id == maghrebExtrusionId),
         isFalse,
       );
-      expect(reloaded.profileSystems.any((s) => s.id == cuzco713OmId), isFalse);
+      expect(
+        reloaded.profileSystems.any((s) => s.id == meSerie14600Id),
+        isFalse,
+      );
     });
   });
 }
