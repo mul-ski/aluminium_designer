@@ -1,9 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:aluminium_designer/core/models/calculation_outcome.dart';
 import 'package:aluminium_designer/core/models/catalog.dart';
 import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
 import 'package:aluminium_designer/core/models/layout_direction.dart';
+import 'package:aluminium_designer/core/models/profile.dart';
+import 'package:aluminium_designer/core/models/profile_system.dart';
 import 'package:aluminium_designer/core/models/profile_usage.dart';
 import 'package:aluminium_designer/core/models/project_json.dart'
     show ConstructionJson;
@@ -26,24 +29,19 @@ Construction _construction({String? manufacturerId, String? systemId}) =>
       profiles: const [],
     );
 
-Section _fixedSection({
-  String id = 's1',
-  int order = 0,
-  double width = 1000,
-}) => Section(
-  id: id,
-  order: order,
-  kind: SectionKind.fixed,
-  width: width,
-  height: 1200,
-);
+Section _fixedSection({String id = 's1', int order = 0, double width = 1000}) =>
+    Section(
+      id: id,
+      order: order,
+      kind: SectionKind.fixed,
+      width: width,
+      height: 1200,
+    );
 
 /// A controller over a dimensioned construction containing one fixed
 /// section -- the common base for history tests.
 ConstructionEditorController _controllerWithSection() {
-  final construction = _construction().copyWith(
-    sections: [_fixedSection()],
-  );
+  final construction = _construction().copyWith(sections: [_fixedSection()]);
   return ConstructionEditorController(construction: construction);
 }
 
@@ -96,8 +94,11 @@ void main() {
       for (final bad in const ['-5', '0', 'abc', '']) {
         controller.applySectionWidth(section, bad);
         controller.applySectionHeight(section, bad);
-        expect(controller.canUndo, isFalse,
-            reason: "'$bad' must not create history");
+        expect(
+          controller.canUndo,
+          isFalse,
+          reason: "'$bad' must not create history",
+        );
         expect(controller.draft.sections.single.width, 1000);
         expect(controller.draft.sections.single.height, 1200);
       }
@@ -123,66 +124,51 @@ void main() {
     });
   });
   group('ConstructionEditorController width/height edits', () {
-    test(
-      'setWidth preserves authoritative manufacturerId/systemId',
-      () {
-        final controller = ConstructionEditorController(
-          construction: _construction(
-            manufacturerId: 'mfr-1',
-            systemId: 'sys-1',
-          ),
-        );
+    test('setWidth preserves authoritative manufacturerId/systemId', () {
+      final controller = ConstructionEditorController(
+        construction: _construction(manufacturerId: 'mfr-1', systemId: 'sys-1'),
+      );
 
-        controller.setWidth('2000');
+      controller.setWidth('2000');
 
-        expect(controller.draft.width, 2000);
-        expect(controller.draft.manufacturerId, 'mfr-1');
-        expect(controller.draft.systemId, 'sys-1');
-        // Display-name fallbacks are preserved alongside the ids too.
-        expect(controller.draft.manufacturer, 'Some Manufacturer');
-        expect(controller.draft.system, 'Some System');
-      },
-    );
+      expect(controller.draft.width, 2000);
+      expect(controller.draft.manufacturerId, 'mfr-1');
+      expect(controller.draft.systemId, 'sys-1');
+      // Display-name fallbacks are preserved alongside the ids too.
+      expect(controller.draft.manufacturer, 'Some Manufacturer');
+      expect(controller.draft.system, 'Some System');
+    });
 
-    test(
-      'setHeight preserves authoritative manufacturerId/systemId',
-      () {
-        final controller = ConstructionEditorController(
-          construction: _construction(
-            manufacturerId: 'mfr-1',
-            systemId: 'sys-1',
-          ),
-        );
+    test('setHeight preserves authoritative manufacturerId/systemId', () {
+      final controller = ConstructionEditorController(
+        construction: _construction(manufacturerId: 'mfr-1', systemId: 'sys-1'),
+      );
 
-        controller.setHeight('1500');
+      controller.setHeight('1500');
 
-        expect(controller.draft.height, 1500);
-        expect(controller.draft.manufacturerId, 'mfr-1');
-        expect(controller.draft.systemId, 'sys-1');
-        expect(controller.draft.manufacturer, 'Some Manufacturer');
-        expect(controller.draft.system, 'Some System');
-      },
-    );
+      expect(controller.draft.height, 1500);
+      expect(controller.draft.manufacturerId, 'mfr-1');
+      expect(controller.draft.systemId, 'sys-1');
+      expect(controller.draft.manufacturer, 'Some Manufacturer');
+      expect(controller.draft.system, 'Some System');
+    });
 
-    test(
-      'null ids stay null through width/height edits '
-      '(no system ever selected)',
-      () {
-        final controller = ConstructionEditorController(
-          construction: _construction(),
-        );
-        expect(controller.draft.manufacturerId, isNull);
-        expect(controller.draft.systemId, isNull);
+    test('null ids stay null through width/height edits '
+        '(no system ever selected)', () {
+      final controller = ConstructionEditorController(
+        construction: _construction(),
+      );
+      expect(controller.draft.manufacturerId, isNull);
+      expect(controller.draft.systemId, isNull);
 
-        controller.setWidth('2000');
-        controller.setHeight('1500');
+      controller.setWidth('2000');
+      controller.setHeight('1500');
 
-        expect(controller.draft.manufacturerId, isNull);
-        expect(controller.draft.systemId, isNull);
-        expect(controller.draft.width, 2000);
-        expect(controller.draft.height, 1500);
-      },
-    );
+      expect(controller.draft.manufacturerId, isNull);
+      expect(controller.draft.systemId, isNull);
+      expect(controller.draft.width, 2000);
+      expect(controller.draft.height, 1500);
+    });
 
     test(
       'clearing a dimension back to null (empty field) still preserves ids',
@@ -208,29 +194,24 @@ void main() {
       },
     );
 
-    test(
-      'dimension edits leave every other construction field untouched',
-      () {
-        final original = _construction(
-          manufacturerId: 'mfr-1',
-          systemId: 'sys-1',
-        );
-        final controller = ConstructionEditorController(
-          construction: original,
-        );
+    test('dimension edits leave every other construction field untouched', () {
+      final original = _construction(
+        manufacturerId: 'mfr-1',
+        systemId: 'sys-1',
+      );
+      final controller = ConstructionEditorController(construction: original);
 
-        controller.setWidth('2000');
-        controller.setHeight('1500');
+      controller.setWidth('2000');
+      controller.setHeight('1500');
 
-        expect(controller.draft.id, original.id);
-        expect(controller.draft.name, original.name);
-        expect(controller.draft.type, original.type);
-        expect(controller.draft.sections, same(original.sections));
-        expect(controller.draft.layoutDirection, original.layoutDirection);
-        expect(controller.draft.profiles, same(original.profiles));
-        expect(controller.draft.profileUsages, same(original.profileUsages));
-      },
-    );
+      expect(controller.draft.id, original.id);
+      expect(controller.draft.name, original.name);
+      expect(controller.draft.type, original.type);
+      expect(controller.draft.sections, same(original.sections));
+      expect(controller.draft.layoutDirection, original.layoutDirection);
+      expect(controller.draft.profiles, same(original.profiles));
+      expect(controller.draft.profileUsages, same(original.profileUsages));
+    });
   });
 
   group('undo/redo basics', () {
@@ -254,7 +235,9 @@ void main() {
     });
 
     test('basic redo re-applies the undone mutation', () {
-      final controller = _controllerWithSection()..setType(ConstructionType.door)..undo();
+      final controller = _controllerWithSection()
+        ..setType(ConstructionType.door)
+        ..undo();
 
       controller.redo();
       expect(controller.draft.type, ConstructionType.door);
@@ -267,8 +250,7 @@ void main() {
       final mutated = controller.draft.toJson().toString();
 
       controller.undo();
-      expect(controller.draft.toJson().toString(),
-          isNot(mutated));
+      expect(controller.draft.toJson().toString(), isNot(mutated));
 
       controller.redo();
       expect(controller.draft.toJson().toString(), mutated);
@@ -353,24 +335,21 @@ void main() {
       expect(controller.canUndo, isFalse);
     });
 
-    test(
-      'consecutive edits of one field coalesce into a single entry',
-      () {
-        final controller = _controllerWithSection();
+    test('consecutive edits of one field coalesce into a single entry', () {
+      final controller = _controllerWithSection();
 
-        // Simulates typing "1500" digit by digit into the width field.
-        controller
-          ..setWidth('1')
-          ..setWidth('15')
-          ..setWidth('150')
-          ..setWidth('1500');
+      // Simulates typing "1500" digit by digit into the width field.
+      controller
+        ..setWidth('1')
+        ..setWidth('15')
+        ..setWidth('150')
+        ..setWidth('1500');
 
-        expect(controller.draft.width, 1500);
-        controller.undo();
-        expect(controller.draft.width, 1800); // back BEFORE the whole run
-        expect(controller.canUndo, isFalse);
-      },
-    );
+      expect(controller.draft.width, 1500);
+      controller.undo();
+      expect(controller.draft.width, 1800); // back BEFORE the whole run
+      expect(controller.canUndo, isFalse);
+    });
 
     test('switching fields breaks the coalescing run', () {
       final controller = _controllerWithSection();
@@ -503,25 +482,22 @@ void main() {
   });
 
   group('calculation staleness across undo/redo', () {
-    test(
-      'undoing back to the calculated-for state un-stales the outcome',
-      () {
-        final controller = _controllerWithSection();
+    test('undoing back to the calculated-for state un-stales the outcome', () {
+      final controller = _controllerWithSection();
 
-        controller.calculate();
-        expect(controller.calculationHasRun, isTrue);
-        expect(controller.calculationIsStale, isFalse);
+      controller.calculate();
+      expect(controller.calculationHasRun, isTrue);
+      expect(controller.calculationIsStale, isFalse);
 
-        controller.setWidth('2000'); // calculator input -> live stale
-        expect(controller.calculationIsStale, isTrue);
+      controller.setWidth('2000'); // calculator input -> live stale
+      expect(controller.calculationIsStale, isTrue);
 
-        controller.undo(); // back to the calculated inputs
-        expect(controller.calculationIsStale, isFalse);
+      controller.undo(); // back to the calculated inputs
+      expect(controller.calculationIsStale, isFalse);
 
-        controller.redo(); // away from them again
-        expect(controller.calculationIsStale, isTrue);
-      },
-    );
+      controller.redo(); // away from them again
+      expect(controller.calculationIsStale, isTrue);
+    });
 
     test('type-only jumps keep the outcome fresh across undo/redo', () {
       // ConstructionType is NOT part of the calculator-input fingerprint
@@ -552,8 +528,7 @@ void main() {
       expect(controller.calculationIsStale, isFalse);
     });
 
-    test('layout-direction jumps keep the outcome fresh, like live edits',
-        () {
+    test('layout-direction jumps keep the outcome fresh, like live edits', () {
       final controller = _controllerWithSection()..calculate();
 
       controller.setLayoutDirection(SectionLayoutDirection.vertical);
@@ -563,8 +538,7 @@ void main() {
       expect(controller.calculationIsStale, isFalse);
     });
 
-    test('live stale mark persists when there is no outcome to reconcile',
-        () {
+    test('live stale mark persists when there is no outcome to reconcile', () {
       // Legacy behaviour preserved: every content edit live-marks the
       // (possibly nonexistent) outcome stale, and jump reconciliation only
       // runs when an outcome actually exists.
@@ -573,6 +547,197 @@ void main() {
         ..undo();
 
       expect(controller.calculationHasRun, isFalse);
+      expect(controller.calculationIsStale, isTrue);
+    });
+  });
+
+  group('calculation staleness across catalog changes', () {
+    Profile montant({
+      String id = 'M1',
+      ProfileType type = ProfileType.montant,
+      double weightPerMeter = 1.5,
+      String name = 'Montant',
+      String reference = 'M1',
+    }) => Profile(
+      id: id,
+      manufacturer: 'Mfr',
+      system: 'Sys',
+      reference: reference,
+      name: name,
+      type: type,
+      width: 40,
+      depth: 60,
+      weightPerMeter: weightPerMeter,
+    );
+
+    ProfileSystem systemWith(List<Profile> profiles) => ProfileSystem(
+      id: 'sys-1',
+      manufacturer: 'Mfr',
+      manufacturerId: 'mfr-1',
+      name: 'Test System',
+      ruleSetId: 'generic-placeholder',
+      profiles: profiles,
+      supportedOpenings: const [],
+      isBuiltIn: false,
+    );
+
+    /// Controller over a construction on system sys-1 with one usage of
+    /// profile M1 -- a state whose calculation consumes catalog data.
+    ConstructionEditorController controllerWithUsage() {
+      final construction =
+          _construction(manufacturerId: 'mfr-1', systemId: 'sys-1').copyWith(
+            profileUsages: [
+              const ProfileUsage(
+                id: 'u1',
+                profileId: 'M1',
+                sectionId: 's1',
+                role: ProfileUsageRole.left,
+              ),
+            ],
+          );
+      return ConstructionEditorController(construction: construction)
+        ..setCatalog(
+          Catalog(
+            profileSystems: [
+              systemWith([montant()]),
+            ],
+          ),
+        );
+    }
+
+    test('setCatalog before any calculation is inert', () {
+      final controller = _controllerWithSection()..setCatalog(const Catalog());
+
+      expect(controller.calculationHasRun, isFalse);
+      expect(controller.calculationIsStale, isFalse);
+    });
+
+    test(
+      'a referenced-profile type edit through setCatalog stales the '
+      'outcome; recalculating restores freshness against the new catalog',
+      () {
+        final controller = controllerWithUsage()..calculate();
+        expect(controller.calculationIsStale, isFalse);
+
+        controller.setCatalog(
+          Catalog(
+            profileSystems: [
+              systemWith([montant(type: ProfileType.traverse)]),
+            ],
+          ),
+        );
+        expect(controller.calculationIsStale, isTrue);
+
+        controller.calculate();
+        expect(controller.calculationIsStale, isFalse);
+      },
+    );
+
+    test('deleting the referenced profile stales the outcome; the next run '
+        'reports it as an unresolved-profile issue instead of silently '
+        'keeping old cuts', () {
+      final controller = controllerWithUsage()
+        ..setCatalog(
+          Catalog(
+            profileSystems: [
+              systemWith([montant()]),
+            ],
+          ),
+        )
+        ..calculate();
+      expect(controller.calculationResult!.cuts, hasLength(1));
+
+      // Profile removed, system itself still present.
+      controller.setCatalog(Catalog(profileSystems: [systemWith(const [])]));
+      expect(controller.calculationIsStale, isTrue);
+
+      controller.calculate();
+      expect(controller.calculationIsStale, isFalse);
+      expect(controller.calculationResult!.cuts, isEmpty);
+      expect(controller.calculationIssues.single.profileUsageId, 'u1');
+      expect(
+        controller.calculationIssues.single.reason,
+        ProfileUsageIssueReason.profileUnresolved,
+      );
+    });
+
+    test('deleting the selected system entirely stales the outcome', () {
+      final controller = controllerWithUsage()..calculate();
+      expect(controller.calculationIsStale, isFalse);
+
+      controller.setCatalog(const Catalog());
+      expect(controller.calculationIsStale, isTrue);
+    });
+
+    test('a display-only rename does NOT stale the outcome -- numbers stay '
+        'valid, matching the draft-rename precedent', () {
+      final controller = controllerWithUsage()..calculate();
+      expect(controller.calculationIsStale, isFalse);
+
+      controller.setCatalog(
+        Catalog(
+          profileSystems: [
+            systemWith([montant(name: 'Nouveau nom', reference: 'REF-X')]),
+          ],
+        ),
+      );
+      expect(controller.calculationIsStale, isFalse);
+    });
+
+    test('a weight-only change DOES stale the outcome (totals consume '
+        'weightPerMeter)', () {
+      final controller = controllerWithUsage()..calculate();
+      expect(controller.calculationIsStale, isFalse);
+
+      controller.setCatalog(
+        Catalog(
+          profileSystems: [
+            systemWith([montant(weightPerMeter: 2.5)]),
+          ],
+        ),
+      );
+      expect(controller.calculationIsStale, isTrue);
+    });
+
+    test('unrelated catalog changes keep the outcome fresh', () {
+      final controller = controllerWithUsage()..calculate();
+
+      controller.setCatalog(
+        Catalog(
+          profileSystems: [
+            systemWith([
+              montant(),
+              montant(
+                id: 'T9',
+                type: ProfileType.traverse,
+                name: 'Unrelated',
+                reference: 'T9',
+              ),
+            ]),
+          ],
+        ),
+      );
+      expect(controller.calculationIsStale, isFalse);
+    });
+
+    test('undoing back to the calculated-for draft stays stale while the '
+        'catalog differs -- both fingerprint terms compose', () {
+      final controller = controllerWithUsage()..calculate();
+
+      controller.setWidth('2000'); // draft term goes stale
+      expect(controller.calculationIsStale, isTrue);
+
+      controller.setCatalog(
+        Catalog(
+          profileSystems: [
+            systemWith([montant(weightPerMeter: 9.9)]),
+          ],
+        ),
+      );
+
+      controller.undo(); // back to the calculated-for draft...
+      // ...but the catalog still differs from what calculate() ran
+      // against, so the outcome must stay stale.
       expect(controller.calculationIsStale, isTrue);
     });
   });
@@ -592,8 +757,7 @@ void main() {
 
     test('catalog snapshot survives undo/redo jumps untouched', () {
       const customCatalog = Catalog();
-      final controller =
-          _controllerWithSection()..setCatalog(customCatalog);
+      final controller = _controllerWithSection()..setCatalog(customCatalog);
 
       controller.setName('X');
       controller.undo();
@@ -601,8 +765,7 @@ void main() {
       expect(identical(controller.catalog, customCatalog), isTrue);
     });
 
-    test('selection falls back to root when its section is undone away',
-        () {
+    test('selection falls back to root when its section is undone away', () {
       final controller = _controllerWithSection()
         ..selectSection('s1')
         ..removeSelectedSection(); // clears selection by contract

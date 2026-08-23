@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../core/logic/boundary_manipulation.dart';
+import '../../../core/logic/calculation_staleness.dart';
 import '../../../core/logic/rule_set_resolution.dart';
 import '../../../core/logic/system_compatibility.dart';
 import '../../../core/models/calculation_outcome.dart';
@@ -173,12 +174,22 @@ class ConstructionEditorController extends ChangeNotifier {
   /// indicator so going out of date is visible rather than invisible.
   bool _calculationIsStale = false;
 
-  /// Fingerprint of the calculator-relevant inputs (overall dimensions,
-  /// selected system, profile usages) as they were when [calculate] last
-  /// ran. After an undo/redo jump this is what decides whether the
-  /// recorded outcome is stale -- see
-  /// [_reconcileCalculationStalenessAfterJump]. Null until the first run.
+  /// Fingerprint of the calculator-relevant DRAFT inputs (overall
+  /// dimensions, selected system, profile usages) as they were when
+  /// [calculate] last ran. Paired with [_catalogInputFingerprint], this is
+  /// what decides whether the recorded outcome is stale after an undo/redo
+  /// jump or a catalog replacement -- see
+  /// [_reconcileCalculationStaleness]. Null until the first run.
   String? _calculationInputFingerprint;
+
+  /// Fingerprint of the calculator-relevant CATALOG state (resolved rule
+  /// set identity + referenced profiles' type/weight/resolution -- see
+  /// `catalogCalculationFingerprint`) as it was when [calculate] last ran.
+  /// The catalog lives OUTSIDE undo/redo history and outside the draft, so
+  /// without this snapshot a profile edited/deleted via the picker
+  /// mid-session would leave a result looking fresh although its inputs no
+  /// longer match. Null until the first run.
+  String? _catalogInputFingerprint;
 
   /// Creates a controller editing [construction], against an empty
   /// catalog -- the screen replaces it via [setCatalog] once the persisted
@@ -287,22 +298,30 @@ class ConstructionEditorController extends ChangeNotifier {
     if (selectedId != null && !_draft.sections.any((s) => s.id == selectedId)) {
       _selectedSectionId = null;
     }
-    _reconcileCalculationStalenessAfterJump();
+    _reconcileCalculationStaleness();
     notifyListeners();
   }
 
-  /// Recomputes staleness precisely after an undo/redo: the recorded
-  /// outcome is stale exactly when the calculator-relevant inputs of the
-  /// restored draft differ from what [calculate] actually ran against.
+  /// Recomputes staleness precisely against what [calculate] actually ran
+  /// against: the recorded outcome is stale exactly when the calculator-
+  /// relevant DRAFT inputs of the current draft differ from the stored run,
+  /// OR the calculator-relevant CATALOG state changed since (referenced
+  /// profile deleted/retyped/reweighted, rule-set identity swapped, system
+  /// unresolved).
   ///
-  /// Undoing back to the calculated-for state therefore legitimately
+  /// Undoing back to the calculated-for draft therefore legitimately
   /// un-stales the result again, while jumping anywhere else re-stales it.
-  /// This complements (does not replace) the per-mutator
+  /// The catalog term is constant across undo/redo jumps (the catalog is
+  /// not part of history) but is what makes a picker-side edit invalidate;
+  /// see [setCatalog], the single mid-session catalog entry point. This
+  /// complements (does not replace) the per-mutator
   /// [_markCalculationStale] calls used on live edits.
-  void _reconcileCalculationStalenessAfterJump() {
+  void _reconcileCalculationStaleness() {
     if (!calculationHasRun) return;
     _calculationIsStale =
-        _calculatorInputFingerprint(_draft) != _calculationInputFingerprint;
+        _calculatorInputFingerprint(_draft) != _calculationInputFingerprint ||
+        catalogCalculationFingerprint(_catalog, _draft) !=
+            _catalogInputFingerprint;
   }
 
   /// The single integration point for every draft mutation. Records the
@@ -345,9 +364,10 @@ class ConstructionEditorController extends ChangeNotifier {
   /// for both no-op detection here and dirty-state comparison.
   static String _persistedJson(Construction c) => c.toJson().toString();
 
-  /// Fingerprint of ONLY the inputs `ConstructionCalculator` reads:
+  /// Fingerprint of the DRAFT-side inputs `ConstructionCalculator` reads:
   /// overall dimensions, the authoritative system id, and the profile
-  /// usages with their placements/quantities.
+  /// usages with their placements/quantities. The catalog-side counterpart
+  /// is `catalogCalculationFingerprint` in `calculation_staleness.dart`.
   static String _calculatorInputFingerprint(Construction c) =>
       '${c.width}|${c.height}|${c.systemId}'
       '|${c.profileUsages.map((u) => u.toJson().toString()).join(';')}';
@@ -558,8 +578,17 @@ class ConstructionEditorController extends ChangeNotifier {
 
   /// Replaces the catalog snapshot (after the screen loads it from disk,
   /// or after the picker created/deleted entries and persisted them).
+  ///
+  /// The catalog can change calculation inputs WITHOUT touching the draft
+  /// -- e.g. a referenced profile edited or deleted in the profiles panel.
+  /// Staleness is therefore reconciled here exactly as after an undo/redo
+  /// jump: a recorded outcome whose catalog fingerprint no longer matches
+  /// is flagged stale (and one whose state was restored to equivalence is
+  /// legitimately un-staled). Before the first [calculate] this is inert --
+  /// there is no recorded outcome to reconcile.
   void setCatalog(Catalog catalog) {
     _catalog = catalog;
+    _reconcileCalculationStaleness();
     notifyListeners();
   }
 
@@ -815,10 +844,12 @@ class ConstructionEditorController extends ChangeNotifier {
   /// exception type is caught -- anything else is a real bug and should
   /// still surface as one.
   void calculate() {
-    // Snapshot the calculator-relevant inputs so an undo/redo jump can
-    // decide precisely whether this outcome still applies (see
-    // _reconcileCalculationStalenessAfterJump).
+    // Snapshot the calculator-relevant inputs -- draft AND catalog -- so
+    // undo/redo jumps and catalog replacements can decide precisely
+    // whether this outcome still applies (see
+    // _reconcileCalculationStaleness).
     _calculationInputFingerprint = _calculatorInputFingerprint(_draft);
+    _catalogInputFingerprint = catalogCalculationFingerprint(_catalog, _draft);
     try {
       final outcome = calculateConstructionCuts(_draft, _catalog);
       _calculationResult = outcome;
