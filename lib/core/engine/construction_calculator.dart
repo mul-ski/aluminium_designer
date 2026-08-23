@@ -190,6 +190,9 @@ class ConstructionCalculator {
           angleEnd: rule.angles.end,
           profileUsageId: usage.id,
           sectionId: usage.sectionId,
+          // Cut-level provenance: which rule produced this piece (null
+          // when the rule has no description -- never invented).
+          ruleDescription: rule.description,
         ),
       );
     }

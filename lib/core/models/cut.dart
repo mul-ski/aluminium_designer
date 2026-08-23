@@ -26,6 +26,13 @@ class ProfileCut {
   /// of silently dropping traceability whenever a section goes stale.
   final String sectionId;
 
+  /// Human-readable description of the [ProfileCalculationRule] that
+  /// produced this cut -- copied through from `rule.description` so a cut
+  /// list can show WHY each piece has its length/quantity/angles without
+  /// re-running the calculation. Null when the producing rule has no
+  /// description; never invented here.
+  final String? ruleDescription;
+
   const ProfileCut({
     required this.profile,
     required this.length,
@@ -34,5 +41,6 @@ class ProfileCut {
     required this.angleEnd,
     required this.profileUsageId,
     required this.sectionId,
+    this.ruleDescription,
   });
 }

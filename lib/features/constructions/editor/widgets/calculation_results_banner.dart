@@ -20,6 +20,12 @@ import '../../../../core/models/section.dart';
 /// per group, matching the plain informational style of the no-section /
 /// no-system notices rather than introducing a new visual language for
 /// what is still a placeholder-rule-set result, not real fabrication data.
+/// Each cut row also shows its producing rule's description (cut-level
+/// provenance) when the rule carries one.
+///
+/// Usages that produced no cut are listed after the cut groups with their
+/// skip reason (`CalculationOutcome.issues`) -- "fewer cuts than
+/// usages" is always explainable, never silent.
 ///
 /// [isStale] shows a small "outdated" notice above whichever outcome is
 /// active, when the draft has changed since that outcome was computed --
@@ -158,16 +164,73 @@ class CalculationResultsBanner extends StatelessWidget {
           for (final cut in entry.value)
             Padding(
               padding: const EdgeInsets.only(bottom: 2, left: 8),
-              child: Text(
-                '${cut.profile.name} — ${cut.length.toStringAsFixed(0)} mm '
-                '× ${cut.quantity} (${cut.angleStart.toStringAsFixed(0)}° / '
-                '${cut.angleEnd.toStringAsFixed(0)}°)',
-                style: const TextStyle(fontSize: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${cut.profile.name} — ${cut.length.toStringAsFixed(0)} mm '
+                    '× ${cut.quantity} (${cut.angleStart.toStringAsFixed(0)}° / '
+                    '${cut.angleEnd.toStringAsFixed(0)}°)',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  // Cut-level provenance: which rule produced this piece
+                  // (only when the rule carries a description -- never
+                  // invented here). A second dim line keeps the main
+                  // numbers scannable.
+                  if (cut.ruleDescription != null)
+                    Text(
+                      cut.ruleDescription!,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF5B6B76),
+                      ),
+                    ),
+                ],
               ),
             ),
           const SizedBox(height: 4),
         ],
+        // Per-usage diagnostics: every usage that produced no cut, with
+        // why. Warning-toned (matching the stale notice) rather than
+        // error-red -- a skipped usage is usually a mid-editing state,
+        // not a failure.
+        if (outcome.issues.isNotEmpty) ...[
+          Text(
+            '${outcome.issues.length} assignation(s) sans coupe',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF8A6D00),
+            ),
+          ),
+          const SizedBox(height: 2),
+          for (final issue in outcome.issues)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2, left: 8),
+              child: Text(
+                '${_usageLabel(issue.profileUsageId)} — '
+                '${_labelForIssue(issue.reason)}',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF8A6D00)),
+              ),
+            ),
+        ],
       ],
     );
+  }
+
+  /// Short label for an issue row. Usages have no user-facing names yet,
+  /// so the row leads with the usage id -- stable and already visible in
+  /// no other place; when a named usage model arrives this is the one
+  /// spot to swap.
+  static String _usageLabel(String profileUsageId) =>
+      'Assignation $profileUsageId';
+
+  static String _labelForIssue(ProfileUsageIssueReason reason) {
+    switch (reason) {
+      case ProfileUsageIssueReason.profileUnresolved:
+        return 'profil introuvable dans le système';
+      case ProfileUsageIssueReason.noRuleMatched:
+        return 'aucune règle de calcul ne correspond';
+    }
   }
 }

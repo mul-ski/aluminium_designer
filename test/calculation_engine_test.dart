@@ -411,23 +411,29 @@ void main() {
       },
     );
 
-    test('reports an unresolved-profile usage as a profileUnresolved issue', () {
-      const calculator = ConstructionCalculator();
-      final construction = _construction(
-        sections: [_section('s1')],
-        profileUsages: [_usage('u1', profileId: 'missing', sectionId: 's1')],
-      );
+    test(
+      'reports an unresolved-profile usage as a profileUnresolved issue',
+      () {
+        const calculator = ConstructionCalculator();
+        final construction = _construction(
+          sections: [_section('s1')],
+          profileUsages: [_usage('u1', profileId: 'missing', sectionId: 's1')],
+        );
 
-      final outcome = calculator.calculate(construction, profilesById: const {});
+        final outcome = calculator.calculate(
+          construction,
+          profilesById: const {},
+        );
 
-      expect(outcome.cuts, isEmpty);
-      expect(outcome.issues, hasLength(1));
-      expect(outcome.issues.single.profileUsageId, 'u1');
-      expect(
-        outcome.issues.single.reason,
-        ProfileUsageIssueReason.profileUnresolved,
-      );
-    });
+        expect(outcome.cuts, isEmpty);
+        expect(outcome.issues, hasLength(1));
+        expect(outcome.issues.single.profileUsageId, 'u1');
+        expect(
+          outcome.issues.single.reason,
+          ProfileUsageIssueReason.profileUnresolved,
+        );
+      },
+    );
 
     test('reports a no-match usage as a noRuleMatched issue', () {
       const emptyRuleSet = SystemRuleSet(
@@ -909,6 +915,72 @@ void main() {
         expect(cuts.length, 1);
         expect(cuts[0].profileUsageId, 'u1');
         expect(cuts[0].sectionId, 'ghost-section');
+      });
+    });
+
+    group('ProfileCut rule provenance', () {
+      test('carries the producing rule description through to the cut', () {
+        const describedRuleSet = SystemRuleSet(
+          systemId: 'sys',
+          name: 'Described',
+          isPlaceholder: true,
+          rules: [
+            ProfileCalculationRule(
+              appliesTo: ProfileType.montant,
+              lengthExpression: DimensionExpression.variable(
+                DimensionVariable.constructionHeight,
+              ),
+              quantity: CutQuantity.fixed(1),
+              angles: CutAngles.mitred45(),
+              isPlaceholder: true,
+              description: 'Test rule A',
+            ),
+          ],
+        );
+        const calculator = ConstructionCalculator(ruleSet: describedRuleSet);
+        final construction = _construction(
+          sections: [_section('s1')],
+          profileUsages: [_usage('u1', profileId: 'M1', sectionId: 's1')],
+        );
+
+        final cuts = _calculateCuts(
+          calculator,
+          construction,
+          profilesById: {'M1': _profile('M1')},
+        );
+
+        expect(cuts.single.ruleDescription, 'Test rule A');
+      });
+
+      test('ruleDescription stays null when the rule has no description', () {
+        // Placeholder rules all carry descriptions; use a bare rule
+        // instead to prove null passes through unmodified.
+        const anonymousRuleSet = SystemRuleSet(
+          systemId: 'sys',
+          name: 'Anonymous',
+          isPlaceholder: true,
+          rules: [
+            ProfileCalculationRule(
+              appliesTo: ProfileType.montant,
+              lengthExpression: DimensionExpression.variable(
+                DimensionVariable.constructionHeight,
+              ),
+              quantity: CutQuantity.fixed(1),
+              angles: CutAngles.mitred45(),
+              isPlaceholder: true,
+            ),
+          ],
+        );
+        final cuts = _calculateCuts(
+          ConstructionCalculator(ruleSet: anonymousRuleSet),
+          _construction(
+            sections: [_section('s1')],
+            profileUsages: [_usage('u1', profileId: 'M1', sectionId: 's1')],
+          ),
+          profilesById: {'M1': _profile('M1')},
+        );
+
+        expect(cuts.single.ruleDescription, isNull);
       });
     });
 

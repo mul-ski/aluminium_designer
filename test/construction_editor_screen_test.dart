@@ -8,6 +8,9 @@ import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
 import 'package:aluminium_designer/core/models/layout_direction.dart';
 import 'package:aluminium_designer/core/models/opening.dart';
+import 'package:aluminium_designer/core/models/profile.dart';
+import 'package:aluminium_designer/core/models/profile_system.dart';
+import 'package:aluminium_designer/core/models/profile_usage.dart';
 import 'package:aluminium_designer/core/models/section.dart';
 import 'package:aluminium_designer/core/storage/catalog_store.dart';
 import 'package:aluminium_designer/features/constructions/editor/editor_viewport.dart';
@@ -23,16 +26,21 @@ import 'package:aluminium_designer/features/constructions/screens/construction_e
 const _desktopSize = Size(1400, 900);
 
 /// Deterministic stand-in for the real [CatalogStore]: serves a fixed
-/// empty catalog and swallows saves without touching platform channels or
-/// the filesystem. Neither of those can complete under flutter_test's
-/// fake-async zone, which is what previously left the editor's catalog
-/// spinner spinning forever and made this file unrunnable standalone.
+/// catalog (empty by default) and swallows saves without touching platform
+/// channels or the filesystem. Neither of those can complete under
+/// flutter_test's fake-async zone, which is what previously left the
+/// editor's catalog spinner spinning forever and made this file unrunnable
+/// standalone.
 ///
 /// Injected through `ConstructionEditorScreen.catalogStore` -- proper
 /// dependency injection, no production test hooks involved.
 class _StubCatalogStore extends CatalogStore {
+  final Catalog catalog;
+
+  _StubCatalogStore([this.catalog = const Catalog()]);
+
   @override
-  Future<Catalog> load() async => const Catalog();
+  Future<Catalog> load() async => catalog;
 
   @override
   Future<void> save(Catalog catalog) async {}
@@ -71,7 +79,11 @@ Construction _construction({List<Section>? sections}) => Construction(
   profiles: const [],
 );
 
-Future<void> _pumpEditor(WidgetTester tester, Construction construction) async {
+Future<void> _pumpEditor(
+  WidgetTester tester,
+  Construction construction, {
+  Catalog? catalog,
+}) async {
   tester.view.physicalSize = _desktopSize;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
@@ -80,7 +92,9 @@ Future<void> _pumpEditor(WidgetTester tester, Construction construction) async {
     MaterialApp(
       home: ConstructionEditorScreen(
         construction: construction,
-        catalogStore: _stubCatalogStore,
+        catalogStore: catalog == null
+            ? _stubCatalogStore
+            : _StubCatalogStore(catalog),
       ),
     ),
   );
@@ -870,10 +884,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 2) Precise pass: type the exact dimension.
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Largeur'),
-        '750',
-      );
+      await tester.enterText(find.widgetWithText(TextField, 'Largeur'), '750');
       await tester.pumpAndSettle();
 
       final widthField = tester.widget<TextField>(
@@ -913,48 +924,45 @@ void main() {
   });
 
   group('Workspace layout contract', () {
-    testWidgets(
-      'canvas is strictly bounded by toolbar, panels and status bar; '
-      'painting is clipped to the canvas',
-      (tester) async {
-        await _pumpEditor(tester, _construction());
+    testWidgets('canvas is strictly bounded by toolbar, panels and status bar; '
+        'painting is clipped to the canvas', (tester) async {
+      await _pumpEditor(tester, _construction());
 
-        final canvasRect = tester.getRect(find.byType(EditorCanvas));
-        final leftRect = tester.getRect(find.byType(EditorStructurePanel));
-        final rightRect = tester.getRect(
-          find.byType(EditorGeneralPropertiesPanel),
-        );
-        final toolbarRect = tester.getRect(find.byType(EditorToolbar));
-        final statusRect = tester.getRect(find.byType(EditorStatusBar));
+      final canvasRect = tester.getRect(find.byType(EditorCanvas));
+      final leftRect = tester.getRect(find.byType(EditorStructurePanel));
+      final rightRect = tester.getRect(
+        find.byType(EditorGeneralPropertiesPanel),
+      );
+      final toolbarRect = tester.getRect(find.byType(EditorToolbar));
+      final statusRect = tester.getRect(find.byType(EditorStatusBar));
 
-        // One-pixel dividers may sit between regions; nothing may overlap.
-        expect(leftRect.right, lessThanOrEqualTo(canvasRect.left + 0.5));
-        expect(rightRect.left, greaterThanOrEqualTo(canvasRect.right - 0.5));
-        expect(toolbarRect.bottom, lessThanOrEqualTo(canvasRect.top + 0.5));
-        expect(statusRect.top, greaterThanOrEqualTo(canvasRect.bottom - 0.5));
+      // One-pixel dividers may sit between regions; nothing may overlap.
+      expect(leftRect.right, lessThanOrEqualTo(canvasRect.left + 0.5));
+      expect(rightRect.left, greaterThanOrEqualTo(canvasRect.right - 0.5));
+      expect(toolbarRect.bottom, lessThanOrEqualTo(canvasRect.top + 0.5));
+      expect(statusRect.top, greaterThanOrEqualTo(canvasRect.bottom - 0.5));
 
-        // The painter must be clipped to the canvas: RenderCustomPaint
-        // does NOT clip on its own, so without the ClipRect a panned or
-        // zoomed-out construction paints over neighbouring UI.
-        expect(
-          find.ancestor(
-            of: find.byWidgetPredicate(
-              (widget) =>
-                  widget is CustomPaint &&
-                  widget.painter is ConstructionPainter,
-            ),
-            matching: find.byType(ClipRect),
+      // The painter must be clipped to the canvas: RenderCustomPaint
+      // does NOT clip on its own, so without the ClipRect a panned or
+      // zoomed-out construction paints over neighbouring UI.
+      expect(
+        find.ancestor(
+          of: find.byWidgetPredicate(
+            (widget) =>
+                widget is CustomPaint && widget.painter is ConstructionPainter,
           ),
-          findsOneWidget,
-        );
+          matching: find.byType(ClipRect),
+        ),
+        findsOneWidget,
+      );
 
-        // The viewport receives the REAL central-canvas size -- this is
-        // what fit-to-content and screen<->model conversion are based on.
-        final viewport =
-            tester.widget<EditorCanvas>(find.byType(EditorCanvas)).viewport;
-        expect(viewport.canvasSize, tester.getSize(find.byType(EditorCanvas)));
-      },
-    );
+      // The viewport receives the REAL central-canvas size -- this is
+      // what fit-to-content and screen<->model conversion are based on.
+      final viewport = tester
+          .widget<EditorCanvas>(find.byType(EditorCanvas))
+          .viewport;
+      expect(viewport.canvasSize, tester.getSize(find.byType(EditorCanvas)));
+    });
   });
 
   group('Drafting aid toggles', () {
@@ -978,8 +986,9 @@ void main() {
       );
     });
 
-    testWidgets('tapping the snap toggle flips it and sticks across rebuilds',
-        (tester) async {
+    testWidgets('tapping the snap toggle flips it and sticks across rebuilds', (
+      tester,
+    ) async {
       await _pumpEditor(tester, _construction());
 
       await tester.tap(find.byTooltip('Aimanter'));
@@ -1072,10 +1081,7 @@ void main() {
   group('Dimension label direct editing', () {
     /// Canvas-local screen position of an overall label's anchor, using
     /// the same viewport numbers the painter paints with.
-    Offset labelAnchor(
-      WidgetTester tester,
-      ConstructionDimensionLabel label,
-    ) {
+    Offset labelAnchor(WidgetTester tester, ConstructionDimensionLabel label) {
       final vp = tester
           .widget<EditorCanvas>(find.byType(EditorCanvas))
           .viewport;
@@ -1084,10 +1090,7 @@ void main() {
       return switch (label) {
         ConstructionDimensionLabel.overallWidth =>
           topLeft +
-              Offset(
-                vp.matrix[12] + (1800 / 2) * vp.scale,
-                vp.matrix[13] - 18,
-              ),
+              Offset(vp.matrix[12] + (1800 / 2) * vp.scale, vp.matrix[13] - 18),
         ConstructionDimensionLabel.overallHeight =>
           topLeft + Offset(vp.matrix[12] - 34, vp.matrix[13] + 600 * vp.scale),
       };
@@ -1097,16 +1100,21 @@ void main() {
         'with the caret in the width field', (tester) async {
       await _pumpEditor(tester, _construction());
 
-      await tester.tapAt(labelAnchor(tester, ConstructionDimensionLabel.overallWidth));
+      await tester.tapAt(
+        labelAnchor(tester, ConstructionDimensionLabel.overallWidth),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('DISPOSITION'), findsOneWidget); // Geometry stage
-      expect(FocusManager.instance.primaryFocus?.debugLabel,
-          'construction-width');
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'construction-width',
+      );
     });
 
-    testWidgets('tapping the height dimension label focuses the height field',
-        (tester) async {
+    testWidgets('tapping the height dimension label focuses the height field', (
+      tester,
+    ) async {
       await _pumpEditor(tester, _construction());
 
       // The rotated label hugs the construction's left edge -- at fitted
@@ -1123,8 +1131,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('DISPOSITION'), findsOneWidget);
-      expect(FocusManager.instance.primaryFocus?.debugLabel,
-          'construction-height');
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'construction-height',
+      );
     });
 
     testWidgets('a plain section tap still selects normally (labels do not '
@@ -1287,6 +1297,94 @@ void main() {
               .first,
         );
         expect(tileAfter.trailing, isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'Calculer with a resolvable system shows cut rows with provenance '
+      'and lists skipped usages with their reason',
+      (tester) async {
+        final montant = Profile(
+          id: 'M1',
+          manufacturer: 'Mfr',
+          system: 'Sys',
+          reference: 'M1',
+          name: 'Montant',
+          type: ProfileType.montant,
+          width: 40,
+          depth: 60,
+          weightPerMeter: 1.2,
+        );
+        final system = ProfileSystem(
+          id: 'sys-1',
+          manufacturer: 'Mfr',
+          manufacturerId: 'mfr-1',
+          name: 'Test System',
+          ruleSetId: 'generic-placeholder',
+          profiles: [montant],
+          supportedOpenings: const [],
+          isBuiltIn: false,
+        );
+        final construction = Construction(
+          id: 'c1',
+          name: 'Test Window',
+          type: ConstructionType.window,
+          width: 1800,
+          height: 1200,
+          manufacturer: '',
+          system: '',
+          systemId: 'sys-1',
+          sections: [_fixedSection()],
+          layoutDirection: SectionLayoutDirection.horizontal,
+          profiles: const [],
+          profileUsages: [
+            ProfileUsage(
+              id: 'u1',
+              profileId: 'M1',
+              sectionId: 's1',
+              role: ProfileUsageRole.left,
+            ),
+            // Ghost profile id -- resolves to nothing in the catalog, so
+            // this usage must show up as a skip issue, not vanish.
+            ProfileUsage(
+              id: 'u2',
+              profileId: 'ghost-profile',
+              sectionId: 's1',
+              role: ProfileUsageRole.right,
+            ),
+          ],
+        );
+
+        await _pumpEditor(
+          tester,
+          construction,
+          catalog: Catalog(profileSystems: [system]),
+        );
+
+        await tester.tap(find.text('Section 1'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.calculate_outlined));
+        await tester.pumpAndSettle();
+
+        // One cut from u1 (placeholder montant rule: full height 1200,
+        // quantity 1 per placement).
+        expect(find.text('1 coupe(s)'), findsOneWidget);
+        expect(find.textContaining('Montant — 1200 mm'), findsOneWidget);
+        // Cut-level provenance: which rule produced the piece.
+        expect(
+          find.textContaining('Placeholder: montant per assignment'),
+          findsOneWidget,
+        );
+        // u2's skip is reported with its reason instead of being silent.
+        expect(
+          find.textContaining('assignation(s) sans coupe'),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('profil introuvable dans le système'),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       },
     );
