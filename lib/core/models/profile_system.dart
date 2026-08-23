@@ -1,5 +1,6 @@
 import 'opening.dart';
 import 'profile.dart';
+import 'profile_system_metadata.dart';
 
 /// A named collection of profiles and supported opening types belonging to
 /// one manufacturer -- e.g. one product line such as "Custom Window 2026".
@@ -47,6 +48,14 @@ class ProfileSystem {
   /// See [Manufacturer.isBuiltIn] for why this is metadata-only.
   final bool isBuiltIn;
 
+  /// Verified specification data transcribed from an identified source
+  /// document (depths, glazing range, assembly notes, dimension limits,
+  /// source citation) -- see `profile_system_metadata.dart`. Null when no
+  /// verified document has been transcribed for this system: absent means
+  /// "unknown", never invented. Deliberately NOT consumed by the
+  /// calculation engine; read by advisory features and future domains.
+  final ProfileSystemMetadata? metadata;
+
   const ProfileSystem({
     required this.id,
     required this.manufacturer,
@@ -56,6 +65,7 @@ class ProfileSystem {
     required this.profiles,
     required this.supportedOpenings,
     required this.isBuiltIn,
+    this.metadata,
   });
 
   /// This system's [profiles], keyed by [Profile.id].

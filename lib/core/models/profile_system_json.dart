@@ -1,5 +1,6 @@
 import 'opening.dart';
 import 'profile_system.dart';
+import 'profile_system_metadata.dart';
 import 'project_json.dart' show ProfileJson, profileFromJson;
 
 /// Converts [ProfileSystem] to/from JSON.
@@ -20,6 +21,9 @@ extension ProfileSystemJson on ProfileSystem {
       'profiles': profiles.map((p) => p.toJson()).toList(),
       'supportedOpenings': supportedOpenings.map((o) => o.name).toList(),
       'isBuiltIn': isBuiltIn,
+      // Absent key when null: older saved catalogs (pre-metadata) read
+      // back unchanged.
+      if (metadata != null) 'metadata': metadata!.toJson(),
     };
   }
 }
@@ -42,5 +46,10 @@ ProfileSystem profileSystemFromJson(Map<String, dynamic> json) {
         .map((o) => OpeningType.values.byName(o as String))
         .toList(),
     isBuiltIn: json['isBuiltIn'] as bool? ?? false,
+    metadata: json['metadata'] == null
+        ? null
+        : ProfileSystemMetadata.fromJson(
+            json['metadata'] as Map<String, dynamic>,
+          ),
   );
 }
