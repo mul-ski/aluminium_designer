@@ -52,9 +52,17 @@ Workshop Drafting Grid + Configurable Snapping + Precision Dimensions:
       create no mutation/no undo entry; screen-level exact-750 workflow
       with undo-chain proof; suite 295).
 
-FUTURE (documented, not scheduled): direct canvas-label dimension editing
-(click a painted dimension label to focus its properties field) — needs
-label hit-testing plumbing; revisit after the next rendering milestone.
+- [x] `feat(editor): direct dimension-label editing from the canvas` —
+      c71981f (overall width/height labels are click-to-edit: pure
+      dimensionLabelTargets math mirroring paint anchors; canvas callback;
+      Geometry-stage focus + scroll-to-field via screen-owned FocusNodes;
+      per-section labels deliberately left as selection gestures; suite
+      299).
+
+FUTURE (documented, not scheduled): dedicated exterior per-section
+dimension chips (click-to-edit section widths without stealing the
+selection gesture); grid/snap settings persistence if a preferences
+architecture ever lands.
 
 ## Decisions on record
 
@@ -70,7 +78,5 @@ label hit-testing plumbing; revisit after the next rendering milestone.
 
 ## Current next milestone
 
-Workshop drafting milestone series COMPLETE (M1-M6). Awaiting product
-direction. Candidate follow-ups from the approved plan's deferred list:
-canvas-label direct editing, grid settings persistence if a preferences
-architecture ever lands, and the previously paused roadmap items.
+Workshop drafting series + its documented follow-up (label editing) are
+COMPLETE. Awaiting product direction.
