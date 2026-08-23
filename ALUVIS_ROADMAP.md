@@ -41,9 +41,11 @@ Workshop Drafting Grid + Configurable Snapping + Precision Dimensions:
       bc3bc9d (painter showGrid layer via M1 math under geometry; off-white
       ground 0xFFFAFBFC; light-tuned palette; pixel-sampled verification
       harness run then deleted; suite 283).
-- [ ] M5 `feat(editor): grid-aware boundary snapping` — drag consumes
-      resolver; dashed-vs-solid ActiveSnap distinction; snap ON/OFF +
-      increments end-to-end; one-drag-one-undo preserved.
+- [x] M5 `feat(editor): grid-aware boundary snapping` — 9352f6c (drag
+      consumes resolveSnapPosition with session settings; dashed-vs-solid
+      ActiveSnap; geometry-beats-grid tie proven end-to-end at 1500 mm;
+      increment picker shipped functional + disabled while snap off;
+      suite 289).
 - [ ] M6 precision-dimension validation/improvements — exact numeric editing,
       parsing/invalid-input verification, undo/staleness coverage; canvas-label
       direct editing only if it fits naturally (else documented future task).
@@ -62,8 +64,8 @@ Workshop Drafting Grid + Configurable Snapping + Precision Dimensions:
 
 ## Current next milestone
 
-M5 — grid-aware boundary snapping: drag consumes resolveSnapPosition with
-session settings; dashed-vs-solid ActiveSnap distinction; snap ON/OFF and
-increments end-to-end (increment picker ships HERE, completing the
-no-inert-UI rule); existing boundary test updated to disable snap
-explicitly.
+M6 — precision-dimension validation/improvements: exact numeric editing,
+integer/decimal parsing, invalid/empty/negative input behavior, undo +
+calculation-staleness coverage for typed dimensions. Canvas-label direct
+editing only if it fits the existing architecture naturally (else stays a
+documented future task).
