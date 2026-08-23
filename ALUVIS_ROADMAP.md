@@ -27,11 +27,16 @@ suite green, diff inspected, then commit + push + this file updated.
 | **C2b `feat(editor): totals block in results banner + piece-count badges`** (Récapitulatif per-profile lines + grand total between groups and issues; weight suffix omitted when unknown; structure badges now count physical pieces not cut rows) | 51d7d93 | analyze clean; full suite 319/319 |
 | **C3a `feat(calc): catalog-aware calculation fingerprint`** (`catalogCalculationFingerprint`: resolved ruleSetId + referenced profiles' id/type/weightPerMeter, lexically sorted; `'no-system'` sentinel; display-only fields and unreferenced profiles excluded) | 7d086b3 | analyze clean; full suite 328/328 |
 | **C3b `feat(editor): reconcile calculation staleness on catalog changes`** (dual-fingerprint snapshot at calculate(); shared reconciler for undo/redo jumps AND setCatalog; picker-side profile edits/deletes now correctly stale results) | 8c5bbd9 | analyze clean; full suite 336/336 |
+| **C4a `feat(catalog): ProfileSystemMetadata + DimensionLimit models`** (typed advisory fiche: depth options, glazing range, tri-state thermalBreak, notes, source citation, dimension envelopes; `metadata` on ProfileSystem, key omitted when null in JSON; round-trip tested) | 306d53b | analyze clean; full suite 338/338 |
+| **C4b `feat(catalog): seed verified Maghreb Extrusion Série 14600 from official PDF`** (clean-slate: all name-only placeholders removed from seed; 38 profiles transcribed from the client PDF's PROFILOSCOPE sheets with per-page citations in docs/VERIFIED_SOURCES.md; 0 = not labeled, thermalBreak null = not stated; débitage formulas documented but NOT encoded — engine can't route 14 621 vs 14 631 by reference; merge stays add-only) | c6989d4 | analyze clean; full suite 340/340 |
+| **C4c `feat(catalog): 'Fiche système' metadata + dimension-limits editor`** (ProfileSystemMetadataPanel via picker's new Fiche système button; tri-state thermal break; limit rows with optional opening type; incomplete rows dropped on save; empty form clears metadata to null) | db0f520 | analyze clean; full suite 345/345 |
+| **C4d `feat(editor): advisory dimension-limit warnings from the fiche système`** (`checkDimensionLimits`: envelopes are alternatives — warn only when EVERY applicable envelope is exceeded; opening-type-scoped limits; banner under geometry width/height in calculation-banner styling; never blocks editing/calculation) | 7f3d9b2 | analyze clean; full suite 354/354 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
-→ 307 (after calculation C1) → 319 (after calculation C2) → **336** (after
-calculation C3).
+→ 307 (after calculation C1) → 319 (after calculation C2) → 336 (after
+calculation C3) → 338 (C4a) → 340 (C4b) → 345 (C4c) → **354** (after
+calculation C4).
 
 ## In progress
 
@@ -109,14 +114,33 @@ architecture ever lands.
   (name/reference/width/depth) and unreferenced profiles NEVER invalidate
   -- same rationale as the draft-rename precedent. If user-authored rule
   sets ever land, their content hash joins this fingerprint.
+- Seeded fabrication data must trace to an identified source document,
+  cited in `docs/VERIFIED_SOURCES.md`. Absence means unknown: `0` in
+  `Profile.width/depth/weightPerMeter` = not stated on the sheet (never a
+  measured zero); `thermalBreak: null` = never stated (≠ false); profile
+  types follow the source sheet's own headings, never inferred roles.
+- The Série 14600 débitage formulas (p. 24 of the source PDF) are
+  documented but deliberately NOT encoded as a `SystemRuleSet`: the rule
+  engine selects by ProfileType + section conditions only — it cannot
+  distinguish 14 621 from 14 631 (same type, different deductions) nor
+  express whole-unit configuration width L. Encoding one row
+  unconditionally would fabricate wrong cuts for other configurations.
+  Prerequisites for a real set: profile-reference condition +
+  configuration semantics in the expression engine.
+- Dimension limits are advisory envelopes, never calculator inputs.
+  Multiple envelopes are alternatives (a construction fitting ANY one is
+  inside the documented range); the editor warns only when EVERY
+  applicable envelope is exceeded. Unknown limits never read as
+  "within limits".
 
 ## Current next milestone
 
-Calculation series C1 (honesty), C2 (derived totals récapitulatif), and C3
-(catalog-aware staleness) are COMPLETE. Documented candidates, not
-scheduled: real `SystemRuleSet` per manufacturer (EXTERNAL VERIFICATION
-GATE: needs verified fabrication data before any numbers exist);
-`ProfileSystem` metadata field for already-verified-but-unrepresentable
-Cuzco 713 OM specs; glass/hardware/accessory architecture and ProfileCut →
-component generalization (both deferred until a second component domain /
-verified data exists).
+Calculation series C1–C3 and the verified-catalog series C4 are COMPLETE
+(built-in seed = Maghreb Extrusion Série 14600, fully cited). Documented
+candidates, not scheduled: real `SystemRuleSet('me-14600')` from the
+documented débitage table once the engine gains profile-reference
+conditions + configuration semantics (see decisions above); inertia
+(IXX/IYY) fields for profiles (values transcribed in
+docs/VERIFIED_SOURCES.md, no model field yet); glass/hardware/accessory
+architecture and ProfileCut → component generalization (deferred until a
+second component domain / verified data exists).
