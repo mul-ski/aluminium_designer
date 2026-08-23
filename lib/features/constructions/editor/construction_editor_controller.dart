@@ -3,10 +3,10 @@ import 'package:flutter/foundation.dart';
 import '../../../core/logic/boundary_manipulation.dart';
 import '../../../core/logic/rule_set_resolution.dart';
 import '../../../core/logic/system_compatibility.dart';
+import '../../../core/models/calculation_outcome.dart';
 import '../../../core/models/catalog.dart';
 import '../../../core/models/construction.dart';
 import '../../../core/models/construction_type.dart';
-import '../../../core/models/cut.dart';
 import '../../../core/models/layout_direction.dart';
 import '../../../core/models/opening.dart';
 import '../../../core/models/profile_system.dart';
@@ -141,12 +141,13 @@ class ConstructionEditorController extends ChangeNotifier {
 
   /// Result of the last [calculate] run, or `null` if calculation hasn't
   /// been run yet, or `calculateConstructionCuts` itself returned `null`
-  /// (no rule set could be resolved). An empty (but non-null) list is a
-  /// meaningful, distinct result: the rule set resolved fine, there was
-  /// just nothing to cut (e.g. no profile usages assigned yet). Not part
-  /// of the draft -- it's a derived view, not saved data, so it must never
-  /// affect [isDirty]/`toJson()` comparison or [commitSave].
-  List<ProfileCut>? _calculationResult;
+  /// (no rule set could be resolved). An empty (but non-null) outcome is
+  /// a meaningful, distinct result: the rule set resolved fine, there was
+  /// just nothing to cut and nothing to report (e.g. no profile usages
+  /// assigned yet). Not part of the draft -- it's a derived view, not
+  /// saved data, so it must never affect [isDirty]/`toJson()` comparison
+  /// or [commitSave].
+  CalculationOutcome? _calculationResult;
 
   /// Non-null exactly when the last [calculate] run failed, holding either
   /// `AmbiguousRuleMatchException` or `StateError` (the two exception types
@@ -231,7 +232,15 @@ class ConstructionEditorController extends ChangeNotifier {
       _calculationError != null ||
       _calculationHadNoRuleSet;
 
-  List<ProfileCut>? get calculationResult => _calculationResult;
+  /// Result of the last [calculate] run, or `null` if calculation hasn't
+  /// been run yet or found no rule set. See [_calculationResult].
+  CalculationOutcome? get calculationResult => _calculationResult;
+
+  /// Skip diagnostics from the last [calculate] run -- which profile
+  /// usages produced no cut and why. Empty when calculation hasn't run,
+  /// found no rule set, or every usage produced a cut.
+  List<ProfileUsageIssue> get calculationIssues =>
+      _calculationResult?.issues ?? const [];
 
   Object? get calculationError => _calculationError;
 
@@ -811,10 +820,10 @@ class ConstructionEditorController extends ChangeNotifier {
     // _reconcileCalculationStalenessAfterJump).
     _calculationInputFingerprint = _calculatorInputFingerprint(_draft);
     try {
-      final cuts = calculateConstructionCuts(_draft, _catalog);
-      _calculationResult = cuts;
+      final outcome = calculateConstructionCuts(_draft, _catalog);
+      _calculationResult = outcome;
       _calculationError = null;
-      _calculationHadNoRuleSet = cuts == null;
+      _calculationHadNoRuleSet = outcome == null;
       _calculationIsStale = false;
     } on AmbiguousRuleMatchException catch (e) {
       _calculationResult = null;

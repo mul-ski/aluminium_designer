@@ -1,9 +1,9 @@
 library;
 
 import '../engine/construction_calculator.dart';
+import '../models/calculation_outcome.dart';
 import '../models/catalog.dart';
 import '../models/construction.dart';
-import '../models/cut.dart';
 import '../models/profile.dart';
 import '../models/profile_system.dart';
 import '../models/rules/generic_placeholder_rules.dart';
@@ -104,8 +104,8 @@ SystemRuleSet? resolveRuleSetForConstruction(
   return resolveRuleSetForSystem(system);
 }
 
-/// Calculates [construction]'s cuts by resolving its `SystemRuleSet` and
-/// profile catalogue from [catalog] and running
+/// Calculates [construction]'s [CalculationOutcome] by resolving its
+/// `SystemRuleSet` and profile catalogue from [catalog] and running
 /// `ConstructionCalculator.calculate` -- the full application-layer
 /// pipeline described in this file's module doc, made directly callable
 /// with just a `Construction` and a `Catalog` rather than requiring the
@@ -128,12 +128,14 @@ SystemRuleSet? resolveRuleSetForConstruction(
 /// the calculator, not a change to the calculator's own catalog-agnostic
 /// design (see `construction_calculator.dart`'s class doc).
 ///
-/// [ConstructionCalculator.calculate] can still throw `StateError` if
+/// `ConstructionCalculator.calculate` can still throw `StateError` if
 /// [construction] doesn't have both overall dimensions set, or propagate
 /// `AmbiguousRuleMatchException` from rule selection -- this function
 /// does not catch either; see `ConstructionCalculator.calculate`'s doc
-/// for both.
-List<ProfileCut>? calculateConstructionCuts(
+/// for both. A non-null outcome carries cuts plus per-usage skip issues;
+/// per-usage skips are diagnostics on the outcome, distinct from this
+/// null "no rule set at all" case.
+CalculationOutcome? calculateConstructionCuts(
   Construction construction,
   Catalog catalog,
 ) {

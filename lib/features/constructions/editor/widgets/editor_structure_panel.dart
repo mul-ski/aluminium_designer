@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/logic/cut_grouping.dart';
+import '../../../../core/models/calculation_outcome.dart';
 import '../../../../core/models/construction.dart';
 import '../../../../core/models/cut.dart';
 import '../../../../core/models/section.dart';
@@ -12,18 +13,19 @@ import 'panel_header.dart';
 /// selecting a section here drives canvas/properties selection exactly as
 /// it did before this panel was extracted.
 ///
-/// [calculationResult] is the last manual calculation run's cuts (or null
-/// when calculation never ran / found no rule set) -- used only to show a
-/// per-section cut-count badge; no error/no-rule-set state is repeated
-/// per section, since the results banner already shows that once at the
-/// construction level. A stale result is still shown, dimmed via
-/// [calculationIsStale] -- see `ConstructionEditorController`'s stale-
-/// outcome doc for why counts stay visible instead of disappearing on edit.
+/// [calculationResult] is the last manual calculation run's outcome (or
+/// null when calculation never ran / found no rule set) -- used only to
+/// show a per-section cut-count badge (from the outcome's cuts); no
+/// error/no-rule-set state is repeated per section, since the results
+/// banner already shows that once at the construction level. A stale
+/// result is still shown, dimmed via [calculationIsStale] -- see
+/// `ConstructionEditorController`'s stale-outcome doc for why counts stay
+/// visible instead of disappearing on edit.
 class EditorStructurePanel extends StatelessWidget {
   final Construction construction;
   final EditorStage stage;
   final String? selectedSectionId;
-  final List<ProfileCut>? calculationResult;
+  final CalculationOutcome? calculationResult;
   final bool calculationIsStale;
   final ValueChanged<EditorStage> onStageSelected;
   final VoidCallback onSelectConstruction;
@@ -45,9 +47,8 @@ class EditorStructurePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final ordered = [...construction.sections]
       ..sort((a, b) => a.order.compareTo(b.order));
-    final cutsBySection = calculationResult == null
-        ? const <String, List<ProfileCut>>{}
-        : groupCutsBySectionId(calculationResult!);
+    final cuts = calculationResult?.cuts ?? const <ProfileCut>[];
+    final cutsBySection = groupCutsBySectionId(cuts);
 
     return Material(
       color: const Color(0xFFFAFAFA),

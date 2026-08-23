@@ -149,10 +149,11 @@ void main() {
         ],
       );
 
-      final cuts = calculator.calculate(
-        construction,
-        profilesById: {'M1': montant},
-      );
+      final cuts =
+          calculator.calculate(
+            construction,
+            profilesById: {'M1': montant},
+          ).cuts;
 
       expect(cuts.length, 1);
       expect(cuts.single.profile.id, 'M1');
@@ -252,10 +253,12 @@ void main() {
           ],
         );
 
-        final cuts = calculateConstructionCuts(construction, catalog);
+        final outcome = calculateConstructionCuts(construction, catalog);
 
-        expect(cuts, isNotNull);
-        expect(cuts!.length, 1);
+        expect(outcome, isNotNull);
+        expect(outcome!.issues, isEmpty);
+        final cuts = outcome.cuts;
+        expect(cuts.length, 1);
         expect(cuts.single.profile.id, 'M1');
         expect(cuts.single.length, 1200);
         expect(cuts.single.quantity, 1);

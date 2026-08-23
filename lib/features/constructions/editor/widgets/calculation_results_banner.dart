@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/logic/cut_grouping.dart';
-import '../../../../core/models/cut.dart';
+import '../../../../core/models/calculation_outcome.dart';
 import '../../../../core/models/rules/system_rule_set.dart'
     show AmbiguousRuleMatchException;
 import '../../../../core/models/section.dart';
@@ -27,7 +27,7 @@ import '../../../../core/models/section.dart';
 /// itself is never hidden or replaced on staleness, only flagged --
 /// recalculation stays a manual, explicit action.
 class CalculationResultsBanner extends StatelessWidget {
-  final List<ProfileCut>? result;
+  final CalculationOutcome? result;
   final Object? error;
   final bool hadNoRuleSet;
   final List<Section> sections;
@@ -120,8 +120,8 @@ class CalculationResultsBanner extends StatelessWidget {
       );
     }
 
-    final cuts = result;
-    if (cuts == null || cuts.isEmpty) {
+    final outcome = result;
+    if (outcome == null || outcome.isEmpty) {
       return const Row(
         children: [
           Icon(Icons.info_outline, size: 18, color: Color(0xFF5B6B76)),
@@ -136,13 +136,13 @@ class CalculationResultsBanner extends StatelessWidget {
       );
     }
 
-    final grouped = groupCutsBySectionId(cuts);
+    final grouped = groupCutsBySectionId(outcome.cuts);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${cuts.length} coupe(s)',
+          '${outcome.cuts.length} coupe(s)',
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),

@@ -1,3 +1,4 @@
+import '../models/calculation_outcome.dart';
 import '../models/construction.dart';
 import '../models/cut.dart';
 import '../models/profile.dart';
@@ -8,8 +9,9 @@ import '../models/rules/rule_condition.dart';
 import '../models/rules/system_rule_set.dart';
 import '../models/section.dart';
 
-/// Computes the list of [ProfileCut]s for a [Construction] by evaluating a
-/// data-driven [SystemRuleSet] against that construction's dimensions.
+/// Computes the [CalculationOutcome] -- matched cuts plus per-usage skip
+/// diagnostics -- for a [Construction] by evaluating a data-driven
+/// [SystemRuleSet] against that construction's dimensions.
 ///
 /// This replaces the old hardcoded switch-statement logic. Behaviour is now
 /// entirely determined by which `SystemRuleSet` is supplied -- pass
@@ -22,7 +24,8 @@ class ConstructionCalculator {
 
   const ConstructionCalculator({this.ruleSet = genericPlaceholderRuleSet});
 
-  /// Produces cut pieces for every [ProfileUsage] in [construction], via
+  /// Produces a [CalculationOutcome] covering every [ProfileUsage] in
+  /// [construction], via
   /// the current profile path: `Construction.profileUsages` -> resolved
   /// `Profile` (via [profilesById]) -> role-aware [CalculationContext] ->
   /// [SystemRuleSet.select]. See `Construction`'s "PROFILE PATH" doc
@@ -37,24 +40,28 @@ class ConstructionCalculator {
   /// `Catalog`/`ProfileSystem` directly, consistent with the rule engine
   /// already being pure, data-driven, and independent of storage.
   ///
-  /// A usage whose `profileId` is not found in [profilesById] is skipped
-  /// explicitly rather than throwing or inventing data -- e.g. the
-  /// profile was deleted from the catalog after the usage was created
-  /// (see `incompatibleUsages` in `system_compatibility.dart`, which
-  /// tracks this same "usage without a valid Profile" state elsewhere).
-  /// Likewise a usage whose `sectionId` doesn't resolve to a current
-  /// `Section` still gets a context (with `section: null`) rather than
-  /// being skipped -- section-scoped conditions simply won't match, same
-  /// as any other missing-section context.
+  /// A usage whose `profileId` is not found in [profilesById] produces no
+  /// cut and a `ProfileUsageIssueReason.profileUnresolved` issue, instead
+  /// of throwing or inventing data -- e.g. the profile was deleted from
+  /// the catalog after the usage was created (see `incompatibleUsages`
+  /// in `system_compatibility.dart`, which tracks this same "usage without
+  /// a valid Profile" state elsewhere). Likewise a usage whose `sectionId`
+  /// doesn't resolve to a current `Section` still gets a context (with
+  /// `section: null`) rather than being skipped -- section-scoped
+  /// conditions simply won't match, same as any other missing-section
+  /// context. Issues are diagnostics, not failures: every skipped usage is
+  /// reported through the outcome so "fewer cuts than usages" is always
+  /// explainable.
   ///
   /// For each resolved usage, builds a [CalculationContext] carrying both
   /// the owning [Section] (if resolvable) and the [ProfileUsage] itself,
   /// and asks [ruleSet] to [SystemRuleSet.select] the single applicable
-  /// rule. If no rule matches, the usage is skipped -- same no-op
-  /// behaviour as the previous profile-list-based version (previously
-  /// `default: break;`, now "no rule matched"). If more than one rule
-  /// matches with equal specificity, [AmbiguousRuleMatchException]
-  /// propagates out of this call rather than being silently resolved --
+  /// rule. If no rule matches, the usage produces no cut and a
+  /// `ProfileUsageIssueReason.noRuleMatched` issue -- same no-op-for-the-
+  /// cut-list behaviour as before, now visible instead of silent. If more
+  /// than one rule matches with equal specificity,
+  /// [AmbiguousRuleMatchException] propagates out of this call rather
+  /// than being silently resolved or downgraded to an issue --
   /// see `SystemRuleSet.select` for the selection/tie-breaking rules.
   ///
   /// Throws [StateError] if [construction] doesn't have both overall
@@ -78,22 +85,22 @@ class ConstructionCalculator {
   /// variable, not a silent fallback to 0 or to the construction's
   /// overall dimensions.
   ///
-/// Every emitted [ProfileCut] carries `profileUsageId`/`sectionId`
-   /// copied directly from the [ProfileUsage] it was produced for -- see
-   /// `ProfileCut`'s doc comment. This is a straight pass-through of ids
-   /// already available in this loop, not a lookup or inference; a
-   /// caller that needs to group cuts by section does so itself (e.g. by
-   /// `sectionId`) rather than this method returning a pre-grouped
-   /// structure -- grouping is a display concern, not something the
-   /// calculator needs an opinion about.
-   ///
-   /// Cut quantity composition: `ProfileUsage.quantity × rule.quantity`
-   /// (`CutQuantity.fixedCount`). The usage says how many identical pieces
-   /// the user placed at that spot; the rule says how many pieces one
-   /// matched placement yields; the product is the physical piece count on
-   /// the cut. Both factors are user/rule data already present -- nothing
-   /// here invents a count.
-  List<ProfileCut> calculate(
+  /// Every emitted [ProfileCut] carries `profileUsageId`/`sectionId`
+  /// copied directly from the [ProfileUsage] it was produced for -- see
+  /// `ProfileCut`'s doc comment. This is a straight pass-through of ids
+  /// already available in this loop, not a lookup or inference; a
+  /// caller that needs to group cuts by section does so itself (e.g. by
+  /// `sectionId`) rather than this method returning a pre-grouped
+  /// structure -- grouping is a display concern, not something the
+  /// calculator needs an opinion about.
+  ///
+  /// Cut quantity composition: `ProfileUsage.quantity × rule.quantity`
+  /// (`CutQuantity.fixedCount`). The usage says how many identical pieces
+  /// the user placed at that spot; the rule says how many pieces one
+  /// matched placement yields; the product is the physical piece count on
+  /// the cut. Both factors are user/rule data already present -- nothing
+  /// here invents a count.
+  CalculationOutcome calculate(
     Construction construction, {
     Map<String, Profile> profilesById = const {},
   }) {
@@ -111,12 +118,20 @@ class ConstructionCalculator {
     };
 
     final cuts = <ProfileCut>[];
+    final issues = <ProfileUsageIssue>[];
 
     for (final usage in construction.profileUsages) {
       final profile = profilesById[usage.profileId];
       if (profile == null) {
         // Usage references a profile that isn't resolvable from the
-        // current catalog (e.g. deleted) -- skip rather than guess.
+        // current catalog (e.g. deleted) -- no cut, and the skip is
+        // reported rather than silent.
+        issues.add(
+          ProfileUsageIssue(
+            profileUsageId: usage.id,
+            reason: ProfileUsageIssueReason.profileUnresolved,
+          ),
+        );
         continue;
       }
 
@@ -130,6 +145,14 @@ class ConstructionCalculator {
 
       final rule = ruleSet.select(context);
       if (rule == null) {
+        // No rule in the set matches this context -- no cut, and the
+        // skip is reported rather than silent.
+        issues.add(
+          ProfileUsageIssue(
+            profileUsageId: usage.id,
+            reason: ProfileUsageIssueReason.noRuleMatched,
+          ),
+        );
         continue;
       }
 
@@ -171,6 +194,6 @@ class ConstructionCalculator {
       );
     }
 
-    return cuts;
+    return CalculationOutcome(cuts: cuts, issues: issues);
   }
 }

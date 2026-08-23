@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:aluminium_designer/core/engine/construction_calculator.dart';
+import 'package:aluminium_designer/core/models/calculation_outcome.dart';
 import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
+import 'package:aluminium_designer/core/models/cut.dart';
 import 'package:aluminium_designer/core/models/layout_direction.dart';
 import 'package:aluminium_designer/core/models/opening.dart';
 import 'package:aluminium_designer/core/models/profile.dart';
@@ -75,6 +77,15 @@ Construction _construction({
   profiles: const [],
   profileUsages: profileUsages,
 );
+
+/// Runs [calculator] and returns just its cuts -- most tests only assert
+/// the cut list. Diagnostics-specific tests call `calculator.calculate`
+/// directly to inspect the full [CalculationOutcome].
+List<ProfileCut> _calculateCuts(
+  ConstructionCalculator calculator,
+  Construction construction, {
+  Map<String, Profile> profilesById = const {},
+}) => calculator.calculate(construction, profilesById: profilesById).cuts;
 
 void main() {
   group('CalculationContext role-awareness', () {
@@ -354,7 +365,7 @@ void main() {
     test('throws StateError when width/height are missing', () {
       const calculator = ConstructionCalculator();
       final construction = _construction(width: null, height: null);
-      expect(() => calculator.calculate(construction), throwsStateError);
+      expect(() => _calculateCuts(calculator, construction), throwsStateError);
     });
 
     test(
@@ -386,7 +397,8 @@ void main() {
           ],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'M1': montant, 'T1': traverse},
         );
@@ -399,19 +411,25 @@ void main() {
       },
     );
 
-    test('skips a usage whose profile cannot be resolved', () {
+    test('reports an unresolved-profile usage as a profileUnresolved issue', () {
       const calculator = ConstructionCalculator();
       final construction = _construction(
         sections: [_section('s1')],
         profileUsages: [_usage('u1', profileId: 'missing', sectionId: 's1')],
       );
 
-      final cuts = calculator.calculate(construction, profilesById: const {});
+      final outcome = calculator.calculate(construction, profilesById: const {});
 
-      expect(cuts, isEmpty);
+      expect(outcome.cuts, isEmpty);
+      expect(outcome.issues, hasLength(1));
+      expect(outcome.issues.single.profileUsageId, 'u1');
+      expect(
+        outcome.issues.single.reason,
+        ProfileUsageIssueReason.profileUnresolved,
+      );
     });
 
-    test('skips a usage when no rule matches', () {
+    test('reports a no-match usage as a noRuleMatched issue', () {
       const emptyRuleSet = SystemRuleSet(
         systemId: 'sys',
         name: 'Empty',
@@ -425,12 +443,63 @@ void main() {
         profileUsages: [_usage('u1', profileId: 'M1', sectionId: 's1')],
       );
 
-      final cuts = calculator.calculate(
+      final outcome = calculator.calculate(
         construction,
         profilesById: {'M1': profile},
       );
 
-      expect(cuts, isEmpty);
+      expect(outcome.cuts, isEmpty);
+      expect(outcome.issues, hasLength(1));
+      expect(outcome.issues.single.profileUsageId, 'u1');
+      expect(
+        outcome.issues.single.reason,
+        ProfileUsageIssueReason.noRuleMatched,
+      );
+    });
+
+    test('a mixed run separates cuts and issues per usage', () {
+      const calculator = ConstructionCalculator(
+        ruleSet: genericPlaceholderRuleSet,
+      );
+      final montant = _profile('M1', type: ProfileType.montant);
+      final construction = _construction(
+        sections: [_section('s1')],
+        profileUsages: [
+          _usage(
+            'u-ok',
+            profileId: 'M1',
+            sectionId: 's1',
+            role: ProfileUsageRole.left,
+          ),
+          _usage('u-ghost-profile', profileId: 'gone', sectionId: 's1'),
+        ],
+      );
+
+      final outcome = calculator.calculate(
+        construction,
+        profilesById: {'M1': montant},
+      );
+
+      expect(outcome.cuts, hasLength(1));
+      expect(outcome.cuts.single.profileUsageId, 'u-ok');
+      expect(outcome.issues, hasLength(1));
+      expect(outcome.issues.single.profileUsageId, 'u-ghost-profile');
+      expect(
+        outcome.issues.single.reason,
+        ProfileUsageIssueReason.profileUnresolved,
+      );
+    });
+
+    test('an empty construction produces an empty outcome, not an error', () {
+      const calculator = ConstructionCalculator(
+        ruleSet: genericPlaceholderRuleSet,
+      );
+
+      final outcome = calculator.calculate(_construction());
+
+      expect(outcome.isEmpty, isTrue);
+      expect(outcome.cuts, isEmpty);
+      expect(outcome.issues, isEmpty);
     });
 
     test('propagates AmbiguousRuleMatchException from rule selection', () {
@@ -468,7 +537,11 @@ void main() {
       );
 
       expect(
-        () => calculator.calculate(construction, profilesById: {'M1': profile}),
+        () => _calculateCuts(
+          calculator,
+          construction,
+          profilesById: {'M1': profile},
+        ),
         throwsA(isA<AmbiguousRuleMatchException>()),
       );
     });
@@ -507,7 +580,8 @@ void main() {
         ],
       );
 
-      final cuts = calculator.calculate(
+      final cuts = _calculateCuts(
+        calculator,
         construction,
         profilesById: {'M1': profile},
       );
@@ -548,7 +622,8 @@ void main() {
           profileUsages: [_usage('u1', profileId: 'M1', sectionId: 's1')],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'M1': profile},
         );
@@ -584,7 +659,8 @@ void main() {
           profileUsages: [_usage('u1', profileId: 'T1', sectionId: 's1')],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'T1': profile},
         );
@@ -631,7 +707,8 @@ void main() {
           profileUsages: [_usage('u1', profileId: 'M1', sectionId: 's1')],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'M1': profile},
         );
@@ -673,8 +750,11 @@ void main() {
         );
 
         expect(
-          () =>
-              calculator.calculate(construction, profilesById: {'M1': profile}),
+          () => _calculateCuts(
+            calculator,
+            construction,
+            profilesById: {'M1': profile},
+          ),
           throwsStateError,
         );
       });
@@ -710,7 +790,8 @@ void main() {
           ],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'M1': montant, 'T1': traverse},
         );
@@ -748,7 +829,8 @@ void main() {
           ],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'M1': montant, 'T1': traverse},
         );
@@ -786,7 +868,8 @@ void main() {
           ],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'M1': montant},
         );
@@ -817,7 +900,8 @@ void main() {
           ],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'M1': montant},
         );
@@ -847,7 +931,8 @@ void main() {
           profileUsages: [usage],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'M1': montant},
         );
@@ -875,7 +960,8 @@ void main() {
           ],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'T1': traverse},
         );
@@ -907,7 +993,8 @@ void main() {
           ],
         );
 
-        final cuts = calculator.calculate(
+        final cuts = _calculateCuts(
+          calculator,
           construction,
           profilesById: {'M1': montant},
         );
