@@ -20,9 +20,13 @@ suite green, diff inspected, then commit + push + this file updated.
 | Boundary drag interaction | 13af9c3 | integration tests |
 | Canvas containment fix + dark palette (superseded visually by workshop grid milestone; clip/repaint fixes retained) | e913633 | pixel-verified containment, 244 tests |
 | **M1 Workshop drafting: pure drafting-grid math** (`selectMinorGridInterval` 1-2-5 adaptive selection, `gridLinesForRange` origin-aligned visible-line enumeration) | b224512 | analyze clean; drafting_grid_test 15/15; full suite 259/259 |
+| **M2 Calculation honesty C1a: quantity composition** (`ProfileUsage.quantity × rule.fixedCount` reaches cut output; placeholder rules rebased fixed(2)→fixed(1) per-usage semantics) | 4e4359f | analyze clean; full suite 302/302 |
+| **C1b `feat(calc): structured calculation outcome`** (`CalculationOutcome{cuts, issues}`, `ProfileUsageIssue{profileUsageId, reason ∈ profileUnresolved/noRuleMatched}`; controller exposes `calculationIssues`; envelope is the future multi-domain result seed) | 1e47c5f | analyze clean; full suite 304/304 |
+| **C1c `feat(editor): cut provenance + skip diagnostics in banner`** (`ProfileCut.ruleDescription` dim second line; issues block listing every skipped usage with its reason; end-to-end Calculer test via catalog stub) | eb29c8a | analyze clean; full suite 307/307 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
-→ **259** (after M1).
+→ 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
+→ **307** (after calculation C1).
 
 ## In progress
 
@@ -75,8 +79,27 @@ architecture ever lands.
 - Major grid line = every 5th minor across the whole 1-2-5 series.
 - Tolerance stays screen-perceived (`kSnapTolerancePx / scale`); increment is
   pure model-space mm.
+- Cut quantity composition: `usage.quantity × rule.quantity.fixedCount`.
+  Rules are per-placement ("one matched usage yields N pieces");
+  placeholder rules are fixed(1) per usage -- rebased from legacy
+  whole-construction fixed(2), which double-counted once role-scoped
+  usages became the iteration source. Still explicitly placeholder, no
+  manufacturer numbers claimed.
+- Calculation result envelope is `CalculationOutcome{cuts, issues}`: a
+  skipped usage is a diagnostic (`ProfileUsageIssue`, reason
+  profileUnresolved/noRuleMatched), never silent and never an exception;
+  hard failures (missing dimensions, ambiguous rules) keep throwing.
+  Glass/hardware/accessory domains later add component lists to this
+  envelope rather than widening the calculator's return type again.
+- Cut provenance: `ProfileCut.ruleDescription` copies the producing rule's
+  description verbatim when present; never invented.
 
 ## Current next milestone
 
-Workshop drafting series + its documented follow-up (label editing) are
-COMPLETE. Awaiting product direction.
+Calculation honesty series C1 (quantity composition + outcome envelope +
+provenance/skip diagnostics) is COMPLETE. Documented candidates, not
+scheduled: real `SystemRuleSet` per manufacturer (EXTERNAL VERIFICATION
+GATE: needs verified fabrication data before any numbers exist);
+`ProfileSystem` metadata field for already-verified-but-unrepresentable
+Cuzco 713 OM specs; glass/hardware/accessory architecture (blocked on the
+same verification gate for any real data).
