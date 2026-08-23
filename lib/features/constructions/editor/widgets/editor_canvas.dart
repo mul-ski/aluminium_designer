@@ -12,7 +12,11 @@ import '../../../../core/models/layout_direction.dart';
 import '../../../../core/models/section_geometry.dart';
 import '../editor_drafting_settings.dart';
 import '../editor_viewport.dart';
-import '../../widgets/construction_painter.dart';
+import '../../widgets/construction_painter.dart'
+    show
+        ConstructionDimensionLabel,
+        ConstructionPainter,
+        dimensionLabelTargets;
 
 /// Wheel-scroll distance (logical pixels) that corresponds to one natural
 /// log-scale step. A notched mouse wheel typically reports dy of ±120 per
@@ -100,8 +104,14 @@ class EditorCanvas extends StatefulWidget {
 
   /// Called with the tapped section's id, or null when the tap landed on
   /// empty space (selecting the construction root). Never called when the
-  /// tap lands inside a boundary corridor.
+  /// tap lands inside a boundary corridor or on a dimension label.
   final ValueChanged<String?> onSectionTap;
+
+  /// Called when the user taps an OVERALL dimension label painted on the
+  /// canvas -- the direct "click the number you want to change" path to
+  /// precise numeric editing. The receiver navigates to the matching
+  /// properties field; this canvas only reports WHAT was clicked.
+  final ValueChanged<ConstructionDimensionLabel>? onDimensionLabelTap;
 
   /// Called whenever this canvas reports a new size to the viewport --
   /// including the first usable layout, which is when the screen performs
@@ -123,6 +133,7 @@ class EditorCanvas extends StatefulWidget {
     required this.draftingSettings,
     required this.onSectionTap,
     this.onCanvasSizeChanged,
+    this.onDimensionLabelTap,
     required this.onBoundaryDragCompleted,
   });
 
@@ -412,11 +423,27 @@ class _EditorCanvasState extends State<EditorCanvas> {
 
   /// Turns a tap into selection -- unless it landed on a boundary corridor,
   /// where taps are deliberate no-ops so grabbing a divider can never
-  /// accidentally change selection.
+  /// accidentally change selection, or on an overall dimension label,
+  /// which routes to precise numeric editing instead.
   void _handleTapUp(Offset localPosition) {
     if (_hitBoundary(localPosition) != null) return;
 
     final layout = layoutConstruction(widget.construction);
+
+    // Dimension labels take precedence over section selection: they sit
+    // OUTSIDE the drawing, so this never steals a section gesture.
+    if (layout != null && widget.onDimensionLabelTap != null) {
+      for (final target in dimensionLabelTargets(
+        layout: layout,
+        transform: widget.viewport.transform,
+      )) {
+        if (target.hitBounds.contains(localPosition)) {
+          widget.onDimensionLabelTap!(target.label);
+          return;
+        }
+      }
+    }
+
     final hit = layout == null
         ? null
         : sectionAtPoint(layout, widget.viewport.screenToModel(localPosition));

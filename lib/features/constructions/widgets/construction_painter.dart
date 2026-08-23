@@ -28,6 +28,64 @@ String openingTypeLabel(OpeningType type) {
   }
 }
 
+/// Which OVERALL dimension label a pointer interaction landed on.
+enum ConstructionDimensionLabel { overallWidth, overallHeight }
+
+/// One clickable dimension-label region on the canvas, in CANVAS-LOCAL
+/// pixel coordinates -- the same space [ConstructionPainter] paints in and
+/// gesture handlers read.
+class DimensionLabelTarget {
+  final ConstructionDimensionLabel label;
+
+  /// Generous grab box around the painted text. Deliberately larger than
+  /// the glyphs: a dimension label is a small target for a precise intent
+  /// ("edit this number"), so the affordance should forgive.
+  final Rect hitBounds;
+
+  const DimensionLabelTarget({required this.label, required this.hitBounds});
+}
+
+/// Computes the interactive regions of the OVERALL dimension labels --
+/// the exact same anchors `_paintOverallDimensions` draws (width centered
+/// above the top edge, height rotated beside the left edge), so what you
+/// see is precisely what you can click.
+///
+/// Only the two OVERALL labels are exposed deliberately: per-section
+/// labels sit inside their section rectangles, where a click must keep its
+/// existing meaning (section selection); making interior text an edit
+/// handle would silently steal that gesture. Dedicated per-section
+/// dimension chips OUTSIDE the drawing remain a future task.
+///
+/// Pure function -- unit-testable against the painter's own constants.
+List<DimensionLabelTarget> dimensionLabelTargets({
+  required ConstructionLayout layout,
+  required FittedTransform transform,
+}) {
+  final left = transform.toPixelX(0);
+  final top = transform.toPixelY(0);
+  final right = transform.toPixelX(layout.width);
+  final bottom = transform.toPixelY(layout.height);
+
+  return [
+    DimensionLabelTarget(
+      label: ConstructionDimensionLabel.overallWidth,
+      hitBounds: Rect.fromCenter(
+        center: Offset((left + right) / 2, top - 18),
+        width: 104,
+        height: 26,
+      ),
+    ),
+    DimensionLabelTarget(
+      label: ConstructionDimensionLabel.overallHeight,
+      hitBounds: Rect.fromCenter(
+        center: Offset(left - 34, (top + bottom) / 2),
+        width: 26,
+        height: 104,
+      ),
+    ),
+  ];
+}
+
 /// Draws one [Construction]'s outer rectangle and sections in 2D.
 ///
 /// This paints construction/section geometry only -- widths, heights, and

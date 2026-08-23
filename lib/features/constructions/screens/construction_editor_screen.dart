@@ -11,6 +11,8 @@ import '../editor/construction_editor_result.dart';
 import '../editor/editor_stage.dart';
 import '../editor/editor_drafting_settings.dart';
 import '../editor/editor_viewport.dart';
+import '../widgets/construction_painter.dart'
+    show ConstructionDimensionLabel;
 import '../editor/widgets/calculation_results_banner.dart';
 import '../editor/widgets/editor_canvas.dart';
 import '../editor/widgets/editor_properties_panels.dart';
@@ -127,6 +129,15 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   /// of undo history.
   final EditorDraftingSettings _draftingSettings = EditorDraftingSettings();
 
+  /// Focus nodes for the construction dimension fields -- targets of the
+  /// canvas dimension-label interaction ("click the number to edit it").
+  final FocusNode _constructionWidthFocus = FocusNode(
+    debugLabel: 'construction-width',
+  );
+  final FocusNode _constructionHeightFocus = FocusNode(
+    debugLabel: 'construction-height',
+  );
+
   /// Whether the one-time automatic fit has already happened (or been
   /// superseded by a manual fit). See [_maybeInitialFit].
   bool _didInitialFit = false;
@@ -151,6 +162,29 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   /// session settings.
   void _onDraftingSettingsChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// The user clicked an overall dimension label on the canvas: switch to
+  /// the Geometry stage and focus the matching field once it exists
+  /// (post-frame -- the panel is built by the stage switch itself), then
+  /// scroll it into view inside its ListView.
+  void _editOverallDimension(ConstructionDimensionLabel label) {
+    _controller.goToStage(EditorStage.geometry);
+    final node = label == ConstructionDimensionLabel.overallWidth
+        ? _constructionWidthFocus
+        : _constructionHeightFocus;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      node.requestFocus();
+      final context = node.context;
+      if (context != null) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   /// Performs the ONE-TIME automatic fit-to-content, as soon as both the
@@ -191,6 +225,8 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   void dispose() {
     _controller.removeListener(_onControllerChanged);
     _draftingSettings.removeListener(_onDraftingSettingsChanged);
+    _constructionWidthFocus.dispose();
+    _constructionHeightFocus.dispose();
     _controller.dispose();
     _viewport.dispose();
     _draftingSettings.dispose();
@@ -610,6 +646,10 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
       viewport: _viewport,
       draftingSettings: _draftingSettings,
       onSectionTap: _controller.selectSection,
+      // Clicking a painted overall dimension label is the direct path to
+      // precise numeric editing: jump to the Geometry stage and put the
+      // caret in the exact field.
+      onDimensionLabelTap: _editOverallDimension,
       // The canvas learns its size after the first layout pass -- exactly
       // when the one-time initial fit becomes possible.
       onCanvasSizeChanged: _maybeInitialFit,
@@ -645,6 +685,8 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
           onWidthChanged: _controller.setWidth,
           onHeightChanged: _controller.setHeight,
           onLayoutDirectionChanged: _controller.setLayoutDirection,
+          widthFocusNode: _constructionWidthFocus,
+          heightFocusNode: _constructionHeightFocus,
         );
       case EditorStage.sections:
         final resultsBanner = _buildCalculationResultsBanner();

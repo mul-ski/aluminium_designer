@@ -225,5 +225,40 @@ void main() {
       // Identical visibility needs no repaint.
       expect(gridOn.shouldRepaint(gridOn), isFalse);
     });
+
+    test('dimensionLabelTargets mirror the painted label anchors exactly', () {
+      final layout = layoutConstruction(_constructionWithSliverSection())!;
+      const t = FittedTransform(scale: 0.3, offsetX: 40, offsetY: 50);
+
+      final targets = dimensionLabelTargets(layout: layout, transform: t);
+      expect(targets, hasLength(2));
+
+      final left = t.toPixelX(0); // 40
+      final top = t.toPixelY(0); // 50
+      final right = t.toPixelX(layout.width); // 40 + 1830*0.3
+      final bottom = t.toPixelY(layout.height); // 50 + 1200*0.3
+
+      final widthTarget =
+          targets.firstWhere((x) => x.label == ConstructionDimensionLabel.overallWidth);
+      expect(
+        widthTarget.hitBounds.center,
+        Offset((left + right) / 2, top - 18),
+      );
+      expect(widthTarget.hitBounds.contains(widthTarget.hitBounds.center),
+          isTrue);
+
+      final heightTarget =
+          targets.firstWhere((x) => x.label == ConstructionDimensionLabel.overallHeight);
+      expect(
+        heightTarget.hitBounds.center,
+        Offset(left - 34, (top + bottom) / 2),
+      );
+
+      // The two grab boxes must not overlap each other or the drawing.
+      expect(
+        widthTarget.hitBounds.overlaps(heightTarget.hitBounds),
+        isFalse,
+      );
+    });
   });
 }

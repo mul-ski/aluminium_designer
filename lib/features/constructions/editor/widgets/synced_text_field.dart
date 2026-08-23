@@ -25,6 +25,11 @@ class SyncedTextField extends StatefulWidget {
   final TextInputType? keyboardType;
   final ValueChanged<String> onChanged;
 
+  /// Optional external focus control -- lets callers (e.g. the canvas's
+  /// dimension-label interaction) bring THIS exact field into focus.
+  /// Owned by the caller, like every FocusNode.
+  final FocusNode? focusNode;
+
   const SyncedTextField({
     super.key,
     required this.value,
@@ -32,6 +37,7 @@ class SyncedTextField extends StatefulWidget {
     required this.onChanged,
     this.suffixText,
     this.keyboardType,
+    this.focusNode,
   });
 
   @override
@@ -71,6 +77,7 @@ class _SyncedTextFieldState extends State<SyncedTextField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: _controller,
+      focusNode: widget.focusNode,
       keyboardType: widget.keyboardType,
       decoration: InputDecoration(
         labelText: widget.label,

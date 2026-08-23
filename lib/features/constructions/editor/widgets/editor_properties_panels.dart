@@ -92,12 +92,19 @@ class EditorGeometryPropertiesPanel extends StatelessWidget {
   final ValueChanged<String> onHeightChanged;
   final ValueChanged<SectionLayoutDirection> onLayoutDirectionChanged;
 
+  /// Optional focus nodes so the canvas's dimension-label interaction can
+  /// land the user directly in the matching field. Owned by the screen.
+  final FocusNode? widthFocusNode;
+  final FocusNode? heightFocusNode;
+
   const EditorGeometryPropertiesPanel({
     super.key,
     required this.draft,
     required this.onWidthChanged,
     required this.onHeightChanged,
     required this.onLayoutDirectionChanged,
+    this.widthFocusNode,
+    this.heightFocusNode,
   });
 
   @override
@@ -112,6 +119,7 @@ class EditorGeometryPropertiesPanel extends StatelessWidget {
           suffixText: 'mm',
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           onChanged: onWidthChanged,
+          focusNode: widthFocusNode,
         ),
         const SizedBox(height: 12),
         SyncedTextField(
@@ -120,6 +128,7 @@ class EditorGeometryPropertiesPanel extends StatelessWidget {
           suffixText: 'mm',
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           onChanged: onHeightChanged,
+          focusNode: heightFocusNode,
         ),
         const SizedBox(height: 20),
         const PanelHeader('DISPOSITION'),

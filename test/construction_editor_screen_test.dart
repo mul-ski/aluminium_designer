@@ -1069,6 +1069,81 @@ void main() {
     });
   });
 
+  group('Dimension label direct editing', () {
+    /// Canvas-local screen position of an overall label's anchor, using
+    /// the same viewport numbers the painter paints with.
+    Offset labelAnchor(
+      WidgetTester tester,
+      ConstructionDimensionLabel label,
+    ) {
+      final vp = tester
+          .widget<EditorCanvas>(find.byType(EditorCanvas))
+          .viewport;
+      final topLeft = tester.getTopLeft(find.byType(EditorCanvas));
+      // _pumpEditor's construction: W=1800, H=1200.
+      return switch (label) {
+        ConstructionDimensionLabel.overallWidth =>
+          topLeft +
+              Offset(
+                vp.matrix[12] + (1800 / 2) * vp.scale,
+                vp.matrix[13] - 18,
+              ),
+        ConstructionDimensionLabel.overallHeight =>
+          topLeft + Offset(vp.matrix[12] - 34, vp.matrix[13] + 600 * vp.scale),
+      };
+    }
+
+    testWidgets('tapping the width dimension label opens the Geometry stage '
+        'with the caret in the width field', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      await tester.tapAt(labelAnchor(tester, ConstructionDimensionLabel.overallWidth));
+      await tester.pumpAndSettle();
+
+      expect(find.text('DISPOSITION'), findsOneWidget); // Geometry stage
+      expect(FocusManager.instance.primaryFocus?.debugLabel,
+          'construction-width');
+    });
+
+    testWidgets('tapping the height dimension label focuses the height field',
+        (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      // The rotated label hugs the construction's left edge -- at fitted
+      // zoom its anchor sits at canvas-local x=-2, so part of the grab box
+      // lies off-canvas. Tap the VISIBLE portion of the box (x=6), exactly
+      // what a user would do.
+      final vp = tester
+          .widget<EditorCanvas>(find.byType(EditorCanvas))
+          .viewport;
+      await tester.tapAt(
+        tester.getTopLeft(find.byType(EditorCanvas)) +
+            Offset(6, vp.matrix[13] + 600 * vp.scale),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('DISPOSITION'), findsOneWidget);
+      expect(FocusManager.instance.primaryFocus?.debugLabel,
+          'construction-height');
+    });
+
+    testWidgets('a plain section tap still selects normally (labels do not '
+        'steal geometry gestures)', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      final vp = tester
+          .widget<EditorCanvas>(find.byType(EditorCanvas))
+          .viewport;
+      await tester.tapAt(
+        tester.getTopLeft(find.byType(EditorCanvas)) +
+            vp.modelToScreen(const Offset(500, 600)), // centre of S1
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('SECTION 1'), findsOneWidget);
+      expect(find.text('DISPOSITION'), findsNothing);
+    });
+  });
+
   group('Calculate action', () {
     testWidgets('Calculer toolbar button exists on the Sections stage', (
       tester,
