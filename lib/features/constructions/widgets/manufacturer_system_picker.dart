@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/catalog.dart';
 import '../../../core/models/manufacturer.dart';
 import '../../../core/models/profile_system.dart';
+import 'profile_system_metadata_panel.dart';
 import 'profile_system_profiles_panel.dart';
 
 /// Lets the user pick an existing [Manufacturer]/[ProfileSystem] from
@@ -14,10 +15,11 @@ import 'profile_system_profiles_panel.dart';
 /// This widget stays scoped to manufacturer/system selection and
 /// creation/deletion only. Managing the PROFILES that belong to a
 /// selected system is a separate, focused widget --
-/// [ProfileSystemProfilesPanel] -- reached via the "Profils du système"
-/// button shown once a valid system is selected. Keeping profile CRUD out
-/// of this widget is deliberate: this picker's job is "which system", not
-/// "what's in the system".
+/// [ProfileSystemProfilesPanel] -- reached via the "Profils" button shown
+/// once a valid system is selected; the system's advisory specification
+/// data and dimension limits are edited via [ProfileSystemMetadataPanel]
+/// ("Fiche système"). Keeping both out of this widget is deliberate:
+/// this picker's job is "which system", not "what's in the system".
 ///
 /// [catalog] starts empty for a fresh install and stays empty until the
 /// user creates their first manufacturer here -- there is no seeded data.
@@ -299,6 +301,20 @@ class ManufacturerSystemPicker extends StatelessWidget {
     );
   }
 
+  Future<void> _openMetadataPanel(
+    BuildContext context,
+    ProfileSystem system,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => ProfileSystemMetadataPanel(
+        catalog: catalog,
+        system: system,
+        onCatalogChanged: onCatalogChanged,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final manufacturer = _selectedManufacturer;
@@ -434,12 +450,30 @@ class ManufacturerSystemPicker extends StatelessWidget {
         ),
         if (selectedSystem != null) ...[
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () => _openProfilesPanel(context, selectedSystem!),
-            icon: const Icon(Icons.view_list_outlined),
-            label: Text(
-              'Profils du système (${selectedSystem.profiles.length})',
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _openProfilesPanel(context, selectedSystem!),
+                  icon: const Icon(Icons.view_list_outlined),
+                  label: Text(
+                    'Profils (${selectedSystem.profiles.length})',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _openMetadataPanel(context, selectedSystem!),
+                  icon: const Icon(Icons.description_outlined),
+                  label: const Text(
+                    'Fiche système',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ],
