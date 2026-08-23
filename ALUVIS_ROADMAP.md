@@ -46,9 +46,15 @@ Workshop Drafting Grid + Configurable Snapping + Precision Dimensions:
       ActiveSnap; geometry-beats-grid tie proven end-to-end at 1500 mm;
       increment picker shipped functional + disabled while snap off;
       suite 289).
-- [ ] M6 precision-dimension validation/improvements — exact numeric editing,
-      parsing/invalid-input verification, undo/staleness coverage; canvas-label
-      direct editing only if it fits naturally (else documented future task).
+- [x] M6 `feat(editor): precision dimension editing hardening` — 2b1fe21
+      (French decimal-comma parsing across all four dimension mutators;
+      exact-decimal/comma/whitespace tests; non-positive section edits
+      create no mutation/no undo entry; screen-level exact-750 workflow
+      with undo-chain proof; suite 295).
+
+FUTURE (documented, not scheduled): direct canvas-label dimension editing
+(click a painted dimension label to focus its properties field) — needs
+label hit-testing plumbing; revisit after the next rendering milestone.
 
 ## Decisions on record
 
@@ -64,8 +70,7 @@ Workshop Drafting Grid + Configurable Snapping + Precision Dimensions:
 
 ## Current next milestone
 
-M6 — precision-dimension validation/improvements: exact numeric editing,
-integer/decimal parsing, invalid/empty/negative input behavior, undo +
-calculation-staleness coverage for typed dimensions. Canvas-label direct
-editing only if it fits the existing architecture naturally (else stays a
-documented future task).
+Workshop drafting milestone series COMPLETE (M1-M6). Awaiting product
+direction. Candidate follow-ups from the approved plan's deferred list:
+canvas-label direct editing, grid settings persistence if a preferences
+architecture ever lands, and the previously paused roadmap items.
