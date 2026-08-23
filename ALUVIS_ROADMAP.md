@@ -32,13 +32,11 @@ Workshop Drafting Grid + Configurable Snapping + Precision Dimensions:
 - [x] M2 `feat(snap): configurable snap sources and priority` — f7a22da
       (SnapTargetKind.grid, SnapConfig, snapToGrid, resolveSnapPosition;
       legacy geometry-only behavior preserved; suite 275)
-- [ ] M3 `feat(editor): per-editor drafting settings with toolbar controls` —
-      session-scoped ChangeNotifier owned by the editor screen (snapEnabled /
-      gridVisible / snapIncrementMm); toolbar toggles in existing UI style.
-      NO inert controls: per user decision, the increment picker ships only
-      in the milestone where grid snapping consumes it — so M3 ships the
-      Snap ON/OFF + Grid visibility controls, and the increment picker is
-      deferred to M5.
+- [x] M3 `feat(editor): per-editor drafting settings with toolbar controls` —
+      6d134e8 (EditorDraftingSettings ChangeNotifier, screen-owned; 'Aimanter'
+      + 'Afficher la grille' toolbar toggles; settings listener wiring caught
+      by tests; suite 279. Increment picker DEFERRED to M5 per no-inert-UI
+      rule.)
 - [ ] M4 `feat(editor): workshop grid rendering and light canvas palette` —
       white/off-white canvas, subtle mm grid via M1 math, light-tuned painter
       palette; keep ClipRect containment + live-transform shouldRepaint fixes.
@@ -63,5 +61,5 @@ Workshop Drafting Grid + Configurable Snapping + Precision Dimensions:
 
 ## Current next milestone
 
-M3 — per-editor drafting settings with toolbar controls (Snap ON/OFF +
-Grid visibility; increment picker deferred to M5 to avoid inert UI).
+M4 — workshop grid rendering and light canvas palette (white/off-white
+canvas, subtle mm grid via M1 math, light-tuned painter palette).
