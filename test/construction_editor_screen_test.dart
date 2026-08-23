@@ -844,6 +844,72 @@ void main() {
         '1000',
       );
     });
+
+    testWidgets('the exact-750 workflow: drag approximately, then TYPE the '
+        'precise value -- model receives exactly 750.0', (tester) async {
+      await _pumpEditor(tester, _construction()); // [1000, 800], W=1800
+
+      final viewport = tester
+          .widget<EditorCanvas>(find.byType(EditorCanvas))
+          .viewport;
+      final grabPoint =
+          tester.getTopLeft(find.byType(EditorCanvas)) +
+          viewport.modelToScreen(const Offset(1000, 600));
+      final scaleBefore = viewport.scale;
+
+      // 1) Approximate pass: a snapped drag.
+      final gesture = await tester.startGesture(grabPoint);
+      await tester.pump();
+      await gesture.moveBy(const Offset(60, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      final draggedTo = ((1000 + 60 / scaleBefore) / 5).roundToDouble() * 5;
+
+      await tester.tap(find.text('Section 1'));
+      await tester.pumpAndSettle();
+
+      // 2) Precise pass: type the exact dimension.
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Largeur'),
+        '750',
+      );
+      await tester.pumpAndSettle();
+
+      final widthField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Largeur'),
+      );
+      expect(widthField.controller!.text, '750');
+      // The MODEL holds exactly 750.0 -- provable through the next undo:
+      // typing was ONE coalesced entry on top of the drag entry.
+      await tester.tap(find.byTooltip('Annuler'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Largeur'))
+            .controller!
+            .text,
+        draggedTo.toStringAsFixed(0),
+      );
+
+      await tester.tap(find.byTooltip('Annuler'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Largeur'))
+            .controller!
+            .text,
+        '1000',
+      );
+      // History exhausted: exactly two mutations for drag+type.
+      final undoButton = tester.widget<IconButton>(
+        find.descendant(
+          of: find.byTooltip('Annuler'),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(undoButton.onPressed, isNull);
+    });
   });
 
   group('Workspace layout contract', () {

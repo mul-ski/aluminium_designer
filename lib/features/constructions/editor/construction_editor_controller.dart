@@ -421,6 +421,19 @@ class ConstructionEditorController extends ChangeNotifier {
     );
   }
 
+  /// Parses a typed dimension in millimetres.
+  ///
+  /// Accepts the app's French decimal COMMA as well as the dot
+  /// ('750,5' == '750.5') and tolerates surrounding whitespace -- users
+  /// must not have their exact input silently discarded over separator
+  /// habit. No thousands separators are supported ('1,500' reads as 1.5).
+  ///
+  /// Returns null for empty/unparseable input; callers decide whether that
+  /// means "clear the dimension" (construction W/H) or "ignore the edit"
+  /// (section dimensions).
+  static double? _parseDimensionMm(String value) =>
+      double.tryParse(value.trim().replaceAll(',', '.'));
+
   /// Applies a typed width. An empty/unparseable field means "not set yet"
   /// (`copyWith` cannot express clearing `width` back to `null` -- its null
   /// means "leave unchanged" -- so the draft is rebuilt directly here
@@ -430,7 +443,7 @@ class ConstructionEditorController extends ChangeNotifier {
   /// `systemId`, is carried over unchanged: dimension edits must never
   /// detach the construction from its selected manufacturer/system.
   void setWidth(String value) {
-    final parsed = double.tryParse(value);
+    final parsed = _parseDimensionMm(value);
     _updateDraft(
       Construction(
         id: _draft.id,
@@ -455,7 +468,7 @@ class ConstructionEditorController extends ChangeNotifier {
   /// Applies a typed height. See [setWidth] for why this rebuilds the draft
   /// directly and carries every non-dimension field over unchanged.
   void setHeight(String value) {
-    final parsed = double.tryParse(value);
+    final parsed = _parseDimensionMm(value);
     _updateDraft(
       Construction(
         id: _draft.id,
@@ -544,7 +557,7 @@ class ConstructionEditorController extends ChangeNotifier {
   // ---- Section-level property edits ----
 
   void applySectionWidth(Section section, String value) {
-    final parsed = double.tryParse(value);
+    final parsed = _parseDimensionMm(value);
     if (parsed == null || parsed <= 0) return;
     _replaceSection(
       _withSectionFields(section, width: parsed),
@@ -553,7 +566,7 @@ class ConstructionEditorController extends ChangeNotifier {
   }
 
   void applySectionHeight(Section section, String value) {
-    final parsed = double.tryParse(value);
+    final parsed = _parseDimensionMm(value);
     if (parsed == null || parsed <= 0) return;
     _replaceSection(
       _withSectionFields(section, height: parsed),

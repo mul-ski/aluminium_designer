@@ -48,6 +48,80 @@ ConstructionEditorController _controllerWithSection() {
 }
 
 void main() {
+  group('precision dimension parsing', () {
+    test('construction dimensions accept exact decimals', () {
+      final controller = ConstructionEditorController(
+        construction: _construction(),
+      );
+
+      controller.setWidth('750.5');
+      expect(controller.draft.width, 750.5);
+
+      controller.setHeight('1200.25');
+      expect(controller.draft.height, 1200.25);
+    });
+
+    test('the French decimal COMMA parses like the dot -- typed input is '
+        'never silently discarded over separator habit', () {
+      final controller = ConstructionEditorController(
+        construction: _construction(),
+      );
+
+      controller.setWidth('750,5');
+      expect(controller.draft.width, 750.5);
+
+      controller.setHeight('1200,25');
+      expect(controller.draft.height, 1200.25);
+      // Whitespace around the number is tolerated too.
+      controller.setWidth(' 800 ');
+      expect(controller.draft.width, 800);
+    });
+
+    test('section dimensions accept exact decimals and commas', () {
+      final controller = _controllerWithSection();
+      final section = controller.draft.sections.single;
+
+      controller.applySectionWidth(section, '750.5');
+      expect(controller.draft.sections.single.width, 750.5);
+
+      controller.applySectionHeight(section, '1200,5');
+      expect(controller.draft.sections.single.height, 1200.5);
+    });
+
+    test('non-positive or unparseable section dimensions are IGNORED: no '
+        'mutation, no undo entry, model untouched', () {
+      final controller = _controllerWithSection();
+      final section = controller.draft.sections.single;
+
+      for (final bad in const ['-5', '0', 'abc', '']) {
+        controller.applySectionWidth(section, bad);
+        controller.applySectionHeight(section, bad);
+        expect(controller.canUndo, isFalse,
+            reason: "'$bad' must not create history");
+        expect(controller.draft.sections.single.width, 1000);
+        expect(controller.draft.sections.single.height, 1200);
+      }
+    });
+
+    test('typing the exact value lands exactly in the model and undoes '
+        'cleanly (750 workflow)', () {
+      final controller = _controllerWithSection();
+      final section = controller.draft.sections.single;
+      expect(controller.canUndo, isFalse);
+
+      controller.setWidth('2000'); // rough pass
+      controller.applySectionWidth(section, '750'); // precise pass
+      expect(controller.draft.width, 2000);
+      expect(controller.draft.sections.single.width, 750.0);
+
+      controller.undo(); // undoes the section width only
+      expect(controller.draft.sections.single.width, 1000);
+      expect(controller.canUndo, isTrue);
+      controller.undo(); // undoes the construction width
+      expect(controller.draft.width, 1800);
+      expect(controller.canUndo, isFalse);
+    });
+  });
   group('ConstructionEditorController width/height edits', () {
     test(
       'setWidth preserves authoritative manufacturerId/systemId',
