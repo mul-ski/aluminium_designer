@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/geometry/drafting_grid.dart';
 import '../../../core/geometry/section_layout.dart';
 import '../../../core/geometry/snap.dart';
 import '../../../core/models/construction.dart';
@@ -66,27 +67,50 @@ class ConstructionPainter extends CustomPainter {
   /// in the same blue as selection highlights.
   final ActiveSnap? activeSnap;
 
+  /// Whether the real-world measurement grid is drawn UNDER the geometry.
+  ///
+  /// Pure presentation, driven by the editor's drafting settings; it shares
+  /// nothing with snapping (a drawn grid does not snap, a hidden grid can
+  /// still snap). The interval adapts to [transform]'s scale via the pure
+  /// `drafting_grid` math; lines are enumerated only for the visible
+  /// model-space range.
+  final bool showGrid;
+
   ConstructionPainter({
     required this.construction,
     required this.selectedSectionId,
     required this.transform,
     this.activeSnap,
+    this.showGrid = false,
   });
 
-  // Palette tuned for ConstructionEditorScreen's DARK SLATE canvas
-  // background (Color(0xFF262C33)): mid-tone section fills with light
-  // strokes keep aluminium geometry clearly readable, while dimension
-  // text uses a muted cool gray. Selection/snap blue is brightened
-  // against the dark ground.
-  static const _fixedFill = Color(0xFF46525C);
-  static const _ouvrantFill = Color(0xFF3E5A4F);
-  static const _outerStroke = Color(0xFFB7C4CE);
-  static const _sectionStroke = Color(0xFF8FA1AD);
-  static const _dimensionColor = Color(0xFFAEB9C2);
-  static const _selectionStroke = Color(0xFF64B5F6);
+  // Palette tuned for the workshop drafting canvas: an off-white ground
+  // (ConstructionEditorCanvas background Color(0xFFFAFBFC)) with pale
+  // section fills and dark strokes -- a technical drawing, not a dark CAD
+  // viewport. Dimension text is muted slate; selection/snap blue reads
+  // clearly against both fills and ground.
+  static const _fixedFill = Color(0xFFE3E9ED);
+  static const _ouvrantFill = Color(0xFFD8EBDF);
+  static const _outerStroke = Color(0xFF37424C);
+  static const _sectionStroke = Color(0xFF6C7F8C);
+  static const _dimensionColor = Color(0xFF4A5763);
+  static const _selectionStroke = Color(0xFF1976D2);
+
+  // Measurement grid: deliberately WEAKER than every construction stroke
+  // so the grid can never overpower the drawing (unsaturated, near-ground
+  // grays). The model origin axes get one step stronger as a subtle anchor.
+  static const _gridMinorColor = Color(0xFFE7EAED);
+  static const _gridMajorColor = Color(0xFFD8DEE3);
+  static const _gridOriginColor = Color(0xFFC9D1D7);
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Grid first: it must sit UNDER everything, and its subtlety is
+    // guaranteed by z-order as well as by its near-ground grays.
+    if (showGrid) {
+      _paintGrid(canvas, size, transform);
+    }
+
     final layout = layoutConstruction(construction);
     if (layout == null) {
       // Construction doesn't have both overall dimensions yet -- nothing
@@ -112,6 +136,47 @@ class ConstructionPainter extends CustomPainter {
     final snap = activeSnap;
     if (snap != null) {
       _paintActiveSnap(canvas, layout, snap);
+    }
+  }
+
+  /// Draws the adaptive measurement grid across the WHOLE canvas -- not
+  /// just the construction extent: a drafting workspace extends beyond the
+  /// current drawing while staying pinned to real model coordinates.
+  ///
+  /// Interval selection and line enumeration are fully delegated to the
+  /// pure `drafting_grid` functions; this method only maps model-space
+  /// lines through the viewport transform. The visible model range is the
+  /// exact inverse of that transform at the canvas edges, so panning/zooming
+  /// never draws off-screen lines and never misses on-screen ones.
+  void _paintGrid(Canvas canvas, Size size, FittedTransform t) {
+    final minorMm = selectMinorGridInterval(scale: t.scale);
+    if (minorMm <= 0) return; // Degenerate transform: no grid.
+
+    final minModelX = -t.offsetX / t.scale;
+    final maxModelX = (size.width - t.offsetX) / t.scale;
+    final minModelY = -t.offsetY / t.scale;
+    final maxModelY = (size.height - t.offsetY) / t.scale;
+
+    final verticals =
+        gridLinesForRange(minMm: minModelX, maxMm: maxModelX, minorIntervalMm: minorMm);
+    final horizontals =
+        gridLinesForRange(minMm: minModelY, maxMm: maxModelY, minorIntervalMm: minorMm);
+
+    Paint paintFor(DraftingGridLine line) => Paint()
+      ..strokeWidth = 1
+      ..color = line.positionMm == 0 // index-0 line is exactly 0.0
+          ? _gridOriginColor
+          : line.isMajor
+              ? _gridMajorColor
+              : _gridMinorColor;
+
+    for (final line in verticals) {
+      final x = t.toPixelX(line.positionMm);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paintFor(line));
+    }
+    for (final line in horizontals) {
+      final y = t.toPixelY(line.positionMm);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paintFor(line));
     }
   }
 
@@ -346,12 +411,14 @@ class ConstructionPainter extends CustomPainter {
     return oldDelegate.construction != construction ||
         oldDelegate.selectedSectionId != selectedSectionId ||
         oldDelegate.activeSnap != activeSnap ||
+        oldDelegate.showGrid != showGrid ||
         // The transform lives INSIDE this painter since the live-viewport
         // rewrite, so any pan/zoom/fit must trigger a repaint. Without
         // this comparison the canvas keeps displaying the very first
         // frame -- painted with the pre-fit identity matrix, where
         // millimetre-space rects are enormous and flood the whole view --
-        // even though the viewport itself has long been fitted.
+        // even though the viewport itself has long been fitted. This also
+        // keeps the grid re-enumerated on every pan/zoom step.
         oldDelegate.transform.scale != transform.scale ||
         oldDelegate.transform.offsetX != transform.offsetX ||
         oldDelegate.transform.offsetY != transform.offsetY;

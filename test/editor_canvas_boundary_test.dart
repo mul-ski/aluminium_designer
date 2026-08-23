@@ -11,6 +11,7 @@ import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
 import 'package:aluminium_designer/core/models/layout_direction.dart';
 import 'package:aluminium_designer/core/models/section.dart';
+import 'package:aluminium_designer/features/constructions/editor/editor_drafting_settings.dart';
 import 'package:aluminium_designer/features/constructions/editor/editor_viewport.dart';
 import 'package:aluminium_designer/features/constructions/editor/widgets/editor_canvas.dart';
 import 'package:aluminium_designer/features/constructions/widgets/construction_painter.dart';
@@ -54,6 +55,7 @@ class _Harness extends StatefulWidget {
 class _HarnessState extends State<_Harness> {
   late Construction construction = widget.initial;
   final EditorViewport viewport = EditorViewport();
+  final EditorDraftingSettings draftingSettings = EditorDraftingSettings();
   String? selectedSectionId;
   final List<(int, double)> commits = [];
 
@@ -68,6 +70,7 @@ class _HarnessState extends State<_Harness> {
             construction: construction,
             selectedSectionId: selectedSectionId,
             viewport: viewport,
+            draftingSettings: draftingSettings,
             onSectionTap: (id) => setState(() => selectedSectionId = id),
             onBoundaryDragCompleted: (index, position) {
               commits.add((index, position));

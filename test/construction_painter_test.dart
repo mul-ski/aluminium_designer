@@ -156,4 +156,74 @@ void main() {
       expect(withSnap.shouldRepaint(fitted), isTrue);
     },
   );
+
+  group('workshop grid rendering', () {
+    test('painting with the grid on does not throw at representative scales',
+        () {
+      for (final scale in const [0.2, 0.31, 1.0, 6.0]) {
+        _paintWith(ConstructionPainter(
+          construction: _constructionWithSliverSection(),
+          selectedSectionId: null,
+          transform: FittedTransform(scale: scale, offsetX: 40, offsetY: 40),
+          showGrid: true,
+        ));
+      }
+    });
+
+    test('grid on + degenerate (zero-scale) transform paints nothing, '
+        'without throwing', () {
+      _paintWith(ConstructionPainter(
+        construction: _constructionWithSliverSection(),
+        selectedSectionId: null,
+        transform: const FittedTransform(scale: 0, offsetX: 0, offsetY: 0),
+        showGrid: true,
+      ));
+    });
+
+    test('painting an INCOMPLETE construction with the grid still draws the '
+        'grid and skips geometry without throwing', () {
+      // A construction missing sections yields a null layout -- the grid
+      // is presentation and must not depend on drawable geometry.
+      const incomplete = Construction(
+        id: 'x',
+        name: 'empty',
+        type: ConstructionType.window,
+        width: null,
+        height: null,
+        manufacturer: '',
+        system: '',
+        sections: [],
+        profiles: [],
+      );
+      _paintWith(ConstructionPainter(
+        construction: incomplete,
+        selectedSectionId: null,
+        transform: const FittedTransform(scale: 0.5, offsetX: 30, offsetY: 30),
+        showGrid: true,
+      ));
+    });
+
+    test('shouldRepaint reacts to grid visibility changes', () {
+      final construction = _constructionWithSliverSection();
+      final transform =
+          const FittedTransform(scale: 0.3, offsetX: 20, offsetY: 20);
+      final gridOn = ConstructionPainter(
+        construction: construction,
+        selectedSectionId: null,
+        transform: transform,
+        showGrid: true,
+      );
+      final gridOff = ConstructionPainter(
+        construction: construction,
+        selectedSectionId: null,
+        transform: transform,
+        showGrid: false,
+      );
+
+      expect(gridOn.shouldRepaint(gridOff), isTrue);
+      expect(gridOff.shouldRepaint(gridOn), isTrue);
+      // Identical visibility needs no repaint.
+      expect(gridOn.shouldRepaint(gridOn), isFalse);
+    });
+  });
 }

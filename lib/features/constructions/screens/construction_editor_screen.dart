@@ -605,6 +605,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
       construction: _controller.draft,
       selectedSectionId: _controller.selectedSectionId,
       viewport: _viewport,
+      draftingSettings: _draftingSettings,
       onSectionTap: _controller.selectSection,
       // The canvas learns its size after the first layout pass -- exactly
       // when the one-time initial fit becomes possible.

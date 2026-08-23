@@ -10,6 +10,7 @@ import '../../../../core/logic/boundary_manipulation.dart';
 import '../../../../core/models/construction.dart';
 import '../../../../core/models/layout_direction.dart';
 import '../../../../core/models/section_geometry.dart';
+import '../editor_drafting_settings.dart';
 import '../editor_viewport.dart';
 import '../../widgets/construction_painter.dart';
 
@@ -92,6 +93,11 @@ class EditorCanvas extends StatefulWidget {
   /// screen; this widget only drives it.
   final EditorViewport viewport;
 
+  /// The editor session's drafting aids (grid visibility today; snap
+  /// configuration with the grid-snapping milestone). Same lifetime as the
+  /// viewport; this widget only reads from it.
+  final EditorDraftingSettings draftingSettings;
+
   /// Called with the tapped section's id, or null when the tap landed on
   /// empty space (selecting the construction root). Never called when the
   /// tap lands inside a boundary corridor.
@@ -114,6 +120,7 @@ class EditorCanvas extends StatefulWidget {
     required this.construction,
     required this.selectedSectionId,
     required this.viewport,
+    required this.draftingSettings,
     required this.onSectionTap,
     this.onCanvasSizeChanged,
     required this.onBoundaryDragCompleted,
@@ -428,11 +435,11 @@ class _EditorCanvasState extends State<EditorCanvas> {
     final problems = validateSectionGeometry(widget.construction);
 
     return Container(
-      // Dark slate technical workspace, visually distinct from the light
-      // surrounding panels (structure/properties/status) -- the classic
-      // CAD chrome-vs-viewport split. Painter colors are tuned to this
+      // Off-white drafting-workshop ground: a technical drawing surface,
+      // slightly set apart from the pure-white surrounding chrome by tone
+      // plus the existing dividers. Painter colors are tuned to this
       // background; see ConstructionPainter's constants.
-      color: const Color(0xFF262C33),
+      color: const Color(0xFFFAFBFC),
       child: Stack(
         children: [
           Positioned.fill(
@@ -473,8 +480,13 @@ class _EditorCanvasState extends State<EditorCanvas> {
                         onScaleUpdate: _handleScaleUpdate,
                         onScaleEnd: _handleScaleEnd,
                         child: RepaintBoundary(
+                          // Rebuild on BOTH transform changes (pan/zoom/fit)
+                          // and drafting-setting changes (grid visibility,
+                          // later snap config) -- the painter consumes both.
                           child: ListenableBuilder(
-                            listenable: widget.viewport,
+                            listenable: Listenable.merge(
+                              [widget.viewport, widget.draftingSettings],
+                            ),
                             builder: (context, _) => CustomPaint(
                               size: size,
                               painter: ConstructionPainter(
@@ -483,6 +495,7 @@ class _EditorCanvasState extends State<EditorCanvas> {
                                 selectedSectionId: widget.selectedSectionId,
                                 transform: widget.viewport.transform,
                                 activeSnap: _activeSnap,
+                                showGrid: widget.draftingSettings.gridVisible,
                               ),
                             ),
                           ),
