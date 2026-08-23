@@ -1385,8 +1385,92 @@ void main() {
           find.textContaining('profil introuvable dans le système'),
           findsOneWidget,
         );
+        // Derived totals: 1200 mm at the profile's user-entered
+        // 1.2 kg/m -> 1.20 m / 1.44 kg, on both the per-profile line and
+        // the grand total (weight known -> shown, never invented).
+        expect(find.textContaining('Récapitulatif'), findsOneWidget);
+        expect(
+          find.textContaining('Montant M1 : 1 pièce — 1.20 m'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('— 1.44 kg'), findsNWidgets(2));
+        expect(find.textContaining('Total : 1 pièce — 1.20 m'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets('per-section badge counts physical pieces, not cut rows', (
+      tester,
+    ) async {
+      final montant = Profile(
+        id: 'M1',
+        manufacturer: 'Mfr',
+        system: 'Sys',
+        reference: 'M1',
+        name: 'Montant',
+        type: ProfileType.montant,
+        width: 40,
+        depth: 60,
+        weightPerMeter: 1.2,
+      );
+      final system = ProfileSystem(
+        id: 'sys-1',
+        manufacturer: 'Mfr',
+        manufacturerId: 'mfr-1',
+        name: 'Test System',
+        ruleSetId: 'generic-placeholder',
+        profiles: [montant],
+        supportedOpenings: const [],
+        isBuiltIn: false,
+      );
+      // One usage with quantity 3 -> exactly ONE cut row x qty 3 in the
+      // result; the badge must read 3 pieces, not 1 row.
+      final construction = Construction(
+        id: 'c1',
+        name: 'Test Window',
+        type: ConstructionType.window,
+        width: 1800,
+        height: 1200,
+        manufacturer: '',
+        system: '',
+        systemId: 'sys-1',
+        sections: [_fixedSection()],
+        layoutDirection: SectionLayoutDirection.horizontal,
+        profiles: const [],
+        profileUsages: [
+          ProfileUsage(
+            id: 'u1',
+            profileId: 'M1',
+            sectionId: 's1',
+            role: ProfileUsageRole.left,
+            quantity: 3,
+          ),
+        ],
+      );
+
+      await _pumpEditor(
+        tester,
+        construction,
+        catalog: Catalog(profileSystems: [system]),
+      );
+
+      await tester.tap(find.text('Section 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.calculate_outlined));
+      await tester.pumpAndSettle();
+
+      final tile = find.ancestor(
+        of: find.text('Section 1'),
+        matching: find.byType(ListTile),
+      ).first;
+      // The badge renders its piece count as plain text inside the tile
+      // ('3' here) -- asserted via that text rather than the private
+      // badge widget type.
+      expect(
+        find.descendant(of: tile, matching: find.text('3')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 }

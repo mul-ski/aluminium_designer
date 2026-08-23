@@ -109,7 +109,13 @@ class EditorStructurePanel extends StatelessWidget {
                 ),
                 trailing: cutsBySection.containsKey(section.id)
                     ? _CutCountBadge(
-                        count: cutsBySection[section.id]!.length,
+                        // Physical pieces, not cut lines: quantities
+                        // multiply per usage (see the quantity-composition
+                        // rule), so a qty-3 placement must read as 3.
+                        count: cutsBySection[section.id]!.fold<int>(
+                          0,
+                          (sum, cut) => sum + cut.quantity,
+                        ),
                         isStale: calculationIsStale,
                       )
                     : null,
@@ -179,15 +185,17 @@ class _StageNavItem extends StatelessWidget {
   }
 }
 
-/// Small pill showing how many cuts a section produced in the last
-/// calculation -- only ever built for a section that the calculation
-/// result actually has cuts for (see the build's `cutsBySection
-/// .containsKey` check), so [count] is always >= 1; a section with zero
-/// cuts (no profile usages assigned, or usages whose rule matched but
-/// produced nothing) simply shows no badge at all, same as a section that
-/// hasn't been calculated yet -- neither case is distinguished here, since
-/// both mean "nothing to show", and `CalculationResultsBanner` already
-/// states which one it is at the construction level.
+/// Small pill showing how many physical pieces a section produced in the
+/// last calculation (summed cut quantities -- quantities multiply per
+/// usage, so this is a piece count, not a count of cut lines) -- only ever
+/// built for a section that the calculation result actually has cuts for
+/// (see the build's `cutsBySection.containsKey` check), so [count] is
+/// always >= 1; a section with zero cuts (no profile usages assigned, or
+/// usages that were skipped -- reported in the results banner's issues
+/// block) simply shows no badge at all, same as a section that hasn't been
+/// calculated yet -- neither case is distinguished here, since both mean
+/// "nothing to show", and `CalculationResultsBanner` already states which
+/// one it is at the construction level.
 ///
 /// [isStale] dims the badge (rather than hiding it) when the draft has
 /// changed since [count] was computed -- see

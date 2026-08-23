@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/logic/cut_aggregation.dart';
 import '../../../../core/logic/cut_grouping.dart';
 import '../../../../core/models/calculation_outcome.dart';
 import '../../../../core/models/rules/system_rule_set.dart'
@@ -143,6 +144,8 @@ class CalculationResultsBanner extends StatelessWidget {
     }
 
     final grouped = groupCutsBySectionId(outcome.cuts);
+    final profileTotals = aggregateProfileTotals(outcome.cuts);
+    final grand = sumProfileTotals(profileTotals);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,6 +193,42 @@ class CalculationResultsBanner extends StatelessWidget {
             ),
           const SizedBox(height: 4),
         ],
+        // Derived totals over the produced cuts -- pure aggregation of
+        // data already on the cuts (pieces, linear metres) plus the
+        // user-entered weightPerMeter. Weight is shown only when known;
+        // nothing here estimates or invents a value.
+        if (outcome.cuts.isNotEmpty) ...[
+          const Text(
+            'Récapitulatif',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF5B6B76),
+            ),
+          ),
+          const SizedBox(height: 2),
+          for (final totals in profileTotals)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2, left: 8),
+              child: Text(
+                '${totals.profileName} ${totals.reference} : '
+                '${_piecesLabel(totals.pieces)} — '
+                '${(totals.totalLengthMm / 1000).toStringAsFixed(2)} m'
+                '${_weightSuffix(totals.weightKg)}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Text(
+              'Total : ${_piecesLabel(grand.pieces)} — '
+              '${(grand.totalLengthMm / 1000).toStringAsFixed(2)} m'
+              '${_weightSuffix(grand.weightKg)}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
         // Per-usage diagnostics: every usage that produced no cut, with
         // why. Warning-toned (matching the stale notice) rather than
         // error-red -- a skipped usage is usually a mid-editing state,
@@ -217,6 +256,16 @@ class CalculationResultsBanner extends StatelessWidget {
       ],
     );
   }
+
+  /// `'2 pièces'` / `'1 pièce'` -- French plural handled at the only
+  /// place that knows the count's display context.
+  static String _piecesLabel(int pieces) =>
+      '$pieces ${pieces > 1 ? 'pièces' : 'pièce'}';
+
+  /// `' — 4.32 kg'` when a weight is known, '' otherwise -- the suffix
+  /// simply disappears rather than showing an invented or zero value.
+  static String _weightSuffix(double? weightKg) =>
+      weightKg == null ? '' : ' — ${weightKg.toStringAsFixed(2)} kg';
 
   /// Short label for an issue row. Usages have no user-facing names yet,
   /// so the row leads with the usage id -- stable and already visible in
