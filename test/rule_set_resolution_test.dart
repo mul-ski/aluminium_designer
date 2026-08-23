@@ -157,10 +157,11 @@ void main() {
       expect(cuts.length, 1);
       expect(cuts.single.profile.id, 'M1');
       // genericPlaceholderRuleSet's montant rule: full construction
-      // height, mitred 45/45, quantity 2 -- see
+      // height, mitred 45/45, quantity 1 per matched usage (the usage's
+      // own quantity multiplies on top) -- see
       // generic_placeholder_rules.dart.
       expect(cuts.single.length, 1200);
-      expect(cuts.single.quantity, 2);
+      expect(cuts.single.quantity, 1);
       expect(cuts.single.angleStart, 45);
       expect(cuts.single.angleEnd, 45);
     });
@@ -257,7 +258,7 @@ void main() {
         expect(cuts!.length, 1);
         expect(cuts.single.profile.id, 'M1');
         expect(cuts.single.length, 1200);
-        expect(cuts.single.quantity, 2);
+        expect(cuts.single.quantity, 1);
       },
     );
 

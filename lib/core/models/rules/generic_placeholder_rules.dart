@@ -7,11 +7,15 @@ import 'system_rule_set.dart';
 ///
 /// ⚠️ THIS IS NOT REAL MANUFACTURER DATA. ⚠️
 ///
-/// It reproduces the same behaviour as the old hardcoded switch statement
-/// (2x montant/dormant at full height, 2x traverse at full width, both
-/// mitred 45°/45°) but expressed as data-driven rules, so the calculator
-/// has a safe default to fall back on when no real `SystemRuleSet` has been
-/// supplied for a construction's profile system yet.
+/// Each rule yields ONE piece per matched `ProfileUsage` (quantity 1), at
+/// the full construction dimension for that profile type, mitred 45°/45°.
+/// This is per-usage semantics, matching how the engine evaluates every
+/// role-scoped usage individually: a frame with a left AND a right montant
+/// gets its two pieces from two usages, not from one rule multiplying
+/// itself. The earlier fixed(2) counts here were legacy whole-construction
+/// thinking from the pre-usage hardcoded switch statement; they produced
+/// doubled totals once usages became the iteration source. The numbers are
+/// placeholder either way -- no real deduction or count data is claimed.
 ///
 /// Replace/extend this with real rule sets once actual manufacturer
 /// fabrication data (Aluminium du Maroc, Maghreb Extrusion, Sepalumic,
@@ -27,30 +31,33 @@ const genericPlaceholderRuleSet = SystemRuleSet(
       lengthExpression: DimensionExpression.variable(
         DimensionVariable.constructionHeight,
       ),
-      quantity: CutQuantity.fixed(2),
+      quantity: CutQuantity.fixed(1),
       angles: CutAngles.mitred45(),
       isPlaceholder: true,
-      description: 'Placeholder: 2x montant at full construction height',
+      description:
+          'Placeholder: montant per assignment, full construction height',
     ),
     ProfileCalculationRule(
       appliesTo: ProfileType.dormant,
       lengthExpression: DimensionExpression.variable(
         DimensionVariable.constructionHeight,
       ),
-      quantity: CutQuantity.fixed(2),
+      quantity: CutQuantity.fixed(1),
       angles: CutAngles.mitred45(),
       isPlaceholder: true,
-      description: 'Placeholder: 2x dormant at full construction height',
+      description:
+          'Placeholder: dormant per assignment, full construction height',
     ),
     ProfileCalculationRule(
       appliesTo: ProfileType.traverse,
       lengthExpression: DimensionExpression.variable(
         DimensionVariable.constructionWidth,
       ),
-      quantity: CutQuantity.fixed(2),
+      quantity: CutQuantity.fixed(1),
       angles: CutAngles.mitred45(),
       isPlaceholder: true,
-      description: 'Placeholder: 2x traverse at full construction width',
+      description:
+          'Placeholder: traverse per assignment, full construction width',
     ),
   ],
 );

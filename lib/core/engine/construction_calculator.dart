@@ -78,14 +78,21 @@ class ConstructionCalculator {
   /// variable, not a silent fallback to 0 or to the construction's
   /// overall dimensions.
   ///
-  /// Every emitted [ProfileCut] carries `profileUsageId`/`sectionId`
-  /// copied directly from the [ProfileUsage] it was produced for -- see
-  /// `ProfileCut`'s doc comment. This is a straight pass-through of ids
-  /// already available in this loop, not a lookup or inference; a
-  /// caller that needs to group cuts by section does so itself (e.g. by
-  /// `sectionId`) rather than this method returning a pre-grouped
-  /// structure -- grouping is a display concern, not something the
-  /// calculator needs an opinion about.
+/// Every emitted [ProfileCut] carries `profileUsageId`/`sectionId`
+   /// copied directly from the [ProfileUsage] it was produced for -- see
+   /// `ProfileCut`'s doc comment. This is a straight pass-through of ids
+   /// already available in this loop, not a lookup or inference; a
+   /// caller that needs to group cuts by section does so itself (e.g. by
+   /// `sectionId`) rather than this method returning a pre-grouped
+   /// structure -- grouping is a display concern, not something the
+   /// calculator needs an opinion about.
+   ///
+   /// Cut quantity composition: `ProfileUsage.quantity × rule.quantity`
+   /// (`CutQuantity.fixedCount`). The usage says how many identical pieces
+   /// the user placed at that spot; the rule says how many pieces one
+   /// matched placement yields; the product is the physical piece count on
+   /// the cut. Both factors are user/rule data already present -- nothing
+   /// here invents a count.
   List<ProfileCut> calculate(
     Construction construction, {
     Map<String, Profile> profilesById = const {},
@@ -151,7 +158,11 @@ class ConstructionCalculator {
         ProfileCut(
           profile: profile,
           length: length,
-          quantity: rule.quantity.fixedCount,
+          // The placement's own count times what the matched rule yields
+          // per placement -- see the quantity-composition note in this
+          // method's doc comment. This is what makes the assignment UI's
+          // quantity spinner actually reach the calculation output.
+          quantity: rule.quantity.fixedCount * usage.quantity,
           angleStart: rule.angles.start,
           angleEnd: rule.angles.end,
           profileUsageId: usage.id,

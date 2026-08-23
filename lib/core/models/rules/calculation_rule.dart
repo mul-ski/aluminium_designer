@@ -6,6 +6,14 @@ import 'rule_condition.dart';
 ///
 /// Kept as a small typed model instead of a bare `int` so it can later grow
 /// (e.g. per-vantail counts) without breaking the rule's shape.
+///
+/// Semantics: [fixedCount] is how many pieces ONE matched `ProfileUsage`
+/// placement yields. The engine multiplies it by that usage's own
+/// `quantity` (how many identical pieces the user placed there), so a
+/// role-scoped rule normally wants 1 here and lets the usage carry the
+/// count -- e.g. left montant usage qty 1 -> one piece; left+right usages ->
+/// two pieces. Rules authored per-usage keep this composition coherent no
+/// matter how many usages reference them.
 class CutQuantity {
   /// Fixed number of identical pieces this rule produces, independent of
   /// the construction's opening count (e.g. "2 montants" for a simple

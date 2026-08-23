@@ -827,5 +827,98 @@ void main() {
         expect(cuts[0].sectionId, 'ghost-section');
       });
     });
+
+    group('ProfileUsage.quantity consumption', () {
+      test("usage quantity multiplies the rule's per-placement count", () {
+        const calculator = ConstructionCalculator(
+          ruleSet: genericPlaceholderRuleSet,
+        );
+        final montant = _profile('M1', type: ProfileType.montant);
+        // quantity: 3 on the usage itself.
+        final usage = ProfileUsage(
+          id: 'u1',
+          profileId: 'M1',
+          sectionId: 's1',
+          role: ProfileUsageRole.left,
+          quantity: 3,
+        );
+        final construction = _construction(
+          sections: [_section('s1')],
+          profileUsages: [usage],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'M1': montant},
+        );
+
+        expect(cuts.length, 1);
+        // Placeholder montant rule yields 1 piece per matched placement;
+        // the usage placed 3 -> 3 physical pieces.
+        expect(cuts.single.quantity, 3);
+      });
+
+      test('default usage quantity of 1 keeps one piece per placement', () {
+        const calculator = ConstructionCalculator(
+          ruleSet: genericPlaceholderRuleSet,
+        );
+        final traverse = _profile('T1', type: ProfileType.traverse);
+        final construction = _construction(
+          sections: [_section('s1')],
+          profileUsages: [
+            _usage(
+              'u1',
+              profileId: 'T1',
+              sectionId: 's1',
+              role: ProfileUsageRole.top,
+            ),
+          ],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'T1': traverse},
+        );
+
+        expect(cuts.single.quantity, 1);
+      });
+
+      test('two role-scoped usages of one profile yield their combined '
+          'count without the rule multiplying itself', () {
+        const calculator = ConstructionCalculator(
+          ruleSet: genericPlaceholderRuleSet,
+        );
+        final montant = _profile('M1', type: ProfileType.montant);
+        final construction = _construction(
+          sections: [_section('s1')],
+          profileUsages: [
+            _usage(
+              'u-left',
+              profileId: 'M1',
+              sectionId: 's1',
+              role: ProfileUsageRole.left,
+            ),
+            _usage(
+              'u-right',
+              profileId: 'M1',
+              sectionId: 's1',
+              role: ProfileUsageRole.right,
+            ),
+          ],
+        );
+
+        final cuts = calculator.calculate(
+          construction,
+          profilesById: {'M1': montant},
+        );
+
+        // Two placements x 1 piece each -- NOT one rule emitting 2 pieces
+        // twice (the pre-rebase fixed(2) placeholder behaviour would have
+        // produced a total count of 4 here).
+        expect(cuts.length, 2);
+        expect(cuts[0].quantity, 1);
+        expect(cuts[1].quantity, 1);
+      });
+    });
   });
 }
