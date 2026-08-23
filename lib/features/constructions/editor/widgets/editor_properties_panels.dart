@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/logic/dimension_limit_check.dart';
 import '../../../../core/models/catalog.dart';
 import '../../../../core/models/construction.dart';
 import '../../../../core/models/construction_type.dart';
 import '../../../../core/models/layout_direction.dart';
 import '../../widgets/manufacturer_system_picker.dart';
+import 'dimension_limit_warning_banner.dart';
 import 'panel_header.dart';
 import 'synced_text_field.dart';
 
@@ -86,8 +88,19 @@ class EditorGeneralPropertiesPanel extends StatelessWidget {
 /// Right panel, Geometry stage: construction width/height + layout
 /// direction -- the dimensions/layout portion of the construction-level
 /// properties.
+///
+/// Also shows the advisory dimension-limit warning when the draft's
+/// overall dimensions exceed every envelope documented on the selected
+/// system's fiche (see `checkDimensionLimits`) -- advisory only, it
+/// never blocks editing.
 class EditorGeometryPropertiesPanel extends StatelessWidget {
   final Construction draft;
+
+  /// The catalog, read-only, to resolve the selected system's dimension
+  /// limits. No system selected, or one without a fiche, simply means no
+  /// warning can be produced -- unknown limits never read as "within
+  /// limits".
+  final Catalog catalog;
   final ValueChanged<String> onWidthChanged;
   final ValueChanged<String> onHeightChanged;
   final ValueChanged<SectionLayoutDirection> onLayoutDirectionChanged;
@@ -100,6 +113,7 @@ class EditorGeometryPropertiesPanel extends StatelessWidget {
   const EditorGeometryPropertiesPanel({
     super.key,
     required this.draft,
+    required this.catalog,
     required this.onWidthChanged,
     required this.onHeightChanged,
     required this.onLayoutDirectionChanged,
@@ -109,6 +123,20 @@ class EditorGeometryPropertiesPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final limits = catalog
+        .systemById(draft.systemId)
+        ?.metadata
+        ?.dimensionLimits;
+    final exceeded = checkDimensionLimits(
+      widthMm: draft.width,
+      heightMm: draft.height,
+      limits: limits ?? const [],
+      sectionOpeningTypes: {
+        for (final section in draft.sections)
+          if (section.openingType != null) section.openingType!,
+      },
+    );
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -130,6 +158,7 @@ class EditorGeometryPropertiesPanel extends StatelessWidget {
           onChanged: onHeightChanged,
           focusNode: heightFocusNode,
         ),
+        DimensionLimitWarningBanner(exceeded: exceeded),
         const SizedBox(height: 20),
         const PanelHeader('DISPOSITION'),
         SegmentedButton<SectionLayoutDirection>(

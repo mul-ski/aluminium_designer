@@ -682,6 +682,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
       case EditorStage.geometry:
         return EditorGeometryPropertiesPanel(
           draft: _controller.draft,
+          catalog: _controller.catalog,
           onWidthChanged: _controller.setWidth,
           onHeightChanged: _controller.setHeight,
           onLayoutDirectionChanged: _controller.setLayoutDirection,
