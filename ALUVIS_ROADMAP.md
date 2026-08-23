@@ -37,9 +37,10 @@ Workshop Drafting Grid + Configurable Snapping + Precision Dimensions:
       + 'Afficher la grille' toolbar toggles; settings listener wiring caught
       by tests; suite 279. Increment picker DEFERRED to M5 per no-inert-UI
       rule.)
-- [ ] M4 `feat(editor): workshop grid rendering and light canvas palette` —
-      white/off-white canvas, subtle mm grid via M1 math, light-tuned painter
-      palette; keep ClipRect containment + live-transform shouldRepaint fixes.
+- [x] M4 `feat(editor): workshop grid rendering and light canvas palette` —
+      bc3bc9d (painter showGrid layer via M1 math under geometry; off-white
+      ground 0xFFFAFBFC; light-tuned palette; pixel-sampled verification
+      harness run then deleted; suite 283).
 - [ ] M5 `feat(editor): grid-aware boundary snapping` — drag consumes
       resolver; dashed-vs-solid ActiveSnap distinction; snap ON/OFF +
       increments end-to-end; one-drag-one-undo preserved.
@@ -61,5 +62,8 @@ Workshop Drafting Grid + Configurable Snapping + Precision Dimensions:
 
 ## Current next milestone
 
-M4 — workshop grid rendering and light canvas palette (white/off-white
-canvas, subtle mm grid via M1 math, light-tuned painter palette).
+M5 — grid-aware boundary snapping: drag consumes resolveSnapPosition with
+session settings; dashed-vs-solid ActiveSnap distinction; snap ON/OFF and
+increments end-to-end (increment picker ships HERE, completing the
+no-inert-UI rule); existing boundary test updated to disable snap
+explicitly.
