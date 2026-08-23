@@ -25,10 +25,13 @@ suite green, diff inspected, then commit + push + this file updated.
 | **C1c `feat(editor): cut provenance + skip diagnostics in banner`** (`ProfileCut.ruleDescription` dim second line; issues block listing every skipped usage with its reason; end-to-end Calculer test via catalog stub) | eb29c8a | analyze clean; full suite 307/307 |
 | **C2a `feat(calc): pure per-profile cut aggregation`** (`aggregateProfileTotals`/`sumProfileTotals`: pieces = Σcut.quantity, metres = Σ length×quantity, weight only from positive user-entered weightPerMeter; first-encounter order; the BOM derivation seed) | 2326a0c | analyze clean; full suite 318/318 |
 | **C2b `feat(editor): totals block in results banner + piece-count badges`** (Récapitulatif per-profile lines + grand total between groups and issues; weight suffix omitted when unknown; structure badges now count physical pieces not cut rows) | 51d7d93 | analyze clean; full suite 319/319 |
+| **C3a `feat(calc): catalog-aware calculation fingerprint`** (`catalogCalculationFingerprint`: resolved ruleSetId + referenced profiles' id/type/weightPerMeter, lexically sorted; `'no-system'` sentinel; display-only fields and unreferenced profiles excluded) | 7d086b3 | analyze clean; full suite 328/328 |
+| **C3b `feat(editor): reconcile calculation staleness on catalog changes`** (dual-fingerprint snapshot at calculate(); shared reconciler for undo/redo jumps AND setCatalog; picker-side profile edits/deletes now correctly stale results) | 8c5bbd9 | analyze clean; full suite 336/336 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
-→ 307 (after calculation C1) → **319** (after calculation C2).
+→ 307 (after calculation C1) → 319 (after calculation C2) → **336** (after
+calculation C3).
 
 ## In progress
 
@@ -99,17 +102,19 @@ architecture ever lands.
   (`cut_aggregation.dart`), never hand-maintained UI state. Weight is
   shown only when derivable from the user-entered `weightPerMeter`
   (positive value); unknown weight stays absent, never estimated.
-- Known debt, unscheduled: catalog mutations (profile deleted/renamed via
-  the picker mid-session) do not re-stale a recorded calculation outcome
-  -- the staleness fingerprint covers draft inputs only.
+- Calculation staleness is dual-fingerprint: draft inputs (dimensions,
+  systemId, usages) plus catalog state consumed by the engine
+  (`catalogCalculationFingerprint`: resolved ruleSetId + referenced
+  profiles' id/type/weightPerMeter). Display-only catalog fields
+  (name/reference/width/depth) and unreferenced profiles NEVER invalidate
+  -- same rationale as the draft-rename precedent. If user-authored rule
+  sets ever land, their content hash joins this fingerprint.
 
 ## Current next milestone
 
-Calculation series C1 (honesty: quantity composition + outcome envelope +
-provenance/skip diagnostics) and C2 (derived totals récapitulatif + piece
-counting) are COMPLETE. Documented candidates, not scheduled: C3 staleness
-hardening (fingerprint must also cover resolved rule set + system profiles
-content); real `SystemRuleSet` per manufacturer (EXTERNAL VERIFICATION
+Calculation series C1 (honesty), C2 (derived totals récapitulatif), and C3
+(catalog-aware staleness) are COMPLETE. Documented candidates, not
+scheduled: real `SystemRuleSet` per manufacturer (EXTERNAL VERIFICATION
 GATE: needs verified fabrication data before any numbers exist);
 `ProfileSystem` metadata field for already-verified-but-unrepresentable
 Cuzco 713 OM specs; glass/hardware/accessory architecture and ProfileCut →
