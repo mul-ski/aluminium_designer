@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/geometry/drafting_grid.dart';
@@ -60,11 +62,10 @@ class ConstructionPainter extends CustomPainter {
 
   /// A currently-highlighted snap to visualize, or null for none.
   ///
-  /// Dormant plumbing: nothing produces an [ActiveSnap] yet -- the field
-  /// arrives with drag manipulation, which will own its lifecycle (set
-  /// during a gesture, cleared on end). When present, a 1 px accent line
-  /// is drawn across the full construction extent at the snapped position,
-  /// in the same blue as selection highlights.
+  /// Lifecycle is owned by the manipulating widget (set while dragging,
+  /// cleared when the gesture ends). Rendered as a 1 px accent line across
+  /// the construction extent at the snapped position -- solid for geometry
+  /// kinds, dashed for grid snaps (see `_paintActiveSnap`).
   final ActiveSnap? activeSnap;
 
   /// Whether the real-world measurement grid is drawn UNDER the geometry.
@@ -182,6 +183,10 @@ class ConstructionPainter extends CustomPainter {
 
   /// Draws the accent line for [snap]: perpendicular to the layout axis,
   /// spanning the construction's full extent at the snapped position.
+  ///
+  /// SOLID for geometry snaps (real construction features) and DASHED for
+  /// grid snaps (the regular aid) -- same accent color, unambiguous shape,
+  /// so the user can always tell WHAT a position locked onto.
   void _paintActiveSnap(
     Canvas canvas,
     ConstructionLayout layout,
@@ -193,18 +198,49 @@ class ConstructionPainter extends CustomPainter {
 
     if (construction.layoutDirection == SectionLayoutDirection.horizontal) {
       final x = transform.toPixelX(snap.positionMm);
-      canvas.drawLine(
-        Offset(x, transform.toPixelY(0)),
-        Offset(x, transform.toPixelY(layout.height)),
-        paint,
-      );
+      final start = Offset(x, transform.toPixelY(0));
+      final end = Offset(x, transform.toPixelY(layout.height));
+      if (snap.kind == SnapTargetKind.grid) {
+        _drawDashedLine(canvas, start, end, paint);
+      } else {
+        canvas.drawLine(start, end, paint);
+      }
     } else {
       final y = transform.toPixelY(snap.positionMm);
+      final start = Offset(transform.toPixelX(0), y);
+      final end = Offset(transform.toPixelX(layout.width), y);
+      if (snap.kind == SnapTargetKind.grid) {
+        _drawDashedLine(canvas, start, end, paint);
+      } else {
+        canvas.drawLine(start, end, paint);
+      }
+    }
+  }
+
+  /// Draws [start]->[end] as a dashed stroke (screen-perceived fixed dash
+  /// length; no model-space meaning). Used only for grid-snap indicators.
+  void _drawDashedLine(
+    Canvas canvas,
+    Offset start,
+    Offset end,
+    Paint paint, {
+    double dashLength = 6,
+    double gapLength = 4,
+  }) {
+    final delta = end - start;
+    final total = delta.distance;
+    if (total <= 0) return;
+    final unit = delta / total;
+
+    var traveled = 0.0;
+    while (traveled < total) {
+      final segmentEnd = math.min(traveled + dashLength, total);
       canvas.drawLine(
-        Offset(transform.toPixelX(0), y),
-        Offset(transform.toPixelX(layout.width), y),
+        start + unit * traveled,
+        start + unit * segmentEnd,
         paint,
       );
+      traveled = segmentEnd + gapLength;
     }
   }
 

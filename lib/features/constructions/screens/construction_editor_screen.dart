@@ -468,6 +468,9 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
                       gridVisible: _draftingSettings.gridVisible,
                       onGridVisibleChanged: (value) =>
                           _draftingSettings.gridVisible = value,
+                      snapIncrementMm: _draftingSettings.snapIncrementMm,
+                      onSnapIncrementChanged: (value) =>
+                          _draftingSettings.snapIncrementMm = value,
                     ),
                     const Divider(height: 1),
                     Expanded(

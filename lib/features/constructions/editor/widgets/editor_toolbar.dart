@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../editor_drafting_settings.dart' show kSnapIncrementChoicesMm;
+
 /// The editor's toolbar: selection indicator, section add/remove, viewport
 /// zoom controls, the manual Calculate action, and undo/redo.
 ///
@@ -36,6 +38,12 @@ class EditorToolbar extends StatelessWidget {
   final bool gridVisible;
   final ValueChanged<bool> onGridVisibleChanged;
 
+  /// Current grid-snap increment and its change callback. The picker is
+  /// only interactive while snapping is enabled -- a disabled control
+  /// states that dependency instead of accepting no-op clicks.
+  final double snapIncrementMm;
+  final ValueChanged<double> onSnapIncrementChanged;
+
   const EditorToolbar({
     super.key,
     required this.canRemoveSection,
@@ -53,6 +61,8 @@ class EditorToolbar extends StatelessWidget {
     required this.onSnapEnabledChanged,
     required this.gridVisible,
     required this.onGridVisibleChanged,
+    required this.snapIncrementMm,
+    required this.onSnapIncrementChanged,
   });
 
   @override
@@ -100,6 +110,31 @@ class EditorToolbar extends StatelessWidget {
             label: 'Aimanter',
             selected: snapEnabled,
             onPressed: () => onSnapEnabledChanged(!snapEnabled),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Tooltip(
+              message: 'Incrément d\'aimantation',
+              child: PopupMenuButton<double>(
+                enabled: snapEnabled,
+                initialValue: snapIncrementMm,
+                onSelected: onSnapIncrementChanged,
+                itemBuilder: (context) => [
+                  for (final choice in kSnapIncrementChoicesMm)
+                    PopupMenuItem(
+                      value: choice,
+                      child: Text('${choice.toStringAsFixed(0)} mm'),
+                    ),
+                ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    '${snapIncrementMm.toStringAsFixed(0)} mm',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ),
+            ),
           ),
           _ToolbarButton(
             icon: gridVisible ? Icons.grid_on : Icons.grid_off,

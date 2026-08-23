@@ -5,6 +5,10 @@ import 'package:flutter/foundation.dart';
 /// or the persisted construction.
 const double kDefaultSnapIncrementMm = 5.0;
 
+/// The increments offered in the UI, in millimetres. Purely an interaction
+/// vocabulary -- choosing one says nothing about how the workshop will cut.
+const List<double> kSnapIncrementChoicesMm = [1.0, 5.0, 10.0, 25.0, 50.0];
+
 /// Per-editor drafting settings: the interaction aids of the workshop
 /// canvas (snap on/off, grid visibility, snap increment).
 ///

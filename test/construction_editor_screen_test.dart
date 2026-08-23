@@ -743,6 +743,12 @@ void main() {
         '(one undo entry) and updates the construction', (tester) async {
       await _pumpEditor(tester, _construction()); // [1000, 800], W=1800
 
+      // This test pins RAW drag math (no snapping); the snapped variant
+      // lives in its own test below. Snap is disabled through the REAL
+      // toolbar toggle so the session settings path is exercised too.
+      await tester.tap(find.byTooltip('Aimanter'));
+      await tester.pumpAndSettle();
+
       final viewport = tester
           .widget<EditorCanvas>(find.byType(EditorCanvas))
           .viewport;
@@ -790,6 +796,53 @@ void main() {
         ),
       );
       expect(undoButton.onPressed, isNull);
+    });
+
+    testWidgets('with default snapping the boundary lands exactly on the '
+        '5 mm grid -- no microscopic cursor work needed', (tester) async {
+      await _pumpEditor(tester, _construction()); // [1000, 800], W=1800
+
+      final viewport = tester
+          .widget<EditorCanvas>(find.byType(EditorCanvas))
+          .viewport;
+      final grabPoint =
+          tester.getTopLeft(find.byType(EditorCanvas)) +
+          viewport.modelToScreen(const Offset(1000, 600));
+      final scaleBefore = viewport.scale;
+
+      // Same gesture as the raw variant above (~+127 mm) -- but with snap
+      // ON by default, the committed width must be an exact multiple of 5.
+      final gesture = await tester.startGesture(grabPoint);
+      await tester.pump();
+      await gesture.moveBy(const Offset(60, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      final raw = 1000 + 60 / scaleBefore;
+      final expectedSnapped = (raw / 5).roundToDouble() * 5;
+
+      await tester.tap(find.text('Section 1'));
+      await tester.pumpAndSettle();
+      final widthField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Largeur'),
+      );
+      expect(
+        double.parse(widthField.controller!.text.replaceAll(',', '.')),
+        closeTo(expectedSnapped, 1e-9),
+      );
+      expect(expectedSnapped % 5, 0);
+
+      // Still exactly one undo entry for the whole snapped drag.
+      await tester.tap(find.byTooltip('Annuler'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Largeur'))
+            .controller!
+            .text,
+        '1000',
+      );
     });
   });
 
@@ -913,6 +966,40 @@ void main() {
         ),
       );
       expect(undoButton.onPressed, isNull);
+    });
+
+    testWidgets('increment picker shows the default and applies a choice', (
+      tester,
+    ) async {
+      await _pumpEditor(tester, _construction());
+
+      expect(find.text('5 mm'), findsOneWidget);
+
+      await tester.tap(find.text('5 mm'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('25 mm').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('25 mm'), findsOneWidget);
+      expect(find.text('5 mm'), findsNothing);
+    });
+
+    testWidgets('increment picker is disabled while snapping is off -- no '
+        'interactive-looking but inert control', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      // NOTE: find.byType(PopupMenuButton) would miss the instance --
+      // generics are reified, so its runtimeType is
+      // PopupMenuButton<double>.
+      PopupMenuButton<double> picker() =>
+          tester.widget<PopupMenuButton<double>>(
+            find.byWidgetPredicate((w) => w is PopupMenuButton<double>),
+          );
+      expect(picker().enabled, isTrue);
+
+      await tester.tap(find.byTooltip('Aimanter'));
+      await tester.pumpAndSettle();
+      expect(picker().enabled, isFalse);
     });
   });
 

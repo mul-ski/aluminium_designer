@@ -163,6 +163,8 @@ void main() {
       final painter = _painter(tester);
       expect(painter.activeSnap, isNotNull);
       expect(painter.activeSnap!.positionMm, 1500);
+      // 1500 is ALSO a multiple of the 5 mm grid -- an exact geometry-vs-
+      // grid tie, which must resolve to GEOMETRY end-to-end (priority rule).
       expect(painter.activeSnap!.kind, SnapTargetKind.sectionBoundary);
       // ...and the PREVIEW shows the clamped result ('b' floored at
       // kMinSectionSizeMm because it cannot vanish).
@@ -186,6 +188,10 @@ void main() {
     ) async {
       final state = await _pumpHarness(tester, _horizontal());
       final scale = state.viewport.scale;
+      // This test pins RAW-position semantics; grid snapping is exercised
+      // in its own group below.
+      state.draftingSettings.snapEnabled = false;
+      await tester.pumpAndSettle();
 
       final gesture = await tester.startGesture(_pointFor(tester, 900, 600));
       await tester.pump();
@@ -350,6 +356,10 @@ void main() {
     tester,
   ) async {
     final state = await _pumpHarness(tester, _horizontal());
+    // Model-space movement correctness at zoom -- snapping intentionally
+    // off so the raw screen->model conversion is what's asserted.
+    state.draftingSettings.snapEnabled = false;
+    await tester.pumpAndSettle();
 
     // Zoom in substantially -- ANCHORED ON THE BOUNDARY itself, so it
     // remains visible and grabbable afterwards.
@@ -378,6 +388,126 @@ void main() {
 
     final expectedPosition = 900 + screenDeltaPx / scale;
     expect(state.commits.single.$2, closeTo(expectedPosition, 0.01));
+  });
+
+  group('boundary drag with grid snapping', () {
+    testWidgets('free movement snaps to the configured increment and '
+        'indicates a GRID snap', (tester) async {
+      final state = await _pumpHarness(tester, _horizontal());
+      final scale = state.viewport.scale;
+
+      final gesture = await tester.startGesture(_pointFor(tester, 900, 600));
+      await tester.pump();
+      await gesture.moveBy(const Offset(60, 0));
+      await tester.pump();
+
+      final painter = _painter(tester);
+      expect(painter.activeSnap, isNotNull);
+      expect(painter.activeSnap!.kind, SnapTargetKind.grid);
+      final snappedPosition = painter.activeSnap!.positionMm;
+
+      // Lands on a true multiple of the default 5 mm increment -- the
+      // NEAREST one to the raw model position.
+      final raw = 900 + 60 / scale;
+      expect(
+        snappedPosition,
+        closeTo((raw / 5).roundToDouble() * 5, 1e-9),
+      );
+      expect((snappedPosition / 5) % 1, closeTo(0, 1e-9));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(state.commits.length, 1);
+      expect(state.commits.single.$2, snappedPosition);
+    });
+
+    testWidgets('changing the increment moves the landing multiple', (
+      tester,
+    ) async {
+      final state = await _pumpHarness(tester, _horizontal());
+      final scale = state.viewport.scale;
+
+      // Each committed drag MOVES the boundary, so every pass must
+      // re-locate it from the model instead of re-using stale coordinates.
+      Future<double> dragAndCommit() async {
+        final ordered = [...state.construction.sections]
+          ..sort((a, b) => a.order.compareTo(b.order));
+        final boundaryMm = ordered.first.width;
+        final gesture =
+            await tester.startGesture(_pointFor(tester, boundaryMm, 600));
+        await tester.pump();
+        await gesture.moveBy(const Offset(60, 0));
+        await tester.pump();
+        final position = _painter(tester).activeSnap!.positionMm;
+        await gesture.up();
+        await tester.pumpAndSettle();
+        return position;
+      }
+
+      const increments = [10.0, 50.0];
+      final landed = <double>[];
+      for (final increment in increments) {
+        state.draftingSettings.snapIncrementMm = increment;
+        await tester.pumpAndSettle();
+        landed.add(await dragAndCommit());
+      }
+
+      // Each landing is the nearest multiple of ITS increment from the
+      // raw position of that pass.
+      var boundary = 900.0;
+      for (var i = 0; i < increments.length; i++) {
+        final raw = boundary + 60 / scale;
+        expect(
+          landed[i],
+          closeTo((raw / increments[i]).roundToDouble() * increments[i], 1e-9),
+          reason: 'increment ${increments[i]}',
+        );
+        expect(landed[i] % increments[i], 0, reason: 'increment ${increments[i]}');
+        boundary = landed[i];
+      }
+
+      // Different increments genuinely land differently.
+      expect(landed[0], isNot(landed[1]));
+    });
+
+    testWidgets('vertical layouts mirror grid snapping onto heights', (
+      tester,
+    ) async {
+      final vertical = Construction(
+        id: 'v',
+        name: 'Vertical',
+        type: ConstructionType.window,
+        width: 1200,
+        height: 2400,
+        manufacturer: '',
+        system: '',
+        sections: [
+          Section(id: 'a', order: 0, kind: SectionKind.fixed, width: 1200, height: 900),
+          Section(id: 'b', order: 1, kind: SectionKind.fixed, width: 1200, height: 600),
+        ],
+        layoutDirection: SectionLayoutDirection.vertical,
+        profiles: [],
+      );
+      final state = await _pumpHarness(tester, vertical);
+      final scale = state.viewport.scale;
+
+      final gesture = await tester.startGesture(
+        _pointForIn(tester, contentW: 1200, contentH: 2400, mmX: 600, mmY: 900),
+      );
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, 60));
+      await tester.pump();
+
+      final painter = _painter(tester);
+      expect(painter.activeSnap!.kind, SnapTargetKind.grid);
+      final raw = 900 + 60 / scale;
+      final snappedPosition = painter.activeSnap!.positionMm;
+      expect(snappedPosition, closeTo((raw / 5).roundToDouble() * 5, 1e-9));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(state.commits.single.$2, snappedPosition);
+    });
   });
 
   testWidgets('hovering a corridor switches the cursor affordance', (

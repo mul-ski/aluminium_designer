@@ -306,23 +306,32 @@ class _EditorCanvasState extends State<EditorCanvas> {
         return;
       }
 
-      // screen point -> model mm -> snap -> clamped preview. Position-based
-      // (not delta-based), so stray multi-touch simply retargets.
+      // screen point -> model mm -> SNAP DECISION -> clamped preview.
+      // Position-based (not delta-based), so stray multi-touch simply
+      // retargets. The decision merges GEOMETRY candidates (the session's
+      // collected targets) with the GRID source from the drafting
+      // settings through the pure resolver -- this widget never implements
+      // snap math itself. Snap OFF short-circuits inside the resolver:
+      // raw position, no indicator, no exceptions.
       final modelPoint = widget.viewport.screenToModel(details.localFocalPoint);
       final raw = _axisComponent(modelPoint);
-      final snapped = snapPosition(
+      final resolution = resolveSnapPosition(
         positionMm: raw,
         targets: session.targets,
+        config: SnapConfig(
+          enabled: widget.draftingSettings.snapEnabled,
+          gridIncrementMm: widget.draftingSettings.snapIncrementMm,
+        ),
         toleranceMm: kSnapTolerancePx / widget.viewport.scale,
       );
-      final effective = snapped?.snappedPositionMm ?? raw;
+      final effective = resolution?.snappedPositionMm ?? raw;
 
       setState(() {
-        _activeSnap = snapped == null
+        _activeSnap = resolution == null
             ? null
             : ActiveSnap(
-                positionMm: snapped.snappedPositionMm,
-                kind: snapped.target.kind,
+                positionMm: resolution.snappedPositionMm,
+                kind: resolution.target.kind,
               );
         _dragPreview = withBoundaryMoved(
           widget.construction,
