@@ -18,12 +18,21 @@ const double kSnapTolerancePx = 12.0;
 /// endpoint of two adjacent sections -- "section endpoints", "section
 /// boundaries", and "alignment with existing boundaries" are one and the
 /// same set of coordinates. The kinds below are therefore deliberately
-/// minimal: outer frame faces vs interior division lines. No grid kind
-/// exists yet -- dimensions are free-form millimetres and an arbitrary
-/// grid would invent snapping targets with no purpose; the engine is
-/// source-agnostic, so a grid source can be added later without touching
-/// it.
-enum SnapTargetKind { constructionEdge, sectionBoundary }
+/// minimal: outer frame faces vs interior division lines vs regular grid
+/// positions.
+enum SnapTargetKind {
+  /// A construction's outer face (the model-space origin or total extent).
+  constructionEdge,
+
+  /// An interior division between two ordered sections.
+  sectionBoundary,
+
+  /// A regular multiple of the user's snap increment -- an interaction aid,
+  /// NOT a meaningful feature of the construction itself. Grid candidates
+  /// are synthesized on demand by [snapToGrid]; they never come from
+  /// [collectSnapTargets], whose output stays purely geometry-derived.
+  grid,
+}
 
 /// One candidate position, in millimetres, along the active layout axis
 /// (X for horizontal layouts, Y for vertical layouts).
@@ -163,4 +172,117 @@ class ActiveSnap {
   final SnapTargetKind kind;
 
   const ActiveSnap({required this.positionMm, required this.kind});
+}
+
+/// User-facing snapping configuration for one editor session.
+///
+/// Two orthogonal knobs, deliberately kept apart:
+/// - [enabled] gates ALL automatic snapping. When false, manipulations use
+///   raw model-space positions and no candidate of any source qualifies.
+/// - [gridIncrementMm] is the model-space spacing between synthesized grid
+///   candidates, in millimetres. It is an EDITING AID only: it implies no
+///   fabrication rule, tolerance or manufacturer convention. `null` (or a
+///   non-positive value) means "no grid source" -- geometry targets alone,
+///   which is exactly the pre-grid behavior.
+///
+/// Pure value type; ownership/lifecycle lives with the editor's other
+/// presentation state, not in this file.
+class SnapConfig {
+  /// Master switch for automatic snapping during manipulations.
+  final bool enabled;
+
+  /// Grid candidate spacing in millimetres, or null for no grid source.
+  ///
+  /// NOTE: grid VISIBILITY (whether lines are drawn) is an independent
+  /// presentation concern and intentionally does NOT live here.
+  final double? gridIncrementMm;
+
+  const SnapConfig({this.enabled = true, this.gridIncrementMm});
+
+  /// Snapping fully off: every resolver call returns null.
+  const SnapConfig.disabled()
+    : enabled = false,
+      gridIncrementMm = null;
+}
+
+/// Snaps [positionMm] to the nearest multiple of [incrementMm], provided
+/// that multiple lies within [toleranceMm].
+///
+/// The tolerance check keeps ONE uniform semantic across all snap sources:
+/// a candidate only ever wins if the user's position is perceptually close
+/// to it. For the grid this matters at high zoom, where the model-space
+/// tolerance shrinks below half an increment and far-away grid lines stop
+/// grabbing the pointer.
+///
+/// Returns null when [incrementMm] is not finite/positive (no grid source),
+/// when [toleranceMm] is negative/non-finite, or when no multiple qualifies.
+/// The returned target carries [SnapTargetKind.grid].
+SnapResult1D? snapToGrid({
+  required double positionMm,
+  required double incrementMm,
+  required double toleranceMm,
+}) {
+  if (!incrementMm.isFinite || incrementMm <= 0) return null;
+  if (!toleranceMm.isFinite || toleranceMm < 0) return null;
+
+  // Round-to-nearest multiple via integer index arithmetic: exact halves
+  // round away from zero symmetrically (Dart .round on .5 goes toward
+  // positive infinity, which is fine -- either neighbor is equidistant and
+  // both are valid multiples).
+  final index = (positionMm / incrementMm).roundToDouble();
+  final snapped = index * incrementMm;
+  final distance = (positionMm - snapped).abs();
+  // Inclusive boundary, matching snapPosition's semantics.
+  if (distance > toleranceMm) return null;
+
+  return SnapResult1D(
+    snappedPositionMm: snapped,
+    target: SnapTarget1D(positionMm: snapped, kind: SnapTargetKind.grid),
+    distanceMm: distance,
+  );
+}
+
+/// Resolves ONE winning snap from ALL enabled sources for [positionMm]:
+/// the geometry [targets] (if any) plus, when configured, the regular grid.
+///
+/// Deterministic strategy, independent of iteration order:
+/// 1. Only candidates within [toleranceMm] qualify (inclusive), per source.
+/// 2. Smallest model-space distance wins across sources.
+/// 3. EXACT tie between grid and geometry -> GEOMETRY wins: real
+///    construction features outrank the aid whenever they are equally
+///    close ("not strictly closer" also covers floating-point near-ties,
+///    so the outcome can never flip on representation noise).
+/// 4. Ties between two geometry targets -> lower position, as established
+///    by [snapPosition].
+/// 5. A disabled [config] short-circuits to null before any source runs:
+///    OFF means OFF -- raw positions, no candidates, no exceptions.
+///
+/// Pure function over values.
+SnapResult1D? resolveSnapPosition({
+  required double positionMm,
+  required List<SnapTarget1D> targets,
+  required SnapConfig config,
+  required double toleranceMm,
+}) {
+  if (!config.enabled) return null;
+
+  final geometry = snapPosition(
+    positionMm: positionMm,
+    targets: targets,
+    toleranceMm: toleranceMm,
+  );
+
+  final increment = config.gridIncrementMm;
+  if (increment == null) return geometry;
+
+  final grid = snapToGrid(
+    positionMm: positionMm,
+    incrementMm: increment,
+    toleranceMm: toleranceMm,
+  );
+
+  if (geometry == null) return grid;
+  if (grid == null) return geometry;
+  // Geometry wins unless the grid is STRICTLY closer (rule 3 above).
+  return grid.distanceMm < geometry.distanceMm ? grid : geometry;
 }
