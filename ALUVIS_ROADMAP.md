@@ -23,10 +23,12 @@ suite green, diff inspected, then commit + push + this file updated.
 | **M2 Calculation honesty C1a: quantity composition** (`ProfileUsage.quantity × rule.fixedCount` reaches cut output; placeholder rules rebased fixed(2)→fixed(1) per-usage semantics) | 4e4359f | analyze clean; full suite 302/302 |
 | **C1b `feat(calc): structured calculation outcome`** (`CalculationOutcome{cuts, issues}`, `ProfileUsageIssue{profileUsageId, reason ∈ profileUnresolved/noRuleMatched}`; controller exposes `calculationIssues`; envelope is the future multi-domain result seed) | 1e47c5f | analyze clean; full suite 304/304 |
 | **C1c `feat(editor): cut provenance + skip diagnostics in banner`** (`ProfileCut.ruleDescription` dim second line; issues block listing every skipped usage with its reason; end-to-end Calculer test via catalog stub) | eb29c8a | analyze clean; full suite 307/307 |
+| **C2a `feat(calc): pure per-profile cut aggregation`** (`aggregateProfileTotals`/`sumProfileTotals`: pieces = Σcut.quantity, metres = Σ length×quantity, weight only from positive user-entered weightPerMeter; first-encounter order; the BOM derivation seed) | 2326a0c | analyze clean; full suite 318/318 |
+| **C2b `feat(editor): totals block in results banner + piece-count badges`** (Récapitulatif per-profile lines + grand total between groups and issues; weight suffix omitted when unknown; structure badges now count physical pieces not cut rows) | 51d7d93 | analyze clean; full suite 319/319 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
-→ **307** (after calculation C1).
+→ 307 (after calculation C1) → **319** (after calculation C2).
 
 ## In progress
 
@@ -93,13 +95,23 @@ architecture ever lands.
   envelope rather than widening the calculator's return type again.
 - Cut provenance: `ProfileCut.ruleDescription` copies the producing rule's
   description verbatim when present; never invented.
+- BOM summaries are derived from `CalculationOutcome` by pure aggregation
+  (`cut_aggregation.dart`), never hand-maintained UI state. Weight is
+  shown only when derivable from the user-entered `weightPerMeter`
+  (positive value); unknown weight stays absent, never estimated.
+- Known debt, unscheduled: catalog mutations (profile deleted/renamed via
+  the picker mid-session) do not re-stale a recorded calculation outcome
+  -- the staleness fingerprint covers draft inputs only.
 
 ## Current next milestone
 
-Calculation honesty series C1 (quantity composition + outcome envelope +
-provenance/skip diagnostics) is COMPLETE. Documented candidates, not
-scheduled: real `SystemRuleSet` per manufacturer (EXTERNAL VERIFICATION
+Calculation series C1 (honesty: quantity composition + outcome envelope +
+provenance/skip diagnostics) and C2 (derived totals récapitulatif + piece
+counting) are COMPLETE. Documented candidates, not scheduled: C3 staleness
+hardening (fingerprint must also cover resolved rule set + system profiles
+content); real `SystemRuleSet` per manufacturer (EXTERNAL VERIFICATION
 GATE: needs verified fabrication data before any numbers exist);
 `ProfileSystem` metadata field for already-verified-but-unrepresentable
-Cuzco 713 OM specs; glass/hardware/accessory architecture (blocked on the
-same verification gate for any real data).
+Cuzco 713 OM specs; glass/hardware/accessory architecture and ProfileCut →
+component generalization (both deferred until a second component domain /
+verified data exists).
