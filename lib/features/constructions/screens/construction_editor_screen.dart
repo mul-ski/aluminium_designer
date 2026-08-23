@@ -9,6 +9,7 @@ import '../../../core/storage/catalog_store.dart';
 import '../editor/construction_editor_controller.dart';
 import '../editor/construction_editor_result.dart';
 import '../editor/editor_stage.dart';
+import '../editor/editor_drafting_settings.dart';
 import '../editor/editor_viewport.dart';
 import '../editor/widgets/calculation_results_banner.dart';
 import '../editor/widgets/editor_canvas.dart';
@@ -120,6 +121,12 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   /// painter only read from it.
   final EditorViewport _viewport = EditorViewport();
 
+  /// Per-session drafting aids (snap on/off, grid visibility, snap
+  /// increment). Same ownership pattern as the viewport: one instance per
+  /// open editor, presentation state only -- never persisted, never part
+  /// of undo history.
+  final EditorDraftingSettings _draftingSettings = EditorDraftingSettings();
+
   /// Whether the one-time automatic fit has already happened (or been
   /// superseded by a manual fit). See [_maybeInitialFit].
   bool _didInitialFit = false;
@@ -128,6 +135,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   void initState() {
     super.initState();
     _controller.addListener(_onControllerChanged);
+    _draftingSettings.addListener(_onDraftingSettingsChanged);
     _loadCatalog();
   }
 
@@ -136,6 +144,13 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
     // A dimension edit may have just made an incomplete construction
     // complete -- that is the auto-fit window closing moment.
     _maybeInitialFit();
+  }
+
+  /// Rebuild on drafting-aid changes so toolbar toggle visuals (and, from
+  /// the grid/snapping milestones onward, canvas behavior) track the
+  /// session settings.
+  void _onDraftingSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   /// Performs the ONE-TIME automatic fit-to-content, as soon as both the
@@ -175,8 +190,10 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
+    _draftingSettings.removeListener(_onDraftingSettingsChanged);
     _controller.dispose();
     _viewport.dispose();
+    _draftingSettings.dispose();
     super.dispose();
   }
 
@@ -445,6 +462,12 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
                       canRedo: _controller.canRedo,
                       onUndo: _controller.undo,
                       onRedo: _controller.redo,
+                      snapEnabled: _draftingSettings.snapEnabled,
+                      onSnapEnabledChanged: (value) =>
+                          _draftingSettings.snapEnabled = value,
+                      gridVisible: _draftingSettings.gridVisible,
+                      onGridVisibleChanged: (value) =>
+                          _draftingSettings.gridVisible = value,
                     ),
                     const Divider(height: 1),
                     Expanded(

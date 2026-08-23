@@ -838,6 +838,84 @@ void main() {
     );
   });
 
+  group('Drafting aid toggles', () {
+    /// The IconButton inside a tooltip-wrapped toolbar toggle.
+    IconButton toggleButton(WidgetTester tester, String tooltip) =>
+        tester.widget<IconButton>(
+          find.descendant(
+            of: find.byTooltip(tooltip),
+            matching: find.byType(IconButton),
+          ),
+        );
+
+    testWidgets('snap and grid start enabled by default', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      expect(toggleButton(tester, 'Aimanter').isSelected, isTrue);
+      expect(toggleButton(tester, 'Afficher la grille').isSelected, isTrue);
+      expect(
+        (toggleButton(tester, 'Afficher la grille').icon as Icon).icon,
+        Icons.grid_on,
+      );
+    });
+
+    testWidgets('tapping the snap toggle flips it and sticks across rebuilds',
+        (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      await tester.tap(find.byTooltip('Aimanter'));
+      await tester.pumpAndSettle();
+      expect(toggleButton(tester, 'Aimanter').isSelected, isFalse);
+
+      // An unrelated interaction (stage switch) rebuilds the toolbar; the
+      // setting must survive it -- session state, not widget-local state.
+      await tester.tap(find.text('Geometry'));
+      await tester.pumpAndSettle();
+      expect(toggleButton(tester, 'Aimanter').isSelected, isFalse);
+
+      await tester.tap(find.byTooltip('Aimanter'));
+      await tester.pumpAndSettle();
+      expect(toggleButton(tester, 'Aimanter').isSelected, isTrue);
+    });
+
+    testWidgets('grid visibility toggle flips icon and selection', (
+      tester,
+    ) async {
+      await _pumpEditor(tester, _construction());
+
+      await tester.tap(find.byTooltip('Afficher la grille'));
+      await tester.pumpAndSettle();
+
+      final button = toggleButton(tester, 'Afficher la grille');
+      expect(button.isSelected, isFalse);
+      expect((button.icon as Icon).icon, Icons.grid_off);
+
+      await tester.tap(find.byTooltip('Afficher la grille'));
+      await tester.pumpAndSettle();
+      expect(
+        (toggleButton(tester, 'Afficher la grille').icon as Icon).icon,
+        Icons.grid_on,
+      );
+    });
+
+    testWidgets('toggles do not create undo history (interaction aids are '
+        'not domain mutations)', (tester) async {
+      await _pumpEditor(tester, _construction());
+
+      await tester.tap(find.byTooltip('Aimanter'));
+      await tester.tap(find.byTooltip('Afficher la grille'));
+      await tester.pumpAndSettle();
+
+      final undoButton = tester.widget<IconButton>(
+        find.descendant(
+          of: find.byTooltip('Annuler'),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(undoButton.onPressed, isNull);
+    });
+  });
+
   group('Calculate action', () {
     testWidgets('Calculer toolbar button exists on the Sections stage', (
       tester,

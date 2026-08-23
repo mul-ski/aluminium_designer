@@ -27,6 +27,15 @@ class EditorToolbar extends StatelessWidget {
   final VoidCallback onUndo;
   final VoidCallback onRedo;
 
+  /// Drafting-aid toggles (workshop canvas): whether automatic snapping is
+  /// active and whether the measurement grid is drawn. Both reflect the
+  /// editor's per-session `EditorDraftingSettings`; every change routes
+  /// through the callbacks so this widget stays purely presentational.
+  final bool snapEnabled;
+  final ValueChanged<bool> onSnapEnabledChanged;
+  final bool gridVisible;
+  final ValueChanged<bool> onGridVisibleChanged;
+
   const EditorToolbar({
     super.key,
     required this.canRemoveSection,
@@ -40,6 +49,10 @@ class EditorToolbar extends StatelessWidget {
     required this.canRedo,
     required this.onUndo,
     required this.onRedo,
+    required this.snapEnabled,
+    required this.onSnapEnabledChanged,
+    required this.gridVisible,
+    required this.onGridVisibleChanged,
   });
 
   @override
@@ -80,6 +93,19 @@ class EditorToolbar extends StatelessWidget {
             icon: Icons.fit_screen_outlined,
             label: 'Ajuster à la vue',
             onPressed: onFitToView,
+          ),
+          const VerticalDivider(width: 24, indent: 8, endIndent: 8),
+          _ToolbarButton(
+            icon: Icons.my_location,
+            label: 'Aimanter',
+            selected: snapEnabled,
+            onPressed: () => onSnapEnabledChanged(!snapEnabled),
+          ),
+          _ToolbarButton(
+            icon: gridVisible ? Icons.grid_on : Icons.grid_off,
+            label: 'Afficher la grille',
+            selected: gridVisible,
+            onPressed: () => onGridVisibleChanged(!gridVisible),
           ),
           const VerticalDivider(width: 24, indent: 8, endIndent: 8),
           _ToolbarButton(
