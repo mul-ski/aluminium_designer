@@ -171,16 +171,41 @@ verrou encastré (AC-605+AC-608 ou AC-606+AC-608), roulettes AC-6001
 gâche AC-607, joint brosse JO-609/JO-609F, joint vitrage JO610–JO624
 (6–24 mm glass).
 
-**Why this is not encoded as a `SystemRuleSet` yet** (decision recorded
-in `builtin_catalog_seed.dart`): the rule engine selects rules by
-`ProfileType` + section conditions. It cannot (a) distinguish 14 621
-from 14 631 — same `ProfileType.traverse`, different deductions — nor
-(b) express "L = whole sliding-unit width" for the configuration the
-usage belongs to. Encoding one row unconditionally would silently
-produce wrong cuts for every other configuration/profile pairing — a
-fabrication error, worse than the honest placeholder. A faithful rule
-set needs a profile-reference condition and configuration semantics
-first; the table above is the verified material for that work.
+**Encoding status** (updated when the first rows were encoded as C5):
+the "2 vantaux" column of this table is now a real `SystemRuleSet`
+(`meSerie14600RuleSet`, `lib/core/data/me_14600_rule_set.dart`):
+
+- Dormant 14 617 / 14 627: `2+2 × (L ; H)` — four role-scoped rules
+  (top/bottom → L, left/right → H), one piece per placement.
+- Montant latéral 14 622/623/632/633: `2 × (H−74)` — two role-scoped
+  rules (left/right), one piece per placement.
+- Traverse 14 621: `4 × (L−64)/2` — top/bottom rules, TWO pieces per
+  placement (one placement spans both leaves' track halves).
+
+Quantity mapping: the table counts pieces per unit; AluVis rules count
+per matched `ProfileUsage` placement, so unit totals emerge from
+placements (see `CutQuantity`'s doc). Angles are NOT stated per row on
+p. 24; the 45° mitre is DERIVED from the descriptif's assembly statement
+"Dormants assemblés en coupe d'onglet avec équerres" (pp. 1–3) applied to
+frame and sash alike. Every rule carries `VantauxCountCondition(2)` — only
+the 2-vantaux column is documented for these formulas — plus
+`ProfileReferenceCondition` where the row names exact references.
+
+**Still deliberately unencoded** (usages surface as honest
+`noRuleMatched` issues, never wrong cuts): dormant +46 variants
+(14 618 / 14 628 / 14 626), traverse 14 631 (`(L−85)/2`, `(L−47)/3`,
+`(L−106)/4`), traverse 14 621 at 3/4 vantaux (`(L−25)/3`, `(L−60)/4`),
+montants centraux 14 619/620/630 (`ProfileType.mullion` row), chicane
+14 624 (`H−92`). The formulas themselves are verified above; encoding
+awaits its own milestone so each configuration column lands with its own
+quantity-semantics analysis.
+
+Earlier decision text (C4b–C4e era, superseded by the C5 partial
+encoding above but kept for the record): the table was left entirely
+unencoded because the engine selected rules by ProfileType + section
+conditions only -- it could not distinguish 14 621 from 14 631 nor gate
+on configuration. That blocker was removed by
+`ProfileReferenceCondition` (C5a).
 
 ## Corrections during transcription
 

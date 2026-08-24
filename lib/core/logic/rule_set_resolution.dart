@@ -1,5 +1,7 @@
 library;
 
+import '../data/builtin_catalog_seed.dart';
+import '../data/me_14600_rule_set.dart';
 import '../engine/construction_calculator.dart';
 import '../models/calculation_outcome.dart';
 import '../models/catalog.dart';
@@ -14,29 +16,27 @@ import '../models/rules/system_rule_set.dart';
 ///
 /// This is the missing bridge documented on `ProfileSystem.ruleSetId`:
 /// "linked by this id so `ConstructionCalculator` can find the right
-/// rules for a given system". Before this file, that link was written
-/// everywhere (every built-in seeded `ProfileSystem` sets
-/// `ruleSetId: 'generic-placeholder'`) but never read anywhere --
-/// `ConstructionCalculator` was only ever constructed directly in tests,
-/// with an explicit `ruleSet:` argument, never resolved from a
-/// `ProfileSystem`.
+/// rules for a given system".
 ///
-/// Deliberately just one entry today: `genericPlaceholderRuleSet` is the
-/// only `SystemRuleSet` that exists in the codebase (confirmed by
-/// inspection -- grep for `SystemRuleSet(` finds exactly one concrete
-/// instance). Every built-in `ProfileSystem` seeded so far points at it,
-/// which is an honest "no real per-manufacturer calculation rules exist
-/// yet" state, not a bug -- see `builtin_catalog_seed.dart`'s comments on
-/// `ruleSetId`. Add a new entry here only when a real `SystemRuleSet` is
-/// built for a specific manufacturer/system; do not add placeholder
-/// entries speculatively.
+/// Two entries today:
 ///
-/// A `Map` rather than a class with fields, matching how
-/// `genericPlaceholderRuleSet` itself is a plain top-level `const` rather
-/// than something wrapped in a registry class -- no state, nothing to
-/// instantiate, just a lookup table.
+/// - `generic-placeholder` -- the honest "no real per-manufacturer
+///   calculation data" fallback, still referenced by any system without
+///   verified rules.
+/// - `builtin-me-14600` -- the first REAL rule set: Maghreb Extrusion
+///   Série 14600's débitage table, "2 vantaux" column only (p. 24 of the
+///   source document; see docs/VERIFIED_SOURCES.md). Its rules route by
+///   profile reference + vantaux count + usage role, so they can never be
+///   silently reused for a configuration the source table does not cover.
+///
+/// A `Map` rather than a class with fields, matching how both rule sets
+/// are plain top-level `const`s rather than something wrapped in a
+/// registry class -- no state, nothing to instantiate, just a lookup
+/// table. Add an entry only for a real, sourced `SystemRuleSet`; do not
+/// add placeholder entries speculatively.
 const Map<String, SystemRuleSet> builtInRuleSets = {
   'generic-placeholder': genericPlaceholderRuleSet,
+  meSerie14600Id: meSerie14600RuleSet,
 };
 
 /// Resolves [ruleSetId] to its [SystemRuleSet], or `null` if it doesn't

@@ -544,19 +544,18 @@ const List<Profile> _me14600Profiles = [
 /// portes-fenêtres et fenêtres coulissantes -- with every system-level
 /// fact the source document states, and nothing it doesn't.
 ///
-/// `ruleSetId` deliberately stays `generic-placeholder`. The document's
-/// débitage pages (20/24) DO carry real cut formulas (montants H-74;
-/// traverses (L-64)/2, (L-85)/2, (L-25)/3, (L-47)/3, (L-60)/4,
-/// (L-106)/4 depending on configuration and on which traverse/montant
-/// pairing is used -- all transcribed in `docs/VERIFIED_SOURCES.md`),
-/// but the current rule engine selects rules by `ProfileType` +
-/// section conditions only: it cannot distinguish 14 621 from 14 631
-/// (same `ProfileType.traverse`, different deductions) and has no
-/// whole-unit configuration variable for L. Encoding one configuration's
-/// formula unconditionally would silently produce wrong cuts for the
-/// others -- a fabrication error, not a placeholder -- so the honest
-/// state remains "no real rule set yet" until the engine gains a
-/// profile-reference condition and configuration semantics.
+/// `ruleSetId` points at `meSerie14600RuleSet` (me_14600_rule_set.dart,
+/// registered in rule_set_resolution.dart): the FIRST REAL manufacturer
+/// rules in AluVis, encoding the "2 vantaux" column of the document's
+/// débitage table (p. 24) -- dormants 14 617/14 627 (2+2 × (L ; H)),
+/// montants latéraux 14 622/623/632/633 (2 × (H−74)) and traverse 14 621
+/// (4 × (L−64)/2), routed by profile reference + vantaux count + usage
+/// role so no uncovered configuration can silently match. The REST of
+/// the débitage table stays deliberately unencoded: dormant +46 variants,
+/// traverse 14 631, the 3/4-vantaux columns (different formulas per
+/// column -- encoding one configuration unconditionally would fabricate
+/// wrong cuts for the others; see docs/VERIFIED_SOURCES.md). Those
+/// usages surface as honest `noRuleMatched` issues.
 ///
 /// `metadata` carries the system-level verified facts (frame depths
 /// 44/66.34, sash stile depths 56/69.2, glazing rebate 26 with 6-22 mm
@@ -568,7 +567,7 @@ const ProfileSystem meSerie14600 = ProfileSystem(
   manufacturer: _maghrebExtrusionName,
   manufacturerId: maghrebExtrusionId,
   name: _meSerie14600Name,
-  ruleSetId: 'generic-placeholder',
+  ruleSetId: meSerie14600Id,
   profiles: _me14600Profiles,
   supportedOpenings: [OpeningType.coulissante],
   isBuiltIn: true,

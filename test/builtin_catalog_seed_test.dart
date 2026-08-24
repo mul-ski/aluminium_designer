@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
 import 'package:aluminium_designer/core/data/builtin_catalog_seed.dart';
+import 'package:aluminium_designer/core/data/me_14600_rule_set.dart';
+import 'package:aluminium_designer/core/logic/rule_set_resolution.dart';
 import 'package:aluminium_designer/core/models/catalog.dart';
 import 'package:aluminium_designer/core/models/catalog_json.dart';
 import 'package:aluminium_designer/core/models/manufacturer.dart';
@@ -171,14 +173,19 @@ void main() {
       expect(metadata.dimensionLimits[1].maxHeightMm, 2500);
     });
 
-    test('rule set stays the honest generic placeholder -- the débitage '
-        'formulas are documented, not half-encoded', () {
+    test('rule set points at the real me-14600 débitage set (2 vantaux '
+        'column, p. 24); the rest of the table stays unencoded', () {
       final seeded = withBuiltInCatalogSeed(const Catalog());
       final system = seeded.profileSystems.firstWhere(
         (s) => s.id == meSerie14600Id,
       );
 
-      expect(system.ruleSetId, 'generic-placeholder');
+      expect(system.ruleSetId, meSerie14600Id);
+      expect(
+        resolveRuleSetById(system.ruleSetId),
+        same(meSerie14600RuleSet),
+      );
+      expect(meSerie14600RuleSet.isPlaceholder, isFalse);
       expect(system.supportedOpenings, [OpeningType.coulissante]);
       expect(system.isBuiltIn, isTrue);
     });
