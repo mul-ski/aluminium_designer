@@ -38,13 +38,14 @@ suite green, diff inspected, then commit + push + this file updated.
 | **fix(calc): coulissante gating + qa-review fixes** (qa-review verdict CHANGES REQUIRED → all items addressed: OpeningTypeCondition(coulissante) on all rules -- non-coulissant 2-vantaux sections can no longer receive real cuts; angle-derivation note reaches ruleDescription; negative-dimension pin without invented clamping; quantity composition test; migrated-install divergence recorded in ledger). Re-review verdict: APPROVE | 5901e41 | analyze clean; full suite 383/383 |
 | `test(calc)` pin derived-angle provenance on every me-14600 rule (qa-review optional hardening) | b15a08f | full suite 384/384 |
 | **C6a `feat(calc): remaining verified 2-vantaux débitage rows`** (rule set 8→15: traverse 14 631 4×(L−85)/2 fixed(2)/placement; dormants 14 618/628/626 2+2×(L+46;H+46) four roles; montant central 14 619/620/630 2×(H−74) intermediate fixed(2)/placement; mullions 14 650/14 643 + chicane + all 3/4-vantaux stay honest noRuleMatched; ledger now six of seven rows; double-équerre 14627-vs-618 note tension recorded verbatim). qa-review verdict before commit: APPROVE | 24eaffa | analyze clean; full suite 396/396 |
+| **C6b `feat(calc): verified 3-vantaux (avec fixe) débitage column`** (rule set 15→30 under exact VantauxCountCondition(3): traverses 14 621 6×(L−25)/3 and 14 631 6×(L−47)/3 with fixedCount(3)/placement spanning all three panels; dormant/montant/mullion rows duplicated per column rather than relaxing verified gates; modeling decision on record: one ouvrant coulissante section vantauxCount=3, fixed-third position NOT represented — not stated by source, affects no cut length; plain-3v indistinguishable, undocumented by table. qa-review verdict before commit: APPROVE) | 494b131 | analyze clean; full suite 408/408 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
 → 307 (after calculation C1) → 319 (after calculation C2) → 336 (after
 calculation C3) → 338 (C4a) → 340 (C4b) → 345 (C4c) → 354 (after
 calculation C4) → 361 (deletion fix) → 365 (C5a) → 377 (C5b) → 380 (C5c)
-→ 384 (after C5 fixes) → **396** (after C6a).
+→ 384 (after C5 fixes) → 396 (after C6a) → **408** (after C6b).
 
 ## In progress
 
@@ -131,15 +132,25 @@ architecture ever lands.
   deliberately NOT encoded as a `SystemRuleSet` through C4b–C4e: the rule
   engine selected by ProfileType + section conditions only and could not
   distinguish 14 621 from 14 631 nor gate on configuration. **Superseded
-  in C5+C6a** for the whole "2 vantaux" coulissante column (six of seven
-  table rows): `meSerie14600RuleSet` encodes both dormant rows, both
-  montant rows, and both traverse references via ProfileReferenceCondition
-  + VantauxCountCondition + OpeningTypeCondition + role conditions.
-  STILL unencoded (honest noRuleMatched): chicane 14 624 (4v-only row)
-  and the entire 3/4-vantaux columns -- each needs its own quantity-
-  semantics analysis, and the 3-vantaux "avec fixe" configurations need
-  an explicit section-modeling decision before anything from that column
-  is encoded.
+  in C5+C6a+C6b** for the "2 vantaux" AND "3 vantaux (avec fixe)"
+  columns (six rows each): `meSerie14600RuleSet` encodes both dormant
+  rows, both montant rows, and both traverse references per column via
+  ProfileReferenceCondition + exact VantauxCountCondition +
+  OpeningTypeCondition + role conditions. STILL unencoded (honest
+  noRuleMatched): chicane 14 624 (4v-only row) and the entire
+  4-vantaux column -- its own quantity-mapping analysis lands with C6c.
+- "3 vantaux (avec fixe)" modeling decision (C6b): represented as ONE
+  ouvrant coulissante section with vantauxCount = 3. The source does
+  not state which third of the unit is fixed, its rail arrangement, or
+  the fixed panel's framing membership -- and no encoded cut length
+  depends on any of that -- so fixed-third position is deliberately NOT
+  represented. A hypothetical plain-3v unit is undocumented by the
+  table and indistinguishable in this model; the manufacturer's column
+  header defines the 3-vantail configuration as the avec-fixe one.
+  Dormant/montant/mullion rules are DUPLICATED per vantaux column:
+  their formulas coincide at 2 and 3 vantaux, but exact-column gating
+  ties every rule to its printed row instead of relying on that
+  coincidence (relaxing verified gates to >=2 was rejected).
 - Débitage quantities follow the per-placement law: the table counts
   pieces per unit, AluVis rules count pieces per matched placement.
   Role-scoped one-piece positions get fixed(1) (unit totals emerge from
@@ -185,15 +196,16 @@ Configured under `.opencode/` (see `AGENTS.md` for when to load what):
 ## Current next milestone
 
 Calculation series C1–C3, verified-catalog series C4, C5 (first real
-manufacturer-backed calculation), and **C6a (complete 2-vantaux Série
-14600 column) are COMPLETE**: `meSerie14600RuleSet` now covers six of the
-seven p. 24 table rows for the 2-vantaux coulissante configuration,
-qa-review APPROVED before commit. Documented candidates, not scheduled:
+manufacturer-backed calculation), **C6a (2-vantaux column)** and **C6b
+(3-vantaux avec-fixe column) are COMPLETE**: `meSerie14600RuleSet` now
+covers 12 of the 13 documented débitage cells across both columns,
+qa-review APPROVED before each commit. Documented candidates, not
+scheduled:
 
-- C6b: 3-vantaux débitage column — BLOCKED ON A DECISION FIRST: how
-  "avec fixe" configurations decompose into AluVis sections/usages;
-- C6c: 4-vantaux débitage column (traverse formulas, doubled
-  montant/mullion quantities, chicane 14 624);
+- C6c: 4-vantaux débitage column — traverse formulas `8 × (L−60)/4` /
+  `8 × (L−106)/4`, doubled montant/mullion counts (`4 × (H−74)`), chicane
+  14 624 (`1 × (H−92)`); quantity mapping analysis required (whether the
+  doubled counts emerge from placements or fixedCount);
 - C7: first verified Sepalumic system — externally gated on official
   fabrication documentation (Coulissant 8800 brochure is the candidate
   source to inspect; débitage/profile references not public otherwise);
