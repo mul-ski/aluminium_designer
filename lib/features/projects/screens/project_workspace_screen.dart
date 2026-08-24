@@ -27,14 +27,21 @@ import 'new_construction_screen.dart';
 class ProjectWorkspaceScreen extends StatefulWidget {
   final Project project;
 
-  const ProjectWorkspaceScreen({super.key, required this.project});
+  /// Optional store override -- same DI seam as
+  /// `ConstructionEditorScreen.catalogStore`: production code passes
+  /// nothing and gets the real on-disk [ProjectStore]; tests may inject a
+  /// stub so widget tests never touch the filesystem (real dart:io I/O
+  /// cannot complete inside a widget test's fake async zone).
+  final ProjectStore? store;
+
+  const ProjectWorkspaceScreen({super.key, required this.project, this.store});
 
   @override
   State<ProjectWorkspaceScreen> createState() => _ProjectWorkspaceScreenState();
 }
 
 class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
-  final ProjectStore _store = ProjectStore();
+  late final ProjectStore _store = widget.store ?? ProjectStore();
   late Project _project;
 
   @override
@@ -154,6 +161,57 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
     await _store.save(_project);
   }
 
+  /// Deletes one construction from the project, after explicit
+  /// confirmation -- the list-level counterpart of the editor's own
+  /// delete flow (which reaches this same state via
+  /// `_openConstruction`'s `ConstructionEditorResult.isDeleted` branch).
+  ///
+  /// Same shape as `ProjectDashboard._deleteProject`: confirmation
+  /// dialog first, cancel (or dismissing the dialog) leaves everything
+  /// unchanged, confirmation removes ONLY the targeted construction by
+  /// id and persists the updated project immediately. Removing by id
+  /// (not list position) keeps this safe even if the list changed since
+  /// the card was built. The project itself and every other construction
+  /// stay untouched; deleting the last construction simply leaves a
+  /// valid empty project (the existing empty-state UI already covers
+  /// that).
+  Future<void> _deleteConstruction(Construction construction) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer la construction'),
+        content: Text(
+          'Supprimer cette construction (${construction.name}) du projet '
+          '"${_project.name}" ? Cette action est irréversible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _project = _project.copyWith(
+        constructions: _project.constructions
+            .where((c) => c.id != construction.id)
+            .toList(),
+      );
+    });
+    await _persist();
+  }
+
   String _typeLabel(ConstructionType type) {
     switch (type) {
       case ConstructionType.window:
@@ -225,6 +283,7 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
                   construction: construction,
                   typeLabel: _typeLabel(construction.type),
                   onTap: () => _openConstruction(construction),
+                  onDelete: () => _deleteConstruction(construction),
                 ),
           ],
         ),
@@ -238,10 +297,16 @@ class _ConstructionCard extends StatelessWidget {
   final String typeLabel;
   final VoidCallback onTap;
 
+  /// Deletes this construction from the project (after its own
+  /// confirmation, handled by the parent) -- same trailing-icon pattern
+  /// as the project cards on `ProjectDashboard`.
+  final VoidCallback onDelete;
+
   const _ConstructionCard({
     required this.construction,
     required this.typeLabel,
     required this.onTap,
+    required this.onDelete,
   });
 
   @override
@@ -276,6 +341,11 @@ class _ConstructionCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Supprimer',
+                onPressed: onDelete,
               ),
               const Icon(Icons.chevron_right),
             ],
