@@ -43,6 +43,8 @@ suite green, diff inspected, then commit + push + this file updated.
 | **A `test(editor): pin multi-vantaux reachability for coulissante sections`** (audit verdict recorded: BOTH live steppers — Sections-stage properties panel and add-section dialog — produce any count ≥1 for every ouvrant type, so the encoded coulissante 3v/4v débitage columns are UI-reachable with zero changes; controller coalescing + widget stepping pinned by tests) | 62272c5 | analyze clean; full suite 421/421 |
 | **B `feat(catalog): adopt real built-in rule sets on load`** (closes the recorded migrated-install divergence: seed merge runs once per install, so pre-C5 installs kept placeholder cuts forever; adoptBuiltInRuleSets = narrow exception refreshing ONLY ruleSetId of present built-in systems still on the placeholder, invoked from CatalogStore.load on every load with identity-based save-on-change; user-created systems/user rule choices/deleted records untouched; store test asserts persistence via raw catalog.json). qa-review cycle: CHANGES REQUIRED → fixes → APPROVE | 2803d6a | analyze clean; full suite 428/428 |
 | **C `feat(catalog): verified profile inertia fields for Série 14600`** (`Profile.inertiaIxxCm4/inertiaIyyCm4` doubles, 0 = not stated, default params keep all call sites compiling; JSON always-writes/tolerant-reads for legacy compat; all 20 ledger-verified pairs seeded verbatim — full map pinned in tests; 14 650's axis-less "69.47" stays 0/0 as a recorded open verification item; p.23 assembly combinations remain excluded; fingerprint UNCHANGED with exclusion rationale documented — display-only until a rule consumes it; profiles-panel subtitle shows inertia only when stated). qa-review verdict before commit: APPROVE (follow-ups applied: all-20-pairs pinning, format) | e20a4dc | analyze clean; full suite 435/435 |
+| **W1 `feat(calc): pure grouped cut-list aggregation`** (`buildCutListLines`/`CutListLine` in the aggregation layer — grouping key (profile.id, exact length, both angles), first-encounter order, summed physical quantities, traceability preserved via usage-id/section-id/rule-description lists). Follow-up commit fixed an out-of-sync list/map pair that shipped before the full suite confirmed green (merged quantities invisible to callers) | f2d0b9a, 272381b | analyze clean; full suite 443/443 |
+| **W2 `feat(editor): Liste de découpe workshop view`** (fullscreen dialog opened from the banner's new action — hidden until a non-empty outcome exists; pure derivation via buildCutListLines + sumCutListLines; header summary, grouped lines with angles in banner format + section labels + distinct rule provenance, stale flag passed through, diagnostics wording byte-identical to the banner; banner header Row→Wrap so the button wraps instead of overflowing narrow panels; widget assertions scoped by find.byType(CutListDialog) since the fullscreen view stacks over the editor). qa-review verdict before commit: APPROVE | e901544 | analyze clean; full suite 446/446 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
@@ -50,7 +52,7 @@ Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix
 calculation C3) → 338 (C4a) → 340 (C4b) → 345 (C4c) → 354 (after
 calculation C4) → 361 (deletion fix) → 365 (C5a) → 377 (C5b) → 380 (C5c)
 → 384 (after C5 fixes) → 396 (after C6a) → 408 (after C6b) → 419
-(after C6c) → 421 (A) → 428 (B) → **435** (after C).
+(after C6c) → 421 (A) → 428 (B) → 435 (C) → 443 (W1) → **446** (after W2).
 
 ## In progress
 
@@ -117,6 +119,17 @@ architecture ever lands.
   envelope rather than widening the calculator's return type again.
 - Cut provenance: `ProfileCut.ruleDescription` copies the producing rule's
   description verbatim when present; never invented.
+- Workshop cut-list grouping doctrine (W1/W2): lines group by
+  (profile.id, exact length, both angles) with EXACT double equality --
+  deterministic because rule expressions over identical inputs are
+  bit-identical; any float randomness would be an engine bug. Merged
+  lines carry contributing usage ids, distinct section ids, and distinct
+  rule descriptions, so aggregation never loses traceability and grouped
+  display never replaces the per-cut records it derives from. The
+  "Liste de découpe" dialog is pure derivation over CalculationOutcome
+  (third consumer of the aggregation layer after banner totals and the
+  future BOM); diagnostics wording is shared verbatim between banner and
+  dialog so the two views cannot disagree.
 - BOM summaries are derived from `CalculationOutcome` by pure aggregation
   (`cut_aggregation.dart`), never hand-maintained UI state. Weight is
   shown only when derivable from the user-entered `weightPerMeter`
