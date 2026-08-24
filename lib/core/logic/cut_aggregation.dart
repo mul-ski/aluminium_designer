@@ -131,3 +131,151 @@ GrandTotals sumProfileTotals(List<ProfileTotals> totals) {
     weightKg: weightKg,
   );
 }
+
+/// One workshop-facing cut-list line: every cut sharing the same
+/// profile, exact length, and both angles merged into a single row with
+/// its physical piece count -- what a fabricator actually cuts.
+class CutListLine {
+  final String profileId;
+
+  /// Display fields copied from the embedded profile (same convention as
+  /// [ProfileTotals]) so consumers never re-resolve profiles to label a
+  /// line.
+  final String profileName;
+  final String reference;
+
+  /// The grouped cut length in mm. Grouping uses EXACT double equality,
+  /// which is deterministic here: identical rule expressions over
+  /// identical construction dimensions produce bit-identical results, so
+  /// equal lengths always merge and unequal expressions stay apart. Any
+  /// float randomness inside the calculation engine would be an engine
+  /// bug, not an aggregation concern.
+  final double lengthMm;
+
+  final double angleStart;
+  final double angleEnd;
+
+  /// Physical pieces on this line: Σ `ProfileCut.quantity` of every
+  /// merged cut (each already `usage.quantity × rule.fixedCount`).
+  final int quantity;
+
+  /// Σ `length × quantity` in mm.
+  final double totalLengthMm;
+
+  /// Line weight in kg when the profile's `weightPerMeter` carries a
+  /// usable positive value; null = unknown, never estimated.
+  final double? weightKg;
+
+  /// Distinct producing-rule descriptions across the merged cuts, in
+  /// first-encounter order -- provenance survives grouping: identical
+  /// cuts produced by two different rules share the line while naming
+  /// both rules.
+  final List<String> ruleDescriptions;
+
+  /// Every `ProfileCut.profileUsageId` merged into this line, in
+  /// first-encounter order -- the traceability chain back through
+  /// usages survives aggregation.
+  final List<String> contributingUsageIds;
+
+  /// Distinct `ProfileCut.sectionId`s merged into this line,
+  /// first-encounter order; consumers resolve display labels themselves.
+  final List<String> contributingSectionIds;
+
+  const CutListLine({
+    required this.profileId,
+    required this.profileName,
+    required this.reference,
+    required this.lengthMm,
+    required this.angleStart,
+    required this.angleEnd,
+    required this.quantity,
+    required this.totalLengthMm,
+    required this.weightKg,
+    required this.ruleDescriptions,
+    required this.contributingUsageIds,
+    required this.contributingSectionIds,
+  });
+}
+
+/// Groups [cuts] into workshop cut-list lines keyed by
+/// (`profile.id`, exact length, angleStart, angleEnd), first-encounter
+/// order -- the same calculation-order convention as
+/// [aggregateProfileTotals] and `groupCutsBySectionId`.
+///
+/// Pure derivation over data already on each [ProfileCut]: quantities
+/// sum, weights derive only from positive user-entered
+/// `weightPerMeter`, and nothing is invented. This is the derivation
+/// step the workshop "Liste de découpe" view consumes directly --
+/// grouped display NEVER replaces the per-cut records it derives from.
+List<CutListLine> buildCutListLines(List<ProfileCut> cuts) {
+  final byGroup = <String, CutListLine>{};
+  final lines = <CutListLine>[];
+
+  for (final cut in cuts) {
+    final key =
+        '${cut.profile.id}|${cut.length}|${cut.angleStart}|${cut.angleEnd}';
+    final existing = byGroup[key];
+    if (existing == null) {
+      final profile = cut.profile;
+      final line = CutListLine(
+        profileId: profile.id,
+        profileName: profile.name,
+        reference: profile.reference,
+        lengthMm: cut.length,
+        angleStart: cut.angleStart,
+        angleEnd: cut.angleEnd,
+        quantity: cut.quantity,
+        totalLengthMm: cut.length * cut.quantity,
+        weightKg: profile.weightPerMeter > 0
+            ? cut.length * cut.quantity / 1000 * profile.weightPerMeter
+            : null,
+        ruleDescriptions: [
+          if (cut.ruleDescription != null) cut.ruleDescription!,
+        ],
+        contributingUsageIds: [cut.profileUsageId],
+        contributingSectionIds: [cut.sectionId],
+      );
+      byGroup[key] = line;
+      lines.add(line);
+      continue;
+    }
+
+    // Merge into the existing line: quantities and metres accumulate;
+    // provenance lists grow without duplicates while keeping
+    // first-encounter order. Every cut in a group shares the same
+    // profile (the key includes profile id), so the weight recomputes
+    // from the profile's single weightPerMeter.
+    final quantity = existing.quantity + cut.quantity;
+    final totalLengthMm = existing.totalLengthMm + cut.length * cut.quantity;
+    final weightPerMeter = cut.profile.weightPerMeter;
+
+    byGroup[key] = CutListLine(
+      profileId: existing.profileId,
+      profileName: existing.profileName,
+      reference: existing.reference,
+      lengthMm: existing.lengthMm,
+      angleStart: existing.angleStart,
+      angleEnd: existing.angleEnd,
+      quantity: quantity,
+      totalLengthMm: totalLengthMm,
+      weightKg:
+          weightPerMeter > 0 ? totalLengthMm / 1000 * weightPerMeter : null,
+      ruleDescriptions: [
+        ...existing.ruleDescriptions,
+        if (cut.ruleDescription != null &&
+            !existing.ruleDescriptions.contains(cut.ruleDescription))
+          cut.ruleDescription!,
+      ],
+      contributingUsageIds: [
+        ...existing.contributingUsageIds,
+        cut.profileUsageId,
+      ],
+      contributingSectionIds: [
+        ...existing.contributingSectionIds,
+        if (!existing.contributingSectionIds.contains(cut.sectionId))
+          cut.sectionId,
+      ],
+    );
+  }
+  return lines;
+}

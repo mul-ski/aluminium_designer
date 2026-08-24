@@ -28,14 +28,18 @@ ProfileCut _cut(
   int quantity = 1,
   String profileUsageId = 'u1',
   String sectionId = 's1',
+  double angleStart = 45,
+  double angleEnd = 45,
+  String? ruleDescription,
 }) => ProfileCut(
   profile: profile,
   length: length,
   quantity: quantity,
-  angleStart: 45,
-  angleEnd: 45,
+  angleStart: angleStart,
+  angleEnd: angleEnd,
   profileUsageId: profileUsageId,
   sectionId: sectionId,
+  ruleDescription: ruleDescription,
 );
 
 void main() {
@@ -182,5 +186,147 @@ void main() {
     final grand = sumProfileTotals(totals);
     expect(grand.pieces, 4);
     expect(grand.totalLengthMm, closeTo(4300, 1e-9));
+  });
+
+  group('buildCutListLines', () {
+    test('merges identical cuts across usages, summing quantities and '
+        'preserving traceability', () {
+      final profile = _profile('M1', reference: 'REF-M1');
+      final lines = buildCutListLines([
+        _cut(profile,
+            length: 1426,
+            profileUsageId: 'u-left',
+            sectionId: 's-unit',
+            ruleDescription: 'Montant latéral H−74'),
+        _cut(profile,
+            length: 1426,
+            profileUsageId: 'u-right',
+            sectionId: 's-unit',
+            ruleDescription: 'Montant latéral H−74'),
+      ]);
+
+      expect(lines, hasLength(1));
+      final line = lines.single;
+      expect(line.profileId, 'M1');
+      expect(line.reference, 'REF-M1');
+      expect(line.lengthMm, 1426);
+      expect(line.angleStart, 45);
+      expect(line.angleEnd, 45);
+      // Two placements -> two physical pieces.
+      expect(line.quantity, 2);
+      expect(line.totalLengthMm, closeTo(2852, 1e-9));
+      // Same rule twice -> ONE distinct description.
+      expect(line.ruleDescriptions, ['Montant latéral H−74']);
+      expect(line.contributingUsageIds, ['u-left', 'u-right']);
+      expect(line.contributingSectionIds, ['s-unit']);
+    });
+
+    test('different lengths of one profile stay separate lines', () {
+      final profile = _profile('D1');
+      final lines = buildCutListLines([
+        _cut(profile, length: 2000, profileUsageId: 'u-top'),
+        _cut(profile, length: 1500, profileUsageId: 'u-left'),
+      ]);
+
+      expect(lines, hasLength(2));
+      expect(lines[0].lengthMm, 2000);
+      expect(lines[0].quantity, 1);
+      expect(lines[0].contributingUsageIds, ['u-top']);
+      expect(lines[1].lengthMm, 1500);
+    });
+
+    test('different angles never merge, even for the same length', () {
+      final profile = _profile('T1');
+      final lines = buildCutListLines([
+        _cut(profile,
+            length: 968,
+            angleStart: 45,
+            angleEnd: 45,
+            profileUsageId: 'u-mitre'),
+        _cut(profile,
+            length: 968,
+            angleStart: 90,
+            angleEnd: 90,
+            profileUsageId: 'u-square'),
+      ]);
+
+      expect(lines, hasLength(2));
+      expect(lines[0].angleStart, 45);
+      expect(lines[0].contributingUsageIds, ['u-mitre']);
+      expect(lines[1].angleStart, 90);
+      expect(lines[1].contributingUsageIds, ['u-square']);
+    });
+
+    test('identical cuts of DIFFERENT profiles never merge', () {
+      final a = _profile('PA', reference: 'REF-A');
+      final b = _profile('PB', reference: 'REF-B');
+      final lines = buildCutListLines([
+        _cut(a, length: 1426),
+        _cut(b, length: 1426),
+      ]);
+
+      expect(lines, hasLength(2));
+      expect(lines.map((l) => l.profileId), ['PA', 'PB']);
+    });
+
+    test('distinct rule descriptions accumulate in first-encounter order '
+        'when different rules produce identical cuts', () {
+      final profile = _profile('M1');
+      final lines = buildCutListLines([
+        _cut(profile,
+            length: 1426,
+            profileUsageId: 'u-a',
+            ruleDescription: 'Règle A'),
+        _cut(profile,
+            length: 1426,
+            profileUsageId: 'u-b',
+            ruleDescription: 'Règle B'),
+        _cut(profile,
+            length: 1426,
+            profileUsageId: 'u-c',
+            ruleDescription: 'Règle A'), // duplicate description
+      ]);
+
+      expect(lines, hasLength(1));
+      expect(lines.single.ruleDescriptions, ['Règle A', 'Règle B']);
+      expect(lines.single.contributingUsageIds,
+          ['u-a', 'u-b', 'u-c']);
+    });
+
+    test('weight is known only from positive weightPerMeter and scales '
+        'with the merged quantity', () {
+      final known = _profile('KW', weightPerMeter: 2.0);
+      final unknown = _profile('UW', weightPerMeter: 0);
+
+      final lines = buildCutListLines([
+        _cut(known, length: 1000, quantity: 3),
+        _cut(unknown, length: 1000, quantity: 3),
+      ]);
+
+      expect(lines, hasLength(2));
+      // 3 m at 2 kg/m = 6 kg.
+      expect(lines[0].weightKg, closeTo(6.0, 1e-9));
+      expect(lines[1].weightKg, isNull);
+    });
+
+    test('empty input produces no lines', () {
+      expect(buildCutListLines(const []), isEmpty);
+    });
+
+    test('lines keep first-encounter order across profiles and lengths',
+        () {
+      final montant = _profile('M1');
+      final traverse = _profile('T1');
+      final lines = buildCutListLines([
+        _cut(montant, length: 1426),
+        _cut(traverse, length: 968),
+        _cut(montant, length: 1500),
+      ]);
+
+      expect(
+        lines.map((l) => '${l.profileId}:${l.lengthMm}').toList(),
+        ['M1:1426.0', 'T1:968.0', 'M1:1500.0'],
+      );
+    });
   });
 }
