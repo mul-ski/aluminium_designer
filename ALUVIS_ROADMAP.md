@@ -39,13 +39,15 @@ suite green, diff inspected, then commit + push + this file updated.
 | `test(calc)` pin derived-angle provenance on every me-14600 rule (qa-review optional hardening) | b15a08f | full suite 384/384 |
 | **C6a `feat(calc): remaining verified 2-vantaux débitage rows`** (rule set 8→15: traverse 14 631 4×(L−85)/2 fixed(2)/placement; dormants 14 618/628/626 2+2×(L+46;H+46) four roles; montant central 14 619/620/630 2×(H−74) intermediate fixed(2)/placement; mullions 14 650/14 643 + chicane + all 3/4-vantaux stay honest noRuleMatched; ledger now six of seven rows; double-équerre 14627-vs-618 note tension recorded verbatim). qa-review verdict before commit: APPROVE | 24eaffa | analyze clean; full suite 396/396 |
 | **C6b `feat(calc): verified 3-vantaux (avec fixe) débitage column`** (rule set 15→30 under exact VantauxCountCondition(3): traverses 14 621 6×(L−25)/3 and 14 631 6×(L−47)/3 with fixedCount(3)/placement spanning all three panels; dormant/montant/mullion rows duplicated per column rather than relaxing verified gates; modeling decision on record: one ouvrant coulissante section vantauxCount=3, fixed-third position NOT represented — not stated by source, affects no cut length; plain-3v indistinguishable, undocumented by table. qa-review verdict before commit: APPROVE) | 494b131 | analyze clean; full suite 408/408 |
+| **C6c `feat(calc): verified 4-vantaux débitage column — table complete`** (rule set 30→46: traverses 14 621 8×(L−60)/4 and 14 631 8×(L−106)/4 fixedCount(4)/placement; latéraux doubled to 4/unit via DERIVED fixed(2)-per-side mapping; central mullion fixed(4); chicane 14 624 H−92 as the one deliberate no-role-condition rule — source states no position, role gating would fabricate one; collision-free by construction. Ledger heading corrected; p. 24 table now FULLY encoded). qa-review verdict before commit: APPROVE | e5cfd99 | analyze clean; full suite 419/419 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
 → 307 (after calculation C1) → 319 (after calculation C2) → 336 (after
 calculation C3) → 338 (C4a) → 340 (C4b) → 345 (C4c) → 354 (after
 calculation C4) → 361 (deletion fix) → 365 (C5a) → 377 (C5b) → 380 (C5c)
-→ 384 (after C5 fixes) → 396 (after C6a) → **408** (after C6b).
+→ 384 (after C5 fixes) → 396 (after C6a) → 408 (after C6b) → **419**
+(after C6c).
 
 ## In progress
 
@@ -132,13 +134,11 @@ architecture ever lands.
   deliberately NOT encoded as a `SystemRuleSet` through C4b–C4e: the rule
   engine selected by ProfileType + section conditions only and could not
   distinguish 14 621 from 14 631 nor gate on configuration. **Superseded
-  in C5+C6a+C6b** for the "2 vantaux" AND "3 vantaux (avec fixe)"
-  columns (six rows each): `meSerie14600RuleSet` encodes both dormant
-  rows, both montant rows, and both traverse references per column via
+  in C5+C6a+C6b+C6c**: the COMPLETE p. 24 table (all three configuration
+  columns, all seven rows) is now encoded in `meSerie14600RuleSet` via
   ProfileReferenceCondition + exact VantauxCountCondition +
-  OpeningTypeCondition + role conditions. STILL unencoded (honest
-  noRuleMatched): chicane 14 624 (4v-only row) and the entire
-  4-vantaux column -- its own quantity-mapping analysis lands with C6c.
+  OpeningTypeCondition + role conditions, with honest noRuleMatched for
+  everything outside the documented cells.
 - "3 vantaux (avec fixe)" modeling decision (C6b): represented as ONE
   ouvrant coulissante section with vantauxCount = 3. The source does
   not state which third of the unit is fixed, its rail arrangement, or
@@ -151,6 +151,16 @@ architecture ever lands.
   their formulas coincide at 2 and 3 vantaux, but exact-column gating
   ties every rule to its printed row instead of relying on that
   coincidence (relaxing verified gates to >=2 was rejected).
+- Débitage quantity mappings are per-unit totals decomposed into
+  placements by a documented spanning doctrine: traverses fixed(n) per
+  top/bottom placement where n = panel count; latéraux fixed(2) per
+  side at 4 vantaux (both leaves on that side); central mullion
+  fixed(2)/(4) on the single intermediate placement. These
+  decompositions are DERIVED from printed totals, never presented as
+  printed statements. The chicane 14 624 rule is the one deliberate
+  exception to role gating: the source states no position for it
+  (fabricating one would violate domain law); it is collision-free by
+  construction as the only appliesTo-other rule.
 - Débitage quantities follow the per-placement law: the table counts
   pieces per unit, AluVis rules count pieces per matched placement.
   Role-scoped one-piece positions get fixed(1) (unit totals emerge from
@@ -196,16 +206,12 @@ Configured under `.opencode/` (see `AGENTS.md` for when to load what):
 ## Current next milestone
 
 Calculation series C1–C3, verified-catalog series C4, C5 (first real
-manufacturer-backed calculation), **C6a (2-vantaux column)** and **C6b
-(3-vantaux avec-fixe column) are COMPLETE**: `meSerie14600RuleSet` now
-covers 12 of the 13 documented débitage cells across both columns,
-qa-review APPROVED before each commit. Documented candidates, not
-scheduled:
+manufacturer-backed calculation), **C6a+C6b+C6c (COMPLETE Série 14600
+débitage table) are COMPLETE**: `meSerie14600RuleSet` now encodes every
+documented cell of the p. 24 table across all three configuration
+columns, qa-review APPROVED before each commit. Documented candidates,
+not scheduled:
 
-- C6c: 4-vantaux débitage column — traverse formulas `8 × (L−60)/4` /
-  `8 × (L−106)/4`, doubled montant/mullion counts (`4 × (H−74)`), chicane
-  14 624 (`1 × (H−92)`); quantity mapping analysis required (whether the
-  doubled counts emerge from placements or fixedCount);
 - C7: first verified Sepalumic system — externally gated on official
   fabrication documentation (Coulissant 8800 brochure is the candidate
   source to inspect; débitage/profile references not public otherwise);
