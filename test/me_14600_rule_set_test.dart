@@ -204,6 +204,43 @@ void main() {
       }
     });
 
+    test('a non-coulissante 2-vantaux section matches nothing -- the '
+        'source is a coulissant-only descriptif', () {
+      for (final openingType in [
+        OpeningType.oscilloBattant,
+        OpeningType.francaise,
+        OpeningType.anglaise,
+      ]) {
+        final context = CalculationContext(
+          construction: _construction(),
+          profile: meSerie14600.profilesById.values
+              .firstWhere((p) => p.reference == '14 617'),
+          section: Section(
+            id: 's1',
+            order: 0,
+            kind: SectionKind.ouvrant,
+            width: 2000,
+            height: 1500,
+            openingType: openingType,
+            vantauxCount: 2,
+          ),
+          usage: ProfileUsage(
+            id: 'u1',
+            profileId: 'builtin-me-14600-14617',
+            sectionId: 's1',
+            role: ProfileUsageRole.top,
+          ),
+        );
+        expect(
+          meSerie14600RuleSet.select(context),
+          isNull,
+          reason:
+              '$openingType at 2 vantaux is covered by no page of the '
+              'document; it must not receive real cuts',
+        );
+      }
+    });
+
     test('missing section fails closed', () {
       final context = CalculationContext(
         construction: _construction(),
@@ -222,46 +259,77 @@ void main() {
 
     test('exhaustive sweep: no context ever selects ambiguously', () {
       // select() throws AmbiguousRuleMatchException on equal-specificity
-      // ties; running every seeded profile x every role x both relevant
-      // vantaux counts proves the rule conditions partition contexts
-      // disjointly.
+      // ties; running every seeded profile x every role x the relevant
+      // vantaux counts x opening types proves the rule conditions
+      // partition contexts disjointly.
       for (final profile in meSerie14600.profiles) {
         for (final role in ProfileUsageRole.values) {
           for (final vantauxCount in [0, 1, 2]) {
-            expect(
-              () => meSerie14600RuleSet.select(
-                CalculationContext(
-                  construction: _construction(),
-                  profile: profile,
-                  section: Section(
-                    id: 's',
-                    order: 0,
-                    kind: vantauxCount == 0
-                        ? SectionKind.fixed
-                        : SectionKind.ouvrant,
-                    width: 2000,
-                    height: 1500,
-                    openingType: vantauxCount == 0
-                        ? null
-                        : OpeningType.coulissante,
-                    vantauxCount: vantauxCount,
-                  ),
-                  usage: ProfileUsage(
-                    id: 'u',
-                    profileId: profile.id,
-                    sectionId: 's',
-                    role: role,
+            for (final openingType in OpeningType.values) {
+              expect(
+                () => meSerie14600RuleSet.select(
+                  CalculationContext(
+                    construction: _construction(),
+                    profile: profile,
+                    section: Section(
+                      id: 's',
+                      order: 0,
+                      kind: vantauxCount == 0
+                          ? SectionKind.fixed
+                          : SectionKind.ouvrant,
+                      width: 2000,
+                      height: 1500,
+                      openingType: vantauxCount == 0 ? null : openingType,
+                      vantauxCount: vantauxCount,
+                    ),
+                    usage: ProfileUsage(
+                      id: 'u',
+                      profileId: profile.id,
+                      sectionId: 's',
+                      role: role,
+                    ),
                   ),
                 ),
-              ),
-              returnsNormally,
-              reason:
-                  '${profile.reference} $role vantaux=$vantauxCount must '
-                  'resolve to zero-or-one rules without ambiguity',
-            );
+                returnsNormally,
+                reason:
+                    '${profile.reference} $role vantaux=$vantauxCount '
+                    '$openingType must resolve to zero-or-one rules '
+                    'without ambiguity',
+              );
+            }
           }
         }
       }
+    });
+  });
+
+  group('expression edge behaviour', () {
+    test('dimensions below the deductions evaluate arithmetically -- '
+        'no clamping is invented', () {
+      // The source states no minimum dimensions and no clamping rule, so
+      // the engine must not invent one here (domain law: absence =
+      // unknown). A 500 mm unit still yields (500−64)/2 = 218; a 50 mm
+      // unit yields a negative number, which is a nonsense-input signal
+      // rather than a fabricated cut. Documented guardrails are the
+      // ADVISORY p. 27 dimension envelopes in the system metadata, not a
+      // calculator clamp.
+      final rule = meSerie14600RuleSet.select(
+        _context('14 621', role: ProfileUsageRole.top),
+      )!;
+      expect(
+        rule.lengthExpression.evaluate({
+          DimensionVariable.constructionWidth: 500,
+          DimensionVariable.constructionHeight: 1500,
+        }),
+        218.0,
+      );
+      expect(
+        rule.lengthExpression.evaluate({
+          DimensionVariable.constructionWidth: 50,
+          DimensionVariable.constructionHeight: 1500,
+        }),
+        -7.0,
+      );
     });
   });
 

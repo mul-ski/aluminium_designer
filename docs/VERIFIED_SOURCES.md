@@ -186,10 +186,22 @@ Quantity mapping: the table counts pieces per unit; AluVis rules count
 per matched `ProfileUsage` placement, so unit totals emerge from
 placements (see `CutQuantity`'s doc). Angles are NOT stated per row on
 p. 24; the 45° mitre is DERIVED from the descriptif's assembly statement
-"Dormants assemblés en coupe d'onglet avec équerres" (pp. 1–3) applied to
-frame and sash alike. Every rule carries `VantauxCountCondition(2)` — only
-the 2-vantaux column is documented for these formulas — plus
-`ProfileReferenceCondition` where the row names exact references.
+"Dormants assemblés en coupe d'onglet avec équerres" (pp. 1–3). That
+statement names the DORMANTS; applying the same mitre to sash members is
+an extension of it — hence every rule description carries "angles dérivés
+pp. 1-3" so cut-level provenance does not overstate p. 24. Every rule
+carries `VantauxCountCondition(2)` AND `OpeningTypeCondition(coulissante)`
+— only the 2-vantaux coulissant configuration is documented for these
+formulas; any other opening type or leaf count surfaces as a honest
+`noRuleMatched` issue — plus `ProfileReferenceCondition` where the row
+names exact references.
+
+Scope note on existing installs: `withBuiltInCatalogSeed` merges by
+addition only, so an install whose persisted me-14600 record still says
+`ruleSetId: 'generic-placeholder'` keeps placeholder behaviour until the
+user re-selects/updates that system through the catalog UI. Fresh
+installs get the real rule set directly. This divergence is accepted
+seed philosophy, recorded here so it is discoverable.
 
 **Still deliberately unencoded** (usages surface as honest
 `noRuleMatched` issues, never wrong cuts): dormant +46 variants

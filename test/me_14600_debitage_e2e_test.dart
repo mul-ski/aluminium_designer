@@ -129,6 +129,34 @@ void main() {
       }
     });
 
+    test('usage.quantity composes with the traverse rule fixed(2)', () {
+      // The riskiest semantic of this milestone: one top traverse
+      // placement spans both leaves' track halves (fixedCount 2), so a
+      // user quantity of 2 on that placement must yield 2 × 2 = 4 pieces
+      // of 968 mm -- calculator line `rule.quantity.fixedCount *
+      // usage.quantity`, exercised for the real rule set.
+      final usages = [
+        ProfileUsage(
+          id: 't-top-x2',
+          profileId: meSerie14600.profilesById.values
+              .firstWhere((p) => p.reference == '14 621')
+              .id,
+          sectionId: 's-unit',
+          role: ProfileUsageRole.top,
+          quantity: 2,
+        ),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      expect(outcome.cuts, hasLength(1));
+      expect(outcome.cuts.single.length, (_l - 64) / 2);
+      expect(outcome.cuts.single.quantity, 4);
+    });
+
     test('traverse 14 631 is reported as unmatched, not silently cut '
         'with 14 621 numbers', () {
       final usages = [

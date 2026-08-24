@@ -35,20 +35,26 @@
 /// ROUTING SAFETY: every rule carries VantauxCountCondition(2) because
 /// only the "2 vantaux" column is encoded -- the 3/4-vantaux columns use
 /// different traverse formulas/quantities and would fabricate wrong cuts
-/// if served these rules (ProfileUsageIssueReason.noRuleMatched is the
-/// honest state for them). Traverses additionally require reference
-/// '14 621' via ProfileReferenceCondition: 14 631 has different
-/// deductions and stays unmatched. Dormant/montant rows list exactly the
-/// references their table row names. Rule selection throws
-/// AmbiguousRuleMatchException rather than guessing, but roles/reference
-/// sets keep every context disjoint by construction.
+/// if served these rules. Every rule also carries
+/// OpeningTypeCondition(coulissante): the source is a coulissant-ONLY
+/// descriptif, so an oscillo-battant/française section at 2 vantaux is
+/// covered by NO page of it and must surface as a noRuleMatched issue,
+/// not as real cuts (the condition also implies SectionKind.ouvrant).
+/// Traverses additionally require reference '14 621' via
+/// ProfileReferenceCondition: 14 631 has different deductions and stays
+/// unmatched. Dormant/montant rows list exactly the references their
+/// table row names. Rule selection throws AmbiguousRuleMatchException
+/// rather than guessing, but roles/reference sets keep every context
+/// disjoint by construction.
 ///
 /// ANGLES: p. 24 states lengths only. The 45° mitre comes from the
 /// descriptif's assembly statement "Dormants assemblés en coupe d'onglet
 /// avec équerres" (pp. 1–3; also stored in the system metadata's
-/// assemblyNote) applied uniformly to frame and sash members -- a
-/// DERIVED choice, recorded here and in the ledger, not a per-row
-/// statement of the débitage table.
+/// assemblyNote). That statement names the DORMANTS; applying the same
+/// mitre to sash members is an extension of it -- a DERIVED choice,
+/// recorded here and in the ledger (rule descriptions carry "angles
+/// dérivés pp. 1-3" so cut-level provenance does not overstate p. 24),
+/// not a per-row statement of the débitage table.
 ///
 /// NOT ENCODED (still honest noRuleMatched issues): dormant 14 618/14 628/
 /// 14 626 (+46 variant), traverses 14 631 and every 3/4-vantaux formula,
@@ -56,6 +62,7 @@
 /// See docs/VERIFIED_SOURCES.md for the full table and status.
 library;
 
+import '../models/opening.dart';
 import '../models/profile.dart';
 import '../models/profile_usage.dart';
 import '../models/rules/calculation_rule.dart';
@@ -74,6 +81,7 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       appliesTo: ProfileType.dormant,
       conditions: [
         VantauxCountCondition(2),
+        OpeningTypeCondition(OpeningType.coulissante),
         ProfileReferenceCondition({'14 617', '14 627'}),
         ProfileUsageRoleCondition(ProfileUsageRole.top),
       ],
@@ -84,12 +92,13 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       angles: CutAngles.mitred45(),
       isPlaceholder: false,
       description: 'Dormant 14 617/14 627 — traverse haute à L '
-          '[débitage p. 24, 2 vantaux]',
+          '[débitage p. 24, 2 vantaux · angles dérivés pp. 1-3]',
     ),
     ProfileCalculationRule(
       appliesTo: ProfileType.dormant,
       conditions: [
         VantauxCountCondition(2),
+        OpeningTypeCondition(OpeningType.coulissante),
         ProfileReferenceCondition({'14 617', '14 627'}),
         ProfileUsageRoleCondition(ProfileUsageRole.bottom),
       ],
@@ -100,12 +109,13 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       angles: CutAngles.mitred45(),
       isPlaceholder: false,
       description: 'Dormant 14 617/14 627 — traverse basse à L '
-          '[débitage p. 24, 2 vantaux]',
+          '[débitage p. 24, 2 vantaux · angles dérivés pp. 1-3]',
     ),
     ProfileCalculationRule(
       appliesTo: ProfileType.dormant,
       conditions: [
         VantauxCountCondition(2),
+        OpeningTypeCondition(OpeningType.coulissante),
         ProfileReferenceCondition({'14 617', '14 627'}),
         ProfileUsageRoleCondition(ProfileUsageRole.left),
       ],
@@ -116,12 +126,13 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       angles: CutAngles.mitred45(),
       isPlaceholder: false,
       description: 'Dormant 14 617/14 627 — montant gauche à H '
-          '[débitage p. 24, 2 vantaux]',
+          '[débitage p. 24, 2 vantaux · angles dérivés pp. 1-3]',
     ),
     ProfileCalculationRule(
       appliesTo: ProfileType.dormant,
       conditions: [
         VantauxCountCondition(2),
+        OpeningTypeCondition(OpeningType.coulissante),
         ProfileReferenceCondition({'14 617', '14 627'}),
         ProfileUsageRoleCondition(ProfileUsageRole.right),
       ],
@@ -132,13 +143,14 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       angles: CutAngles.mitred45(),
       isPlaceholder: false,
       description: 'Dormant 14 617/14 627 — montant droit à H '
-          '[débitage p. 24, 2 vantaux]',
+          '[débitage p. 24, 2 vantaux · angles dérivés pp. 1-3]',
     ),
     // --- Montant latéral 14 622 / 14 623 / 14 632 / 14 633: 2 × (H−74) ---
     ProfileCalculationRule(
       appliesTo: ProfileType.montant,
       conditions: [
         VantauxCountCondition(2),
+        OpeningTypeCondition(OpeningType.coulissante),
         ProfileReferenceCondition({'14 622', '14 623', '14 632', '14 633'}),
         ProfileUsageRoleCondition(ProfileUsageRole.left),
       ],
@@ -151,12 +163,13 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       angles: CutAngles.mitred45(),
       isPlaceholder: false,
       description: 'Montant latéral 14 622/623/632/633 — H−74 '
-          '[débitage p. 24, 2 vantaux]',
+          '[débitage p. 24, 2 vantaux · angles dérivés pp. 1-3]',
     ),
     ProfileCalculationRule(
       appliesTo: ProfileType.montant,
       conditions: [
         VantauxCountCondition(2),
+        OpeningTypeCondition(OpeningType.coulissante),
         ProfileReferenceCondition({'14 622', '14 623', '14 632', '14 633'}),
         ProfileUsageRoleCondition(ProfileUsageRole.right),
       ],
@@ -169,7 +182,7 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       angles: CutAngles.mitred45(),
       isPlaceholder: false,
       description: 'Montant latéral 14 622/623/632/633 — H−74 '
-          '[débitage p. 24, 2 vantaux]',
+          '[débitage p. 24, 2 vantaux · angles dérivés pp. 1-3]',
     ),
     // --- Traverse 14 621: 4 × (L−64)/2, 2 vantaux ---
     // One placement covers the track across both leaves -> fixed(2).
@@ -177,6 +190,7 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       appliesTo: ProfileType.traverse,
       conditions: [
         VantauxCountCondition(2),
+        OpeningTypeCondition(OpeningType.coulissante),
         ProfileReferenceCondition({'14 621'}),
         ProfileUsageRoleCondition(ProfileUsageRole.top),
       ],
@@ -195,13 +209,14 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       angles: CutAngles.mitred45(),
       isPlaceholder: false,
       description: 'Traverse 14 621 — (L−64)/2 ×2 par position '
-          '(haute+basse = 4 pièces) [débitage p. 24, 2 vantaux; appariement '
-          'montants face 56]',
+          '(haute+basse = 4 pièces) [débitage p. 24, 2 vantaux · angles '
+          'dérivés pp. 1-3; appariement montants face 56]',
     ),
     ProfileCalculationRule(
       appliesTo: ProfileType.traverse,
       conditions: [
         VantauxCountCondition(2),
+        OpeningTypeCondition(OpeningType.coulissante),
         ProfileReferenceCondition({'14 621'}),
         ProfileUsageRoleCondition(ProfileUsageRole.bottom),
       ],
@@ -220,8 +235,8 @@ const SystemRuleSet meSerie14600RuleSet = SystemRuleSet(
       angles: CutAngles.mitred45(),
       isPlaceholder: false,
       description: 'Traverse 14 621 — (L−64)/2 ×2 par position '
-          '(haute+basse = 4 pièces) [débitage p. 24, 2 vantaux; appariement '
-          'montants face 56]',
+          '(haute+basse = 4 pièces) [débitage p. 24, 2 vantaux · angles '
+          'dérivés pp. 1-3; appariement montants face 56]',
     ),
   ],
 );
