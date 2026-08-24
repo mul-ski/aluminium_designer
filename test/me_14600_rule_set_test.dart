@@ -335,10 +335,189 @@ void main() {
     },
   );
 
+  group(
+    'routing: 3 vantaux (avec fixe) column — traverses 6 × (L−25)/3 and '
+    '6 × (L−47)/3 [p. 24]',
+    () {
+      test('traverse 14 621 top/bottom yield three (L−25)/3 pieces each',
+          () {
+        for (final role in [ProfileUsageRole.top, ProfileUsageRole.bottom]) {
+          final rule = meSerie14600RuleSet.select(
+            _context('14 621', vantauxCount: 3, role: role),
+          );
+          expect(rule, isNotNull, reason: 'traverse $role must match');
+          // (2000−25)/3 -- repeating decimal; assert via identical
+          // computation so the IEEE-754 value matches exactly.
+          expect(
+            rule!.lengthExpression.evaluate(_variables),
+            (2000 - 25) / 3,
+            reason: '(2000−25)/3 = 658.333… at three panels per track',
+          );
+          // One placement spans ALL THREE panels' track thirds.
+          expect(rule.quantity.fixedCount, 3);
+          // Column provenance: the description names the 3-vantaux row.
+          expect(rule.description, contains('3 vantaux'));
+        }
+      });
+
+      test('traverse 14 631 top/bottom yield three (L−47)/3 pieces each '
+          '(exactly 651 mm)', () {
+        for (final role in [ProfileUsageRole.top, ProfileUsageRole.bottom]) {
+          final rule = meSerie14600RuleSet.select(
+            _context('14 631', vantauxCount: 3, role: role),
+          );
+          expect(rule, isNotNull, reason: 'traverse $role must match');
+          expect(
+            rule!.lengthExpression.evaluate(_variables),
+            651.0,
+            reason: '(2000−47)/3 = 651 exactly',
+          );
+          expect(rule.quantity.fixedCount, 3);
+        }
+      });
+
+      test('2v traverse rules never fire at 3 vantaux (and vice versa)',
+          () {
+        final top = meSerie14600RuleSet.select(
+          _context('14 621', vantauxCount: 3, role: ProfileUsageRole.top),
+        )!;
+        expect(top.description, contains('(L−25)/3'));
+        expect(top.description, isNot(contains('(L−64)/2')));
+      });
+    },
+  );
+
+  group(
+    'routing: 3 vantaux — dormant / montant / mullion rows duplicate the '
+    '2v formulas under exact-column gating [p. 24]',
+    () {
+      test('dormants cut to L and H, one piece per placement', () {
+        for (final reference in ['14 617', '14 627']) {
+          final topRule = meSerie14600RuleSet.select(
+            _context(reference, vantauxCount: 3, role: ProfileUsageRole.top),
+          );
+          expect(
+            topRule!.lengthExpression.evaluate(_variables),
+            2000.0,
+            reason: '$reference top cuts at L',
+          );
+          final leftRule = meSerie14600RuleSet.select(
+            _context(reference, vantauxCount: 3, role: ProfileUsageRole.left),
+          );
+          expect(
+            leftRule!.lengthExpression.evaluate(_variables),
+            1500.0,
+            reason: '$reference left cuts at H',
+          );
+          expect(leftRule.quantity.fixedCount, 1);
+          expect(leftRule.description, contains('3 vantaux'));
+        }
+      });
+
+      test('+46 dormants cut to L+46 and H+46', () {
+        for (final reference in ['14 618', '14 628', '14 626']) {
+          final topRule = meSerie14600RuleSet.select(
+            _context(reference, vantauxCount: 3, role: ProfileUsageRole.top),
+          );
+          expect(
+            topRule!.lengthExpression.evaluate(_variables),
+            2046.0,
+            reason: '$reference top cuts at L+46',
+          );
+          final rightRule = meSerie14600RuleSet.select(
+            _context(reference, vantauxCount: 3, role: ProfileUsageRole.right),
+          );
+          expect(
+            rightRule!.lengthExpression.evaluate(_variables),
+            1546.0,
+            reason: '$reference right cuts at H+46',
+          );
+          expect(rightRule.description, contains('double équerre'));
+        }
+      });
+
+      test('montants latéraux left/right cut to H−74 (1426), fixed(1)',
+          () {
+        for (final role in [ProfileUsageRole.left, ProfileUsageRole.right]) {
+          for (final reference in ['14 622', '14 623', '14 632', '14 633']) {
+            final rule = meSerie14600RuleSet.select(
+              _context(reference, vantauxCount: 3, role: role),
+            );
+            expect(rule, isNotNull, reason: '$reference $role must match');
+            expect(
+              rule!.lengthExpression.evaluate(_variables),
+              1426.0,
+            );
+            expect(rule.quantity.fixedCount, 1);
+          }
+        }
+      });
+
+      test('central mullion intermediate placement yields two H−74 pieces',
+          () {
+        for (final reference in ['14 619', '14 620', '14 630']) {
+          final rule = meSerie14600RuleSet.select(
+            _context(reference, vantauxCount: 3, role: ProfileUsageRole.intermediate),
+          );
+          expect(rule, isNotNull, reason: '$reference must match');
+          expect(rule!.lengthExpression.evaluate(_variables), 1426.0);
+          expect(rule.quantity.fixedCount, 2);
+        }
+      });
+
+      test('roles without a documented position stay unmatched at 3 '
+          'vantaux', () {
+        // Mullions at edge/track roles; latéral intermediate; dormant
+        // intermediate; traverse edge roles.
+        expect(
+          meSerie14600RuleSet.select(
+            _context('14 619', vantauxCount: 3, role: ProfileUsageRole.left),
+          ),
+          isNull,
+        );
+        expect(
+          meSerie14600RuleSet.select(
+            _context('14 622', vantauxCount: 3, role: ProfileUsageRole.intermediate),
+          ),
+          isNull,
+        );
+        expect(
+          meSerie14600RuleSet.select(
+            _context('14 617', vantauxCount: 3, role: ProfileUsageRole.intermediate),
+          ),
+          isNull,
+        );
+        expect(
+          meSerie14600RuleSet.select(
+            _context('14 631', vantauxCount: 3, role: ProfileUsageRole.left),
+          ),
+          isNull,
+        );
+      });
+
+      test('profiles outside any documented row stay unmatched at 3 '
+          'vantaux', () {
+        for (final entry in [
+          ('14 818', ProfileUsageRole.top),
+          ('14 650', ProfileUsageRole.intermediate),
+          ('14 643', ProfileUsageRole.intermediate),
+        ]) {
+          expect(
+            meSerie14600RuleSet.select(
+              _context(entry.$1, vantauxCount: 3, role: entry.$2),
+            ),
+            isNull,
+            reason: '${entry.$1} has no p. 24 débitage row',
+          );
+        }
+      });
+    },
+  );
+
   group('routing safety: uncovered configurations never match', () {
-    test('vantauxCount other than 2 matches nothing (only the 2-vantaux '
-        'column is encoded)', () {
-      for (final vantauxCount in [1, 3, 4]) {
+    test('vantauxCount outside the encoded columns (1 and 4) matches '
+        'nothing', () {
+      for (final vantauxCount in [1, 4]) {
         for (final reference in ['14 617', '14 622', '14 621', '14 631', '14 619']) {
           expect(
             meSerie14600RuleSet.select(
@@ -356,40 +535,42 @@ void main() {
       }
     });
 
-    test('a non-coulissante 2-vantaux section matches nothing -- the '
-        'source is a coulissant-only descriptif', () {
-      for (final openingType in [
-        OpeningType.oscilloBattant,
-        OpeningType.francaise,
-        OpeningType.anglaise,
-      ]) {
-        final context = CalculationContext(
-          construction: _construction(),
-          profile: meSerie14600.profilesById.values
-              .firstWhere((p) => p.reference == '14 617'),
-          section: Section(
-            id: 's1',
-            order: 0,
-            kind: SectionKind.ouvrant,
-            width: 2000,
-            height: 1500,
-            openingType: openingType,
-            vantauxCount: 2,
-          ),
-          usage: ProfileUsage(
-            id: 'u1',
-            profileId: 'builtin-me-14600-14617',
-            sectionId: 's1',
-            role: ProfileUsageRole.top,
-          ),
-        );
-        expect(
-          meSerie14600RuleSet.select(context),
-          isNull,
-          reason:
-              '$openingType at 2 vantaux is covered by no page of the '
-              'document; it must not receive real cuts',
-        );
+    test('a non-coulissante section matches nothing at either encoded '
+        'vantaux count -- the source is a coulissant-only descriptif', () {
+      for (final vantauxCount in [2, 3]) {
+        for (final openingType in [
+          OpeningType.oscilloBattant,
+          OpeningType.francaise,
+          OpeningType.anglaise,
+        ]) {
+          final context = CalculationContext(
+            construction: _construction(),
+            profile: meSerie14600.profilesById.values
+                .firstWhere((p) => p.reference == '14 617'),
+            section: Section(
+              id: 's1',
+              order: 0,
+              kind: SectionKind.ouvrant,
+              width: 2000,
+              height: 1500,
+              openingType: openingType,
+              vantauxCount: vantauxCount,
+            ),
+            usage: ProfileUsage(
+              id: 'u1',
+              profileId: 'builtin-me-14600-14617',
+              sectionId: 's1',
+              role: ProfileUsageRole.top,
+            ),
+          );
+          expect(
+            meSerie14600RuleSet.select(context),
+            isNull,
+            reason:
+                '$openingType at $vantauxCount vantaux is covered by no '
+                'page of the document; it must not receive real cuts',
+          );
+        }
       }
     });
 
@@ -416,7 +597,7 @@ void main() {
       // partition contexts disjointly.
       for (final profile in meSerie14600.profiles) {
         for (final role in ProfileUsageRole.values) {
-          for (final vantauxCount in [0, 1, 2]) {
+          for (final vantauxCount in [0, 1, 2, 3]) {
             for (final openingType in OpeningType.values) {
               expect(
                 () => meSerie14600RuleSet.select(

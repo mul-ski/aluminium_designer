@@ -31,7 +31,7 @@ Construction _construction({
   int vantauxCount = 2,
 }) => Construction(
   id: 'c-me-14600',
-  name: 'Coulissant 2 vantaux',
+  name: 'Coulissant $vantauxCount vantaux',
   type: ConstructionType.window,
   width: _l,
   height: _h,
@@ -291,10 +291,106 @@ void main() {
       );
     });
 
-    test('same profiles outside the encoded column (3 vantaux) produce '
+    test('a complete 3-vantaux (avec fixe) unit reproduces its p. 24 '
+        'column end-to-end', () {
+      // One ouvrant coulissante section, vantauxCount = 3 -- the
+      // documented configuration. Which third is fixed is not stated by
+      // the table, affects no cut length, and is not represented.
+      final usages = [
+        _usage('d-top', '14 617', ProfileUsageRole.top),
+        _usage('d-bottom', '14 617', ProfileUsageRole.bottom),
+        _usage('d-left', '14 617', ProfileUsageRole.left),
+        _usage('d-right', '14 617', ProfileUsageRole.right),
+        _usage('m-left', '14 622', ProfileUsageRole.left),
+        _usage('m-right', '14 623', ProfileUsageRole.right),
+        _usage('mc-intermediate', '14 619', ProfileUsageRole.intermediate),
+        _usage('t-top', '14 621', ProfileUsageRole.top),
+        _usage('t-bottom', '14 621', ProfileUsageRole.bottom),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages, vantauxCount: 3),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      expect(byUsageId, hasLength(9));
+
+      // Traverses 14 621: (L−25)/3 per panel, THREE pieces per placement
+      // -> 6 total. Repeating decimal: assert via identical computation.
+      expect(byUsageId['t-top']!.length, (_l - 25) / 3);
+      expect(byUsageId['t-bottom']!.length, (_l - 25) / 3);
+      expect(byUsageId['t-top']!.quantity, 3);
+      expect(byUsageId['t-bottom']!.quantity, 3);
+
+      // Dormants identical to the 2v column; montants/mullion likewise.
+      expect(byUsageId['d-top']!.length, _l);
+      expect(byUsageId['d-left']!.length, _h);
+      expect(byUsageId['m-left']!.length, _h - 74);
+      expect(byUsageId['mc-intermediate']!.length, _h - 74);
+      expect(byUsageId['mc-intermediate']!.quantity, 2);
+
+      // Per-unit counts: 2×(L ; H) + 2×(H−74 latéraux)
+      //                + 2×(H−74 central) + 6×((L−25)/3).
+      final totalPieces = outcome.cuts.fold<int>(
+        0,
+        (sum, cut) => sum + cut.quantity,
+      );
+      expect(totalPieces, 14);
+
+      for (final cut in outcome.cuts) {
+        expect(cut.angleStart, 45);
+        expect(cut.angleEnd, 45);
+        expect(cut.ruleDescription, contains('p. 24'));
+        // Column provenance: every cut names the 3-vantaux row.
+        expect(cut.ruleDescription, contains('3 vantaux'));
+      }
+    });
+
+    test('the 3-vantaux traverse-14 631 column evaluates exactly '
+        '((2000−47)/3 = 651)', () {
+      final usages = [
+        _usage('t-top', '14 631', ProfileUsageRole.top),
+        _usage('t-bottom', '14 631', ProfileUsageRole.bottom),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages, vantauxCount: 3),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      expect(outcome.cuts, hasLength(2));
+      for (final cut in outcome.cuts) {
+        expect(cut.length, 651.0);
+        expect(cut.quantity, 3);
+        expect(cut.ruleDescription, contains('14 631'));
+      }
+    });
+
+    test('2-vantaux units still route to the 2v rules next to their new '
+        '3v siblings', () {
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: _unitUsages()),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      // The 2v traverse formula survives untouched: (2000−64)/2 = 968,
+      // two pieces per placement -- NOT the 3v (2000−25)/3 ×3.
+      final topTraverse = outcome.cuts
+          .singleWhere((cut) => cut.profileUsageId == 't-top');
+      expect(topTraverse.length, (_l - 64) / 2);
+      expect(topTraverse.quantity, 2);
+      expect(topTraverse.ruleDescription, contains('(L−64)/2'));
+      expect(topTraverse.ruleDescription, contains('2 vantaux'));
+    });
+
+    test('same profiles outside the encoded columns (4 vantaux) produce '
         'no cuts at all', () {
       final outcome = calculateConstructionCuts(
-        _construction(profileUsages: _unitUsages(), vantauxCount: 3),
+        _construction(profileUsages: _unitUsages(), vantauxCount: 4),
         _catalog(),
       )!;
 

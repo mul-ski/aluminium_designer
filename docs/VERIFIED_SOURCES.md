@@ -172,12 +172,13 @@ gâche AC-607, joint brosse JO-609/JO-609F, joint vitrage JO610–JO624
 (6–24 mm glass).
 
 **Encoding status** (updated when rows were encoded as C5, extended as
-C6a): the "2 vantaux" column of this table is now a real `SystemRuleSet`
-(`meSerie14600RuleSet`, `lib/core/data/me_14600_rule_set.dart`) covering
-SIX of its seven rows:
+C6a and C6b): the "2 vantaux" AND "3 vantaux (avec fixe)" columns of
+this table are now a real `SystemRuleSet` (`meSerie14600RuleSet`,
+`lib/core/data/me_14600_rule_set.dart`) covering the same six rows in
+each column:
 
 - Dormant 14 617 / 14 627: `2+2 × (L ; H)` — four role-scoped rules
-  (top/bottom → L, left/right → H), one piece per placement.
+  per column (top/bottom → L, left/right → H), one piece per placement.
 - Dormant 14 618 / 14 628 / 14 626: `2+2 × (L+46 ; H+46)` (double-équerre
   row) — same four-role mapping. **Source-text tension recorded:** the
   pairing note reads "DOUBLE EQUERRE POUR 14627 / 14628 / 14626" while
@@ -186,41 +187,53 @@ SIX of its seven rows:
   corrected, and the encoded reference set follows the ROW HEADERS
   ({14 618, 14 628, 14 626}) because the lengths live on the row, not
   the note.
-- Montant latéral 14 622/623/632/633: `2 × (H−74)` — two role-scoped
-  rules (left/right), one piece per placement.
+- Montant latéral 14 622/623/632/633: `2 × (H−74)` — left/right rules,
+  one piece per placement.
 - Montant central 14 619/620/630: `2 × (H−74)` — intermediate-role rule;
-  one placement covers BOTH leaves' meeting stile (fixed(2) per
-  placement). Mullions 14 650 / 14 643 are NOT named by this row and
-  stay unmatched; the row's accessory notes (bouchons AC-630,
-  AC-620/AC-621) are hardware and not encoded.
-- Traverse 14 621: `4 × (L−64)/2` — top/bottom rules, TWO pieces per
-  placement (one placement spans both leaves' track halves).
-- Traverse 14 631: `4 × (L−85)/2` (2-vantaux column only) — same
-  placement mapping as 14 621.
+  one placement covers both meeting stiles (fixed(2) per placement).
+  Mullions 14 650 / 14 643 are NOT named by this row and stay unmatched;
+  the row's accessory notes (bouchons AC-630, AC-620/AC-621) are
+  hardware and not encoded.
+- Traverse 14 621: `4 × (L−64)/2` at 2 vantaux / `6 × (L−25)/3` at 3
+  vantaux — top/bottom rules; one placement spans every panel's track
+  segment, so fixedCount = panels (2 or 3) per placement.
+- Traverse 14 631: `4 × (L−85)/2` at 2 vantaux / `6 × (L−47)/3` at 3
+  vantaux — same placement mapping as 14 621.
+
+**"3 vantaux (avec fixe)" modeling decision (C6b):** represented as ONE
+ouvrant coulissante section with `vantauxCount = 3`. The source does not
+state which third of the unit is fixed, its rail arrangement, or the
+fixed panel's framing membership — and no encoded cut length depends on
+any of that — so the fixed-third position is deliberately NOT
+represented (recorded limitation until a verified rule needs it). A
+hypothetical plain-3v unit without a fixed panel is not documented by
+the table and is likewise indistinguishable in this model; the
+manufacturer's own column header defines the 3-vantail configuration as
+the avec-fixe one.
 
 Quantity mapping: the table counts pieces per unit; AluVis rules count
 per matched `ProfileUsage` placement, so unit totals emerge from
-placements (see `CutQuantity`'s doc). Angles are NOT stated per row on
-p. 24; the 45° mitre is DERIVED from the descriptif's assembly statement
-"Dormants assemblés en coupe d'onglet avec équerres" (pp. 1–3). That
-statement names the DORMANTS; applying the same mitre to sash members is
-an extension of it — hence every rule description carries "angles dérivés
-pp. 1-3" so cut-level provenance does not overstate p. 24. Every rule
-carries `VantauxCountCondition(2)` AND `OpeningTypeCondition(coulissante)`
-— only the 2-vantaux coulissant configuration is documented for these
-formulas; any other opening type or leaf count surfaces as a honest
-`noRuleMatched` issue — plus `ProfileReferenceCondition` where the row
-names exact references.
+placements (see `CutQuantity`'s doc). Dormant/montant/mullion rules are
+duplicated per vantaux column (their formulas coincide at 2 and 3
+vantaux; exact-column gating keeps each rule tied to its printed row).
+Angles are NOT stated per row on p. 24; the 45° mitre is DERIVED from
+the descriptif's assembly statement "Dormants assemblés en coupe d'onglet
+avec équerres" (pp. 1–3). That statement names the DORMANTS; applying
+the same mitre to sash members is an extension of it — hence every rule
+description carries "angles dérivés pp. 1-3" so cut-level provenance
+does not overstate p. 24. Every rule carries an exact
+`VantauxCountCondition` AND `OpeningTypeCondition(coulissante)` — only
+the documented coulissant configurations are covered; any other opening
+type or leaf count surfaces as a honest `noRuleMatched` issue — plus
+`ProfileReferenceCondition` where the row names exact references.
 
 **Still deliberately unencoded** (usages surface as honest
 `noRuleMatched` issues, never wrong cuts): chicane 14 624 (`1 × (H−92)`,
-4-vantaux-only row) and EVERY 3/4-vantaux formula — traverse 14 621
-(`(L−25)/3`, `(L−60)/4`), traverse 14 631 (`(L−47)/3`, `(L−106)/4`),
-with montant/mullion quantities doubling at 4 vantaux (`4 × (H−74)`).
-The formulas themselves are verified above. The 3-vantaux column
-additionally requires an explicit modeling decision for its "avec fixe"
-configurations (how a fixed+ouvrant mix decomposes into AluVis sections)
-before anything from that column is encoded.
+4-vantaux-only row) and the ENTIRE 4-vantaux column — traverse 14 621
+(`8 × (L−60)/4`), traverse 14 631 (`8 × (L−106)/4`), with
+montant/mullion quantities doubling (`4 × (H−74)` each). The formulas
+themselves are verified above; encoding awaits its own milestone with
+its own quantity-mapping analysis.
 
 Earlier decision text (C4b–C4e era, superseded by the C5 partial
 encoding above but kept for the record): the table was left entirely
