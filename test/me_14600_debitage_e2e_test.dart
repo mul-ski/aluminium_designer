@@ -369,6 +369,104 @@ void main() {
       }
     });
 
+    test('a complete 4-vantaux unit reproduces its p. 24 column '
+        'end-to-end, chicane included', () {
+      final usages = [
+        _usage('d-top', '14 617', ProfileUsageRole.top),
+        _usage('d-bottom', '14 617', ProfileUsageRole.bottom),
+        _usage('d-left', '14 617', ProfileUsageRole.left),
+        _usage('d-right', '14 617', ProfileUsageRole.right),
+        _usage('m-left', '14 622', ProfileUsageRole.left),
+        _usage('m-right', '14 623', ProfileUsageRole.right),
+        _usage('mc-intermediate', '14 619', ProfileUsageRole.intermediate),
+        _usage('t-top', '14 621', ProfileUsageRole.top),
+        _usage('t-bottom', '14 621', ProfileUsageRole.bottom),
+        _usage('ch-coulissante', '14 624', ProfileUsageRole.left),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages, vantauxCount: 4),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      expect(byUsageId, hasLength(10));
+
+      // Traverses: (L−60)/4 per panel, FOUR pieces per placement -> 8.
+      expect(byUsageId['t-top']!.length, (_l - 60) / 4);
+      expect(byUsageId['t-bottom']!.length, (_l - 60) / 4);
+      expect(byUsageId['t-top']!.quantity, 4);
+      expect(byUsageId['t-bottom']!.quantity, 4);
+
+      // Montants double per unit: fixed(2) per side placement; central
+      // mullion fixed(4) on the one intermediate placement.
+      expect(byUsageId['m-left']!.length, _h - 74);
+      expect(byUsageId['m-left']!.quantity, 2);
+      expect(byUsageId['m-right']!.quantity, 2);
+      expect(byUsageId['mc-intermediate']!.quantity, 4);
+
+      // Chicane: H−92 = 1408, one piece from its single placement (the
+      // rule has no role condition -- any placement matches).
+      expect(byUsageId['ch-coulissante']!.length, _h - 92);
+      expect(byUsageId['ch-coulissante']!.quantity, 1);
+
+      // Per-unit counts: 2×(L ; H) + 4×(H−74 latéraux) + 4×(H−74 central)
+      //                + 8×((L−60)/4) + 1×(H−92).
+      final totalPieces = outcome.cuts.fold<int>(
+        0,
+        (sum, cut) => sum + cut.quantity,
+      );
+      expect(totalPieces, 21);
+
+      for (final cut in outcome.cuts) {
+        expect(cut.angleStart, 45);
+        expect(cut.angleEnd, 45);
+        expect(cut.ruleDescription, contains('p. 24'));
+        expect(cut.ruleDescription, contains('4 vantaux'));
+      }
+    });
+
+    test('chicane usage.quantity composes with its fixed(1) rule', () {
+      final usages = [
+        ProfileUsage(
+          id: 'ch-x2',
+          profileId: meSerie14600.profilesById.values
+              .firstWhere((p) => p.reference == '14 624')
+              .id,
+          sectionId: 's-unit',
+          role: ProfileUsageRole.intermediate,
+          quantity: 2,
+        ),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages, vantauxCount: 4),
+        _catalog(),
+      )!;
+      expect(outcome.issues, isEmpty);
+      expect(outcome.cuts.single.length, _h - 92);
+      expect(outcome.cuts.single.quantity, 2);
+    });
+
+    test('the 4-vantaux traverse-14 631 column evaluates exactly '
+        '((2000−106)/4 = 473.5)', () {
+      final usages = [
+        _usage('t-top', '14 631', ProfileUsageRole.top),
+        _usage('t-bottom', '14 631', ProfileUsageRole.bottom),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages, vantauxCount: 4),
+        _catalog(),
+      )!;
+      expect(outcome.issues, isEmpty);
+      expect(outcome.cuts, hasLength(2));
+      for (final cut in outcome.cuts) {
+        expect(cut.length, 473.5);
+        expect(cut.quantity, 4);
+      }
+    });
+
     test('2-vantaux units still route to the 2v rules next to their new '
         '3v siblings', () {
       final outcome = calculateConstructionCuts(
@@ -387,10 +485,10 @@ void main() {
       expect(topTraverse.ruleDescription, contains('2 vantaux'));
     });
 
-    test('same profiles outside the encoded columns (4 vantaux) produce '
+    test('same profiles outside the encoded columns (5 vantaux) produce '
         'no cuts at all', () {
       final outcome = calculateConstructionCuts(
-        _construction(profileUsages: _unitUsages(), vantauxCount: 4),
+        _construction(profileUsages: _unitUsages(), vantauxCount: 5),
         _catalog(),
       )!;
 

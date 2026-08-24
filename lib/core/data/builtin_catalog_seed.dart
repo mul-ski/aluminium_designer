@@ -546,23 +546,21 @@ const List<Profile> _me14600Profiles = [
 ///
 /// `ruleSetId` points at `meSerie14600RuleSet` (me_14600_rule_set.dart,
 /// registered in rule_set_resolution.dart): the FIRST REAL manufacturer
-/// rules in AluVis, encoding the "2 vantaux" and "3 vantaux (avec fixe)"
-/// columns of the document's débitage table (p. 24) -- dormants
-/// 14 617/14 627 (2+2 × (L ; H)), dormants 14 618/14 628/14 626
-/// (2+2 × (L+46 ; H+46)), montants latéraux 14 622/623/632/633 and
-/// centraux 14 619/620/630 (2 × (H−74)), traverses 14 621 / 14 631
-/// (4 × (L−64)/2 and 4 × (L−85)/2 at 2 vantaux; 6 × (L−25)/3 and
-/// 6 × (L−47)/3 at 3 vantaux) -- routed by profile reference + vantaux
-/// count + opening type + usage role so no uncovered configuration can
+/// rules in AluVis, encoding the COMPLETE débitage table of the document
+/// (p. 24) -- all three configuration columns ("2 vantaux", "3 vantaux
+/// (avec fixe)", "4 vantaux"), all seven rows: dormants 14 617/14 627
+/// (2+2 × (L ; H)) and 14 618/14 628/14 626 (2+2 × (L+46 ; H+46)),
+/// montants latéraux 14 622/623/632/633 and centraux 14 619/620/630
+/// ((H−74), quantities doubling at 4 vantaux), traverses 14 621 / 14 631
+/// (4/6/8 pieces with /2, /3, /4 divisors per column) and chicane 14 624
+/// (H−92, 4 vantaux only) -- routed by profile reference + exact
+/// vantaux count + opening type + role so no uncovered configuration can
 /// silently match. The 3-vantaux unit is modelled as one ouvrant
-/// coulissante section with vantauxCount = 3; which third is fixed is
-/// not stated by the table, affects no cut length, and is not
-/// represented. The REST of the débitage table stays deliberately
-/// unencoded: chicane 14 624 and the 4-vantaux column (different
-/// formulas per column -- encoding one configuration unconditionally
-/// would fabricate wrong cuts for the others; see
-/// docs/VERIFIED_SOURCES.md). Those usages surface as honest
-/// `noRuleMatched` issues.
+/// coulissante section; which third is fixed is not stated by the table,
+/// affects no cut length, and is not represented. The chicane rule alone
+/// carries no role condition because the source states no position for
+/// it. See docs/VERIFIED_SOURCES.md for the full transcription and the
+/// placement-mapping doctrine.
 ///
 /// `metadata` carries the system-level verified facts (frame depths
 /// 44/66.34, sash stile depths 56/69.2, glazing rebate 26 with 6-22 mm

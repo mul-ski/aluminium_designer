@@ -148,7 +148,7 @@ structural work): IXX = 138.74, 136.50, 74, 74, 41.67, 27.60, 18.47,
 9.34 cm⁴ for the drawn montant-central combinations of 14 650 / 14 630 /
 14 620 / 14 619.
 
-## Débitage (cut-length) table — p. 24, transcribed but NOT seeded into rules
+## Débitage (cut-length) table — p. 24, transcribed and now fully encoded as rules
 
 The débitage table gives real cut formulas per configuration (2 vantaux /
 3 vantaux avec fixe / 4 vantaux; L = unit width, H = unit height):
@@ -171,11 +171,11 @@ verrou encastré (AC-605+AC-608 ou AC-606+AC-608), roulettes AC-6001
 gâche AC-607, joint brosse JO-609/JO-609F, joint vitrage JO610–JO624
 (6–24 mm glass).
 
-**Encoding status** (updated when rows were encoded as C5, extended as
-C6a and C6b): the "2 vantaux" AND "3 vantaux (avec fixe)" columns of
-this table are now a real `SystemRuleSet` (`meSerie14600RuleSet`,
-`lib/core/data/me_14600_rule_set.dart`) covering the same six rows in
-each column:
+**Encoding status** (C5 → C6a → C6b → C6c): the COMPLETE débitage table
+is now a real `SystemRuleSet` (`meSerie14600RuleSet`,
+`lib/core/data/me_14600_rule_set.dart`) — all three configuration
+columns ("2 vantaux", "3 vantaux (avec fixe)", "4 vantaux"), all seven
+rows, every documented cell:
 
 - Dormant 14 617 / 14 627: `2+2 × (L ; H)` — four role-scoped rules
   per column (top/bottom → L, left/right → H), one piece per placement.
@@ -195,10 +195,24 @@ each column:
   the row's accessory notes (bouchons AC-630, AC-620/AC-621) are
   hardware and not encoded.
 - Traverse 14 621: `4 × (L−64)/2` at 2 vantaux / `6 × (L−25)/3` at 3
-  vantaux — top/bottom rules; one placement spans every panel's track
-  segment, so fixedCount = panels (2 or 3) per placement.
+  vantaux / `8 × (L−60)/4` at 4 vantaux — top/bottom rules; one
+  placement spans every panel's track segment, so fixedCount = panels
+  (2, 3 or 4) per placement.
 - Traverse 14 631: `4 × (L−85)/2` at 2 vantaux / `6 × (L−47)/3` at 3
-  vantaux — same placement mapping as 14 621.
+  vantaux / `8 × (L−106)/4` at 4 vantaux — same placement mapping as
+  14 621.
+- Chicane 14 624: `1 × (H−92)` — 4-vantaux-only row; the ONLY rule
+  without a role condition, because the source states no position for
+  the chicane and gating it to a role would fabricate a positional
+  claim the table never makes (any placed usage yields its documented
+  piece; multiples compose via `usage.quantity`). Its pairing/accessory
+  context on p. 24 is hardware, not encoded.
+
+At 4 vantaux the montant rows double per unit (`4 × (H−74)` each):
+latéraux map to fixed(2) per side placement (one side placement covers
+both leaves on that side) and centraux to fixed(4) per intermediate
+placement — DERIVED decompositions of the printed totals, same doctrine
+as the traverse spanning mappings.
 
 **"3 vantaux (avec fixe)" modeling decision (C6b):** represented as ONE
 ouvrant coulissante section with `vantauxCount = 3`. The source does not
@@ -227,13 +241,11 @@ the documented coulissant configurations are covered; any other opening
 type or leaf count surfaces as a honest `noRuleMatched` issue — plus
 `ProfileReferenceCondition` where the row names exact references.
 
-**Still deliberately unencoded** (usages surface as honest
-`noRuleMatched` issues, never wrong cuts): chicane 14 624 (`1 × (H−92)`,
-4-vantaux-only row) and the ENTIRE 4-vantaux column — traverse 14 621
-(`8 × (L−60)/4`), traverse 14 631 (`8 × (L−106)/4`), with
-montant/mullion quantities doubling (`4 × (H−74)` each). The formulas
-themselves are verified above; encoding awaits its own milestone with
-its own quantity-mapping analysis.
+**Nothing left unencoded:** every cell the p. 24 table documents is now
+represented by an exact-column-gated rule; configurations outside the
+three documented columns (other vantaux counts, other opening types,
+profiles absent from the rows) surface as honest `noRuleMatched`
+issues, never wrong cuts.
 
 Earlier decision text (C4b–C4e era, superseded by the C5 partial
 encoding above but kept for the record): the table was left entirely

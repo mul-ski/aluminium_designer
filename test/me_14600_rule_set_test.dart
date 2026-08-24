@@ -6,6 +6,7 @@ import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
 import 'package:aluminium_designer/core/models/layout_direction.dart';
 import 'package:aluminium_designer/core/models/opening.dart';
+import 'package:aluminium_designer/core/models/profile.dart';
 import 'package:aluminium_designer/core/models/profile_usage.dart';
 import 'package:aluminium_designer/core/models/rules/dimension_expression.dart';
 import 'package:aluminium_designer/core/models/rules/rule_condition.dart';
@@ -514,10 +515,135 @@ void main() {
     },
   );
 
+  group(
+    'routing: 4 vantaux column — traverses 8 × (L−60)/4 and '
+    '8 × (L−106)/4, doubled montants [p. 24]',
+    () {
+      test('traverse 14 621 top/bottom yield four (L−60)/4 pieces each '
+          '(exactly 485 mm)', () {
+        for (final role in [ProfileUsageRole.top, ProfileUsageRole.bottom]) {
+          final rule = meSerie14600RuleSet.select(
+            _context('14 621', vantauxCount: 4, role: role),
+          );
+          expect(rule, isNotNull, reason: 'traverse $role must match');
+          expect(
+            rule!.lengthExpression.evaluate(_variables),
+            485.0,
+            reason: '(2000−60)/4 = 485 exactly',
+          );
+          // One placement spans ALL FOUR panels' track quarters.
+          expect(rule.quantity.fixedCount, 4);
+          expect(rule.description, contains('4 vantaux'));
+        }
+      });
+
+      test('traverse 14 631 top/bottom yield four (L−106)/4 pieces each '
+          '(exactly 473.5 mm)', () {
+        for (final role in [ProfileUsageRole.top, ProfileUsageRole.bottom]) {
+          final rule = meSerie14600RuleSet.select(
+            _context('14 631', vantauxCount: 4, role: role),
+          );
+          expect(rule, isNotNull, reason: 'traverse $role must match');
+          expect(
+            rule!.lengthExpression.evaluate(_variables),
+            473.5,
+            reason: '(2000−106)/4 = 473.5 exactly',
+          );
+          expect(rule.quantity.fixedCount, 4);
+        }
+      });
+
+      test('montants latéraux double per unit: fixed(2) per side '
+          'placement (H−74 = 1426)', () {
+        for (final role in [ProfileUsageRole.left, ProfileUsageRole.right]) {
+          for (final reference in ['14 622', '14 623', '14 632', '14 633']) {
+            final rule = meSerie14600RuleSet.select(
+              _context(reference, vantauxCount: 4, role: role),
+            );
+            expect(rule, isNotNull, reason: '$reference $role must match');
+            expect(rule!.lengthExpression.evaluate(_variables), 1426.0);
+            // Derived mapping: one side placement covers both leaves on
+            // that side -> left+right reach the documented 4 pieces.
+            expect(rule.quantity.fixedCount, 2);
+          }
+        }
+      });
+
+      test('central mullion intermediate placement yields FOUR H−74 '
+          'pieces at 4 vantaux', () {
+        for (final reference in ['14 619', '14 620', '14 630']) {
+          final rule = meSerie14600RuleSet.select(
+            _context(reference, vantauxCount: 4, role: ProfileUsageRole.intermediate),
+          );
+          expect(rule, isNotNull, reason: '$reference must match');
+          expect(rule!.lengthExpression.evaluate(_variables), 1426.0);
+          expect(rule.quantity.fixedCount, 4);
+        }
+      });
+
+      test('dormants duplicate their formulas under the 4v gate', () {
+        final topRule = meSerie14600RuleSet.select(
+          _context('14 617', vantauxCount: 4, role: ProfileUsageRole.top),
+        )!;
+        expect(topRule.lengthExpression.evaluate(_variables), 2000.0);
+        final rightRule = meSerie14600RuleSet.select(
+          _context('14 618', vantauxCount: 4, role: ProfileUsageRole.right),
+        )!;
+        expect(rightRule.lengthExpression.evaluate(_variables), 1546.0);
+        expect(rightRule.description, contains('double équerre'));
+      });
+
+      test('chicane 14 624 matches at ANY role -- the source states no '
+          'position for it (deliberate no-role-condition rule)', () {
+        for (final role in ProfileUsageRole.values) {
+          final rule = meSerie14600RuleSet.select(
+            _context('14 624', vantauxCount: 4, role: role),
+          );
+          expect(rule, isNotNull, reason: '$role placement must match');
+          expect(rule!.lengthExpression.evaluate(_variables), 1408.0,
+              reason: '1500−92 = 1408');
+          // One documented piece per placed usage.
+          expect(rule.quantity.fixedCount, 1);
+          expect(rule.appliesTo, ProfileType.other);
+        }
+      });
+
+      test('chicane matches only in its documented column', () {
+        for (final vantauxCount in [2, 3]) {
+          expect(
+            meSerie14600RuleSet.select(
+              _context('14 624',
+                  vantauxCount: vantauxCount, role: ProfileUsageRole.left),
+            ),
+            isNull,
+            reason: 'the chicane row is empty outside the 4-vantaux column',
+          );
+        }
+      });
+
+      test('profiles without a 4-vantaux entry stay unmatched', () {
+        for (final entry in [
+          ('14 650', ProfileUsageRole.intermediate),
+          ('14 643', ProfileUsageRole.intermediate),
+          ('14 634', ProfileUsageRole.intermediate),
+          ('14 818', ProfileUsageRole.top),
+        ]) {
+          expect(
+            meSerie14600RuleSet.select(
+              _context(entry.$1, vantauxCount: 4, role: entry.$2),
+            ),
+            isNull,
+            reason: '${entry.$1} has no 4-vantaux débitage row',
+          );
+        }
+      });
+    },
+  );
+
   group('routing safety: uncovered configurations never match', () {
-    test('vantauxCount outside the encoded columns (1 and 4) matches '
+    test('vantauxCount outside the encoded columns (1 and 5) matches '
         'nothing', () {
-      for (final vantauxCount in [1, 4]) {
+      for (final vantauxCount in [1, 5]) {
         for (final reference in ['14 617', '14 622', '14 621', '14 631', '14 619']) {
           expect(
             meSerie14600RuleSet.select(
@@ -535,9 +661,9 @@ void main() {
       }
     });
 
-    test('a non-coulissante section matches nothing at either encoded '
+    test('a non-coulissante section matches nothing at any encoded '
         'vantaux count -- the source is a coulissant-only descriptif', () {
-      for (final vantauxCount in [2, 3]) {
+      for (final vantauxCount in [2, 3, 4]) {
         for (final openingType in [
           OpeningType.oscilloBattant,
           OpeningType.francaise,
@@ -597,7 +723,7 @@ void main() {
       // partition contexts disjointly.
       for (final profile in meSerie14600.profiles) {
         for (final role in ProfileUsageRole.values) {
-          for (final vantauxCount in [0, 1, 2, 3]) {
+          for (final vantauxCount in [0, 1, 2, 3, 4]) {
             for (final openingType in OpeningType.values) {
               expect(
                 () => meSerie14600RuleSet.select(
