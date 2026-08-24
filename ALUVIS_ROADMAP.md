@@ -134,6 +134,21 @@ architecture ever lands.
   applicable envelope is exceeded. Unknown limits never read as
   "within limits".
 
+## OpenCode project environment (permanent)
+
+Configured under `.opencode/` (see `AGENTS.md` for when to load what):
+
+- `skills/aluminium-domain/` — domain rules: verified data, unknown markers,
+  traceability, architecture boundaries.
+- `skills/calculation-verification/` — mandatory procedure for
+  calculation-engine changes.
+- `skills/source-verification/` — procedure for adopting external
+  manufacturer/technical facts (feeds `docs/VERIFIED_SOURCES.md`).
+- `skills/flutter-qa/` — validation gate incl. editor/canvas/rendering
+  specifics.
+- `agents/qa-review.md` — read-only review SUBAGENT for independent
+  pre-commit review; cannot edit, commit, or push.
+
 ## Current next milestone
 
 Calculation series C1–C3 and the verified-catalog series C4 are COMPLETE

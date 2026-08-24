@@ -8,6 +8,21 @@ estimate, a value from another system, or domain-knowledge "typical"
 numbers (`thermalBreak: null` ≠ `false`; `Profile.width/depth/weightPerMeter
 == 0` = not stated, not a measured zero).
 
+## How to read this ledger
+
+Adoption procedure and source-priority tiers are defined in
+`.opencode/skills/source-verification/SKILL.md`. Conventions used
+throughout the records below:
+
+- **Units** are millimetres unless a column/table says otherwise (inertias
+  are cm⁴, coating thicknesses µm, roulette loads kg).
+- **Directly stated vs derived**: every value below is directly stated on
+  the cited page unless explicitly marked "derived" or "sub-dim" with the
+  derivation shown.
+- **Source grade** follows the skill's priority list; the S-1 document is
+  tier 1 (manufacturer technical documentation) with its embedded
+  certificates at tier 2.
+
 ## S-1: Descriptif Coulissant Série 14 600 — MAGHREB EXTRUSION
 
 | | |
