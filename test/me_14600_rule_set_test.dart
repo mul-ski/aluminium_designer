@@ -340,5 +340,12 @@ void main() {
         expect(rule.description, contains('p. 24'));
       }
     });
+
+    test('every rule marks its angles as derived, not stated on p. 24',
+        () {
+      for (final rule in meSerie14600RuleSet.rules) {
+        expect(rule.description, contains('angles dérivés pp. 1-3'));
+      }
+    });
   });
 }
