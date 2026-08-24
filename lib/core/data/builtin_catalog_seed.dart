@@ -73,10 +73,9 @@ const Manufacturer maghrebExtrusion = Manufacturer(
 /// Every profile of the Série 14600 transcribed from the source
 /// document's PROFILOSCOPE sheets, with the sheet page cited in each
 /// doc comment. The full transcription table -- including values the
-/// `Profile` model has no field for (section inertias IXX/IYY in cm4,
-/// sub-dimensions like 14 640's 42.00 clip-stem spacing) and the exact
-/// per-sheet orientation conventions -- lives in
-/// `docs/VERIFIED_SOURCES.md`.
+/// `Profile` model has no field for (sub-dimensions like 14 640's
+/// 42.00 clip-stem spacing) and the exact per-sheet orientation
+/// conventions -- lives in `docs/VERIFIED_SOURCES.md`.
 ///
 /// Conventions used below, applied uniformly and documented per profile
 /// in `docs/VERIFIED_SOURCES.md`:
@@ -86,6 +85,12 @@ const Manufacturer maghrebExtrusion = Manufacturer(
 ///     unknown; it is NEVER a measured zero).
 ///   - `weightPerMeter` = 0 everywhere: no sheet states a weight per
 ///     metre (same unknown-marker convention as above).
+///   - `inertiaIxxCm4`/`inertiaIyyCm4` = section inertias as printed
+///     ("Inertie en cm4"); `0` where a value/axis is not stated on the
+///     sheet. 20 of 38 profiles carry both printed values; 17 state no
+///     inertia; 14 650's single printed "69.47" has NO axis attribution
+///     on the sheet, so BOTH stay 0 until that axis is verified
+///     externally -- storing it as IXX would be inference.
 ///   - `type` follows the sheet's own section heading (DORMANTS ->
 ///     dormant, MONTANTS LATERAUX -> montant, MONTANTS CENTRAUX ->
 ///     mullion, TRAVERSE HAUTE ET BASSE -> traverse, everything else ->
@@ -102,6 +107,9 @@ const List<Profile> _me14600Profiles = [
     width: 44.66,
     depth: 66.34,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 7.9,
+    inertiaIyyCm4: 26.14,
   ),
   Profile(
     id: 'builtin-me-14600-14627',
@@ -113,6 +121,9 @@ const List<Profile> _me14600Profiles = [
     width: 44.4,
     depth: 66.34,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 6.66,
+    inertiaIyyCm4: 23.16,
   ),
   Profile(
     id: 'builtin-me-14600-14628',
@@ -124,6 +135,9 @@ const List<Profile> _me14600Profiles = [
     width: 44.4,
     depth: 66.34,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 10.24,
+    inertiaIyyCm4: 27.22,
   ),
   // --- DORMANTS (PROFILOSCOPE p.5; 14 640 sits under the sheet's own
   // --- DORMANTS heading even though the p.20 coupe shows it used at a
@@ -138,6 +152,9 @@ const List<Profile> _me14600Profiles = [
     width: 44.4,
     depth: 44.0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 4.95,
+    inertiaIyyCm4: 13.65,
   ),
   Profile(
     id: 'builtin-me-14600-14640',
@@ -152,6 +169,9 @@ const List<Profile> _me14600Profiles = [
     width: 0,
     depth: 68.15,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 6.7,
+    inertiaIyyCm4: 17.07,
   ),
   Profile(
     id: 'builtin-me-14600-14618',
@@ -163,6 +183,9 @@ const List<Profile> _me14600Profiles = [
     width: 44.4,
     depth: 44.0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 9.13,
+    inertiaIyyCm4: 16.90,
   ),
   // --- DORMANTS FRAPPE (PROFILOSCOPE p.6) ---
   Profile(
@@ -175,6 +198,9 @@ const List<Profile> _me14600Profiles = [
     width: 42.75,
     depth: 66.34,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 3,
+    inertiaIyyCm4: 13.35,
   ),
   Profile(
     id: 'builtin-me-14600-14820',
@@ -186,6 +212,9 @@ const List<Profile> _me14600Profiles = [
     width: 42.7,
     depth: 44.0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 3.67,
+    inertiaIyyCm4: 6.51,
   ),
   // --- MONTANTS LATERAUX (PROFILOSCOPE p.7). 14 633 / 14 623 are the
   // --- reinforced companions of 14 632 / 14 622; their sheets label the
@@ -200,6 +229,9 @@ const List<Profile> _me14600Profiles = [
     width: 33.4,
     depth: 69.2,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 7.1,
+    inertiaIyyCm4: 14.7,
   ),
   Profile(
     id: 'builtin-me-14600-14633',
@@ -211,6 +243,9 @@ const List<Profile> _me14600Profiles = [
     width: 0,
     depth: 69.2,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 20.16,
+    inertiaIyyCm4: 23.3,
   ),
   Profile(
     id: 'builtin-me-14600-14622',
@@ -222,6 +257,9 @@ const List<Profile> _me14600Profiles = [
     width: 33.0,
     depth: 56.0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 6.95,
+    inertiaIyyCm4: 4.8,
   ),
   Profile(
     id: 'builtin-me-14600-14623',
@@ -233,6 +271,9 @@ const List<Profile> _me14600Profiles = [
     width: 0,
     depth: 56.0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 10.93,
+    inertiaIyyCm4: 13.44,
   ),
   // --- MONTANTS CENTRAUX (PROFILOSCOPE p.8). Only 14 619 has both dims
   // --- labeled (41.3 face x 33.60 depth); the others label one or none.
@@ -246,6 +287,9 @@ const List<Profile> _me14600Profiles = [
     width: 41.3,
     depth: 33.6,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 4.67,
+    inertiaIyyCm4: 3.405,
   ),
   Profile(
     id: 'builtin-me-14600-14620',
@@ -257,6 +301,9 @@ const List<Profile> _me14600Profiles = [
     width: 41.3,
     depth: 0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 13.80,
+    inertiaIyyCm4: 5.7,
   ),
   Profile(
     id: 'builtin-me-14600-14630',
@@ -268,6 +315,9 @@ const List<Profile> _me14600Profiles = [
     width: 41.3,
     depth: 0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 37,
+    inertiaIyyCm4: 10.23,
   ),
   Profile(
     id: 'builtin-me-14600-14650',
@@ -293,6 +343,9 @@ const List<Profile> _me14600Profiles = [
     width: 0,
     depth: 63.0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 4.24,
+    inertiaIyyCm4: 9.52,
   ),
   Profile(
     id: 'builtin-me-14600-14631',
@@ -304,6 +357,9 @@ const List<Profile> _me14600Profiles = [
     width: 0,
     depth: 63.0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 4.93,
+    inertiaIyyCm4: 10.2,
   ),
   // --- CAPOT DE FINITION (PROFILOSCOPE p.9): cache-rail covers, no
   // --- dimensions labeled on the sheet.
@@ -390,6 +446,9 @@ const List<Profile> _me14600Profiles = [
     width: 44.66,
     depth: 42.0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 4.37,
+    inertiaIyyCm4: 4.067,
   ),
   Profile(
     id: 'builtin-me-14600-14637',
@@ -401,6 +460,9 @@ const List<Profile> _me14600Profiles = [
     width: 44.61,
     depth: 68.35,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 6.21,
+    inertiaIyyCm4: 22.6,
   ),
   Profile(
     id: 'builtin-me-14600-14625',
@@ -412,6 +474,9 @@ const List<Profile> _me14600Profiles = [
     width: 44.4,
     depth: 42.0,
     weightPerMeter: 0,
+    // Inertie en cm4 (sheet-labeled).
+    inertiaIxxCm4: 3.2,
+    inertiaIyyCm4: 8.12,
   ),
   // --- COULIFIX FINITION (PROFILOSCOPE p.11) ---
   Profile(

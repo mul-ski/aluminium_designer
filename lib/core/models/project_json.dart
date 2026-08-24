@@ -157,6 +157,8 @@ extension ProfileJson on Profile {
       'width': width,
       'depth': depth,
       'weightPerMeter': weightPerMeter,
+      'inertiaIxxCm4': inertiaIxxCm4,
+      'inertiaIyyCm4': inertiaIyyCm4,
     };
   }
 }
@@ -172,6 +174,10 @@ Profile profileFromJson(Map<String, dynamic> json) {
     width: (json['width'] as num).toDouble(),
     depth: (json['depth'] as num).toDouble(),
     weightPerMeter: (json['weightPerMeter'] as num).toDouble(),
+    // Tolerant read: catalogs saved before inertia fields existed load
+    // unchanged with the 0 = not-stated marker.
+    inertiaIxxCm4: (json['inertiaIxxCm4'] as num?)?.toDouble() ?? 0,
+    inertiaIyyCm4: (json['inertiaIyyCm4'] as num?)?.toDouble() ?? 0,
   );
 }
 

@@ -7,6 +7,8 @@ import 'package:aluminium_designer/core/models/opening.dart';
 import 'package:aluminium_designer/core/models/profile.dart';
 import 'package:aluminium_designer/core/models/profile_system.dart';
 import 'package:aluminium_designer/core/models/profile_system_json.dart';
+import 'package:aluminium_designer/core/models/project_json.dart'
+    show profileFromJson;
 import 'package:aluminium_designer/core/models/profile_system_metadata.dart';
 
 void main() {
@@ -110,6 +112,64 @@ void main() {
         restoredSystem.profiles.firstWhere((p) => p.id == 'A2').type,
         ProfileType.traverse,
       );
+    });
+
+    test('profile inertia values round-trip through catalog JSON', () {
+      final profile = Profile(
+        id: 'I1',
+        manufacturer: 'ACME',
+        system: 'Custom Window 2026',
+        reference: 'REF-I1',
+        name: 'Dormant I1',
+        type: ProfileType.dormant,
+        width: 44.4,
+        depth: 66.34,
+        weightPerMeter: 0,
+        inertiaIxxCm4: 7.9,
+        inertiaIyyCm4: 26.14,
+      );
+      final catalog = Catalog(
+        profileSystems: [
+          ProfileSystem(
+            id: 'sys-i',
+            manufacturer: 'ACME',
+            manufacturerId: 'mfr-1',
+            name: 'Custom Window 2026',
+            ruleSetId: 'generic-placeholder',
+            profiles: [profile],
+            supportedOpenings: const [],
+            isBuiltIn: false,
+          ),
+        ],
+      );
+
+      final restored = catalogFromJson(
+        catalog.toJson(),
+      ).profileSystems.single.profiles.single;
+
+      expect(restored.inertiaIxxCm4, 7.9);
+      expect(restored.inertiaIyyCm4, 26.14);
+    });
+
+    test('a profile JSON saved BEFORE the inertia fields existed loads '
+        'with 0 = not stated (backward compatibility)', () {
+      // Hand-written legacy map -- no inertia keys at all.
+      final legacyJson = {
+        'id': 'OLD1',
+        'manufacturer': 'ACME',
+        'system': 'Custom Window 2026',
+        'reference': 'REF-OLD1',
+        'name': 'Dormant OLD1',
+        'type': 'dormant',
+        'width': 44.4,
+        'depth': 66.34,
+        'weightPerMeter': 0,
+      };
+
+      final profile = profileFromJson(legacyJson);
+
+      expect(profile.inertiaIxxCm4, 0);
+      expect(profile.inertiaIyyCm4, 0);
     });
 
     test('schemaVersion is present and defaults correctly when missing', () {

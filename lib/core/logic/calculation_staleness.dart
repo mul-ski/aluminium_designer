@@ -21,8 +21,12 @@ import '../models/profile_system.dart';
 ///     renaming never changes a computed number. This mirrors the
 ///     draft-side precedent that renaming the construction does not
 ///     invalidate its cut list.
-///   - profile `width`/`depth`: not consumed by any calculation or
-///     aggregation path today.
+///   - profile `width`/`depth`/`inertiaIxxCm4`/`inertiaIyyCm4`: not
+///     consumed by any calculation or aggregation path today (no
+///     DimensionVariable/NumericField reads them); inertia is display/
+///     analysis data. If a verified rule ever starts consuming one of
+///     these fields, that field must join the fingerprint at the same
+///     time as the rule lands.
 ///   - unreferenced profiles: other systems' data cannot affect this
 ///     construction's cuts; scoping keeps unrelated catalog edits from
 ///     churning results.

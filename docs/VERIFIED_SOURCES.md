@@ -98,8 +98,13 @@ Conventions: **width** = visible face dimension, **depth** = wall-plane
 dimension, as drawn on the profile's own sheet. `0` = the sheet does not
 label that dimension (unknown). `weightPerMeter` = 0 for all (no sheet
 states weights). `type` follows the sheet's own section heading.
-Inertias are in cm⁴ as printed ("Inertie en cm4") — recorded here
-because the `Profile` model has no field for them; they are NOT seeded.
+Inertias are in cm⁴ as printed ("Inertie en cm4") and ARE seeded as
+`Profile.inertiaIxxCm4`/`inertiaIyyCm4` since the model gained the
+fields: 20 of 38 profiles carry both printed values; 17 state no
+inertia (seeded 0/0); **14 650's single printed "69.47" has no axis
+attribution on the sheet, so both fields stay 0 until an external
+source confirms which axis it is** — storing it as IXX would be
+inference (open verification item).
 
 | Réf | Type | width | depth | IXX / IYY | Sheet | Notes |
 |---|---|---|---|---|---|---|

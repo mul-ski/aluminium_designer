@@ -42,14 +42,15 @@ suite green, diff inspected, then commit + push + this file updated.
 | **C6c `feat(calc): verified 4-vantaux débitage column — table complete`** (rule set 30→46: traverses 14 621 8×(L−60)/4 and 14 631 8×(L−106)/4 fixedCount(4)/placement; latéraux doubled to 4/unit via DERIVED fixed(2)-per-side mapping; central mullion fixed(4); chicane 14 624 H−92 as the one deliberate no-role-condition rule — source states no position, role gating would fabricate one; collision-free by construction. Ledger heading corrected; p. 24 table now FULLY encoded). qa-review verdict before commit: APPROVE | e5cfd99 | analyze clean; full suite 419/419 |
 | **A `test(editor): pin multi-vantaux reachability for coulissante sections`** (audit verdict recorded: BOTH live steppers — Sections-stage properties panel and add-section dialog — produce any count ≥1 for every ouvrant type, so the encoded coulissante 3v/4v débitage columns are UI-reachable with zero changes; controller coalescing + widget stepping pinned by tests) | 62272c5 | analyze clean; full suite 421/421 |
 | **B `feat(catalog): adopt real built-in rule sets on load`** (closes the recorded migrated-install divergence: seed merge runs once per install, so pre-C5 installs kept placeholder cuts forever; adoptBuiltInRuleSets = narrow exception refreshing ONLY ruleSetId of present built-in systems still on the placeholder, invoked from CatalogStore.load on every load with identity-based save-on-change; user-created systems/user rule choices/deleted records untouched; store test asserts persistence via raw catalog.json). qa-review cycle: CHANGES REQUIRED → fixes → APPROVE | 2803d6a | analyze clean; full suite 428/428 |
+| **C `feat(catalog): verified profile inertia fields for Série 14600`** (`Profile.inertiaIxxCm4/inertiaIyyCm4` doubles, 0 = not stated, default params keep all call sites compiling; JSON always-writes/tolerant-reads for legacy compat; all 20 ledger-verified pairs seeded verbatim — full map pinned in tests; 14 650's axis-less "69.47" stays 0/0 as a recorded open verification item; p.23 assembly combinations remain excluded; fingerprint UNCHANGED with exclusion rationale documented — display-only until a rule consumes it; profiles-panel subtitle shows inertia only when stated). qa-review verdict before commit: APPROVE (follow-ups applied: all-20-pairs pinning, format) | (this commit) | analyze clean; full suite 435/435 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
 → 307 (after calculation C1) → 319 (after calculation C2) → 336 (after
 calculation C3) → 338 (C4a) → 340 (C4b) → 345 (C4c) → 354 (after
 calculation C4) → 361 (deletion fix) → 365 (C5a) → 377 (C5b) → 380 (C5c)
-→ 384 (after C5 fixes) → 396 (after C6a) → 408 (after C6b) → **419**
-(after C6c).
+→ 384 (after C5 fixes) → 396 (after C6a) → 408 (after C6b) → 419
+(after C6c) → 421 (A) → 428 (B) → **435** (after C).
 
 ## In progress
 

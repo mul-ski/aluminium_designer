@@ -325,7 +325,10 @@ class ProfileSystemProfilesPanel extends StatelessWidget {
                           '${_typeLabel(profile.type)} · '
                           '${profile.width.toStringAsFixed(0)}×'
                           '${profile.depth.toStringAsFixed(0)} mm · '
-                          '${profile.weightPerMeter.toStringAsFixed(2)} kg/m',
+                          '${profile.weightPerMeter.toStringAsFixed(2)} kg/m'
+                          // Inertia shown only when stated on the source
+                          // sheet (0 = not stated -- honest omission).
+                          '${profile.inertiaIxxCm4 > 0 || profile.inertiaIyyCm4 > 0 ? ' · I ${profile.inertiaIxxCm4.toStringAsFixed(2)}/${profile.inertiaIyyCm4.toStringAsFixed(2)} cm⁴' : ''}',
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,

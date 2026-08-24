@@ -250,6 +250,44 @@ void main() {
       );
     });
 
+    test('inertia edits on a referenced profile keep the fingerprint '
+        'identical -- display/analysis data, not calculator inputs', () {
+      final construction = _construction(profileUsages: [_usage('M1')]);
+
+      final before = Catalog(
+        profileSystems: [
+          _system('sys-1', profiles: [_profile('M1')]),
+        ],
+      );
+      final after = Catalog(
+        profileSystems: [
+          _system(
+            'sys-1',
+            profiles: [
+              Profile(
+                id: 'M1',
+                manufacturer: 'Mfr',
+                system: 'Sys',
+                reference: 'M1',
+                name: 'Profile',
+                type: ProfileType.montant,
+                width: 40,
+                depth: 60,
+                weightPerMeter: 1.5,
+                inertiaIxxCm4: 7.9,
+                inertiaIyyCm4: 26.14,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      expect(
+        catalogCalculationFingerprint(before, construction),
+        catalogCalculationFingerprint(after, construction),
+      );
+    });
+
     test('independent of the system profile list ordering', () {
       final construction = _construction(profileUsages: [_usage('M1')]);
 
