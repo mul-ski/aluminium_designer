@@ -6,6 +6,7 @@ import '../../../../core/models/calculation_outcome.dart';
 import '../../../../core/models/rules/system_rule_set.dart'
     show AmbiguousRuleMatchException;
 import '../../../../core/models/section.dart';
+import 'cut_list_dialog.dart';
 
 /// Compact summary of the last calculation run, shown at the top of the
 /// Sections stage's right panel regardless of whether a section is
@@ -81,13 +82,13 @@ class CalculationResultsBanner extends StatelessWidget {
             ),
             const SizedBox(height: 6),
           ],
-          _buildContent(),
+          _buildContent(context),
         ],
       ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(BuildContext context) {
     final error = this.error;
     if (error != null) {
       // AmbiguousRuleMatchException and StateError are the only two
@@ -150,9 +151,38 @@ class CalculationResultsBanner extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${outcome.cuts.length} coupe(s)',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        // Wrap rather than Row+Spacer: at narrow panel widths the
+        // workshop button wraps below the count instead of overflowing
+        // (the banner must never RenderFlex-overflow for any outcome
+        // text length).
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 0,
+          children: [
+            Text(
+              '${outcome.cuts.length} coupe(s)',
+              style:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            // Workshop view: grouped physical cut lines derived purely
+            // from this outcome. Hidden when there is nothing to list --
+            // a button that opens an empty view would be inert UI.
+            TextButton.icon(
+              onPressed: () => CutListDialog.show(
+                context,
+                outcome: outcome,
+                sections: sections,
+                isStale: isStale,
+              ),
+              icon: const Icon(Icons.content_cut, size: 16),
+              label: const Text(
+                'Liste de découpe',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 6),
         for (final entry in grouped.entries) ...[

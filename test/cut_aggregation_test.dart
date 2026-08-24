@@ -188,6 +188,36 @@ void main() {
     expect(grand.totalLengthMm, closeTo(4300, 1e-9));
   });
 
+  group('sumCutListLines', () {
+    test('sums grouped lines; weight null only when every line unknown',
+        () {
+      final known = _profile('KW', weightPerMeter: 2.0);
+      final unknown = _profile('UW', weightPerMeter: 0);
+      final lines = buildCutListLines([
+        _cut(known, length: 1000, quantity: 3),
+        _cut(unknown, length: 500, quantity: 2),
+      ]);
+
+      final summary = sumCutListLines(lines);
+
+      expect(summary.pieces, 5);
+      expect(summary.totalLengthMm, closeTo(4000, 1e-9));
+      // Known part only: the 3 m line at 2 kg/m = 6 kg; the unknown
+      // line adds nothing -- same rule as GrandTotals.
+      expect(summary.weightKg, closeTo(6.0, 1e-9));
+    });
+
+    test('all-unknown weights collapse to null, never a zero', () {
+      final unknown = _profile('UW', weightPerMeter: 0);
+      final summary = sumCutListLines(
+        buildCutListLines([_cut(unknown, length: 1000)]),
+      );
+
+      expect(summary.pieces, 1);
+      expect(summary.weightKg, isNull);
+    });
+  });
+
   group('buildCutListLines', () {
     test('merges identical cuts across usages, summing quantities and '
         'preserving traceability', () {

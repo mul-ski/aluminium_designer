@@ -197,6 +197,44 @@ class CutListLine {
   });
 }
 
+/// Construction-wide summary over workshop [lines]: pieces and linear
+/// metres partition the cuts exactly (identical to summing the raw cuts
+/// -- grouping never adds or loses a piece); [weightKg] sums the known
+/// line weights and is null only when EVERY line's weight is unknown.
+class CutListSummary {
+  final int pieces;
+  final double totalLengthMm;
+  final double? weightKg;
+
+  const CutListSummary({
+    required this.pieces,
+    required this.totalLengthMm,
+    required this.weightKg,
+  });
+}
+
+CutListSummary sumCutListLines(List<CutListLine> lines) {
+  var pieces = 0;
+  var totalLengthMm = 0.0;
+  double? weightKg;
+  var anyWeightKnown = false;
+  var summedWeight = 0.0;
+  for (final line in lines) {
+    pieces += line.quantity;
+    totalLengthMm += line.totalLengthMm;
+    if (line.weightKg != null) {
+      anyWeightKnown = true;
+      summedWeight += line.weightKg!;
+    }
+  }
+  if (anyWeightKnown) weightKg = summedWeight;
+  return CutListSummary(
+    pieces: pieces,
+    totalLengthMm: totalLengthMm,
+    weightKg: weightKg,
+  );
+}
+
 /// Groups [cuts] into workshop cut-list lines keyed by
 /// (`profile.id`, exact length, angleStart, angleEnd), first-encounter
 /// order -- the same calculation-order convention as

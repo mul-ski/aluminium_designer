@@ -19,6 +19,7 @@ import 'package:aluminium_designer/features/constructions/editor/widgets/editor_
 import 'package:aluminium_designer/features/constructions/editor/widgets/editor_status_bar.dart';
 import 'package:aluminium_designer/features/constructions/editor/widgets/editor_structure_panel.dart';
 import 'package:aluminium_designer/features/constructions/editor/widgets/editor_toolbar.dart';
+import 'package:aluminium_designer/features/constructions/editor/widgets/cut_list_dialog.dart';
 import 'package:aluminium_designer/features/constructions/widgets/construction_painter.dart';
 import 'package:aluminium_designer/features/constructions/screens/construction_editor_screen.dart';
 
@@ -1446,6 +1447,154 @@ void main() {
         );
         expect(find.textContaining('— 1.44 kg'), findsNWidgets(2));
         expect(find.textContaining('Total : 1 pièce — 1.20 m'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      '"Liste de découpe" opens the workshop view over the calculated '
+      'outcome and closes cleanly',
+      (tester) async {
+        final montant = Profile(
+          id: 'M1',
+          manufacturer: 'Mfr',
+          system: 'Sys',
+          reference: 'M1',
+          name: 'Montant',
+          type: ProfileType.montant,
+          width: 40,
+          depth: 60,
+          weightPerMeter: 1.2,
+        );
+        final system = ProfileSystem(
+          id: 'sys-1',
+          manufacturer: 'Mfr',
+          manufacturerId: 'mfr-1',
+          name: 'Test System',
+          ruleSetId: 'generic-placeholder',
+          profiles: [montant],
+          supportedOpenings: const [],
+          isBuiltIn: false,
+        );
+        final construction = Construction(
+          id: 'c1',
+          name: 'Test Window',
+          type: ConstructionType.window,
+          width: 1800,
+          height: 1200,
+          manufacturer: '',
+          system: '',
+          systemId: 'sys-1',
+          sections: [_fixedSection()],
+          layoutDirection: SectionLayoutDirection.horizontal,
+          profiles: const [],
+          profileUsages: [
+            ProfileUsage(
+              id: 'u1',
+              profileId: 'M1',
+              sectionId: 's1',
+              role: ProfileUsageRole.left,
+            ),
+            ProfileUsage(
+              id: 'u2',
+              profileId: 'ghost-profile',
+              sectionId: 's1',
+              role: ProfileUsageRole.right,
+            ),
+          ],
+        );
+
+        await _pumpEditor(
+          tester,
+          construction,
+          catalog: Catalog(profileSystems: [system]),
+        );
+
+        await tester.tap(find.text('Section 1'));
+        await tester.pumpAndSettle();
+
+        // No outcome yet -> no workshop entry point (inert-UI law).
+        expect(find.text('Liste de découpe'), findsNothing);
+
+        await tester.tap(find.byIcon(Icons.calculate_outlined));
+        await tester.pumpAndSettle();
+
+        // The banner offers the workshop view once cuts exist.
+        expect(find.text('Liste de découpe'), findsOneWidget);
+        await tester.tap(find.text('Liste de découpe'));
+        await tester.pumpAndSettle();
+
+        // Scope to the fullscreen dialog: it stacks OVER the editor, so
+        // unscoped finders would also hit the banner underneath.
+        final dialogFinder = find.byType(CutListDialog);
+
+        // Workshop header summary over the GROUPED lines.
+        expect(find.text('Liste de découpe'), findsWidgets);
+        expect(
+          find.descendant(
+            of: dialogFinder,
+            matching: find.textContaining('Total : 1 pièce — 1.20 m'),
+          ),
+          findsOneWidget,
+        );
+        // The single grouped cut line: reference + length × quantity +
+        // angles.
+        expect(
+          find.descendant(
+            of: dialogFinder,
+            matching:
+                find.textContaining('M1 — Montant : 1200 mm × 1 (45° / 45°)'),
+          ),
+          findsOneWidget,
+        );
+        // Line metres + known weight (1.20 m at 1.2 kg/m). Exact-text
+        // match: the header total shares this substring.
+        expect(
+          find.descendant(
+            of: dialogFinder,
+            matching: find.text('1 pièce — 1.20 m — 1.44 kg'),
+          ),
+          findsOneWidget,
+        );
+        // Section traceability resolved against the construction.
+        expect(
+          find.descendant(
+            of: dialogFinder,
+            matching: find.textContaining('Sections :'),
+          ),
+          findsOneWidget,
+        );
+        // Provenance survives grouping.
+        expect(
+          find.descendant(
+            of: dialogFinder,
+            matching:
+                find.textContaining('Placeholder: montant per assignment'),
+          ),
+          findsOneWidget,
+        );
+        // Diagnostics stay visible in the workshop view.
+        expect(
+          find.descendant(
+            of: dialogFinder,
+            matching: find.textContaining('assignation(s) sans coupe'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: dialogFinder,
+            matching:
+                find.textContaining('profil introuvable dans le système'),
+          ),
+          findsOneWidget,
+        );
+
+        // Close returns to the editor without disturbing the outcome.
+        await tester.tap(find.byIcon(Icons.close));
+        await tester.pumpAndSettle();
+        expect(find.byType(CutListDialog), findsNothing);
+        expect(find.text('1 coupe(s)'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
