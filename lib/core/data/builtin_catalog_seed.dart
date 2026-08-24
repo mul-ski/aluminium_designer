@@ -548,14 +548,17 @@ const List<Profile> _me14600Profiles = [
 /// registered in rule_set_resolution.dart): the FIRST REAL manufacturer
 /// rules in AluVis, encoding the "2 vantaux" column of the document's
 /// débitage table (p. 24) -- dormants 14 617/14 627 (2+2 × (L ; H)),
-/// montants latéraux 14 622/623/632/633 (2 × (H−74)) and traverse 14 621
-/// (4 × (L−64)/2), routed by profile reference + vantaux count + usage
-/// role so no uncovered configuration can silently match. The REST of
-/// the débitage table stays deliberately unencoded: dormant +46 variants,
-/// traverse 14 631, the 3/4-vantaux columns (different formulas per
-/// column -- encoding one configuration unconditionally would fabricate
-/// wrong cuts for the others; see docs/VERIFIED_SOURCES.md). Those
-/// usages surface as honest `noRuleMatched` issues.
+/// dormants 14 618/14 628/14 626 (2+2 × (L+46 ; H+46)), montants
+/// latéraux 14 622/623/632/633 and centraux 14 619/620/630 (2 × (H−74)),
+/// traverses 14 621 / 14 631 (4 × (L−64)/2 and 4 × (L−85)/2) -- routed
+/// by profile reference + vantaux count + opening type + usage role so
+/// no uncovered configuration can silently match. The REST of the
+/// débitage table stays deliberately unencoded: chicane 14 624 and the
+/// 3/4-vantaux columns (different formulas per column -- encoding one
+/// configuration unconditionally would fabricate wrong cuts for the
+/// others; the 3-vantaux "avec fixe" configurations also need an
+/// explicit section-modeling decision; see docs/VERIFIED_SOURCES.md).
+/// Those usages surface as honest `noRuleMatched` issues.
 ///
 /// `metadata` carries the system-level verified facts (frame depths
 /// 44/66.34, sash stile depths 56/69.2, glazing rebate 26 with 6-22 mm

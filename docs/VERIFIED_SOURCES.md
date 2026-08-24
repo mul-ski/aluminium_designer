@@ -171,16 +171,32 @@ verrou encastré (AC-605+AC-608 ou AC-606+AC-608), roulettes AC-6001
 gâche AC-607, joint brosse JO-609/JO-609F, joint vitrage JO610–JO624
 (6–24 mm glass).
 
-**Encoding status** (updated when the first rows were encoded as C5):
-the "2 vantaux" column of this table is now a real `SystemRuleSet`
-(`meSerie14600RuleSet`, `lib/core/data/me_14600_rule_set.dart`):
+**Encoding status** (updated when rows were encoded as C5, extended as
+C6a): the "2 vantaux" column of this table is now a real `SystemRuleSet`
+(`meSerie14600RuleSet`, `lib/core/data/me_14600_rule_set.dart`) covering
+SIX of its seven rows:
 
 - Dormant 14 617 / 14 627: `2+2 × (L ; H)` — four role-scoped rules
   (top/bottom → L, left/right → H), one piece per placement.
+- Dormant 14 618 / 14 628 / 14 626: `2+2 × (L+46 ; H+46)` (double-équerre
+  row) — same four-role mapping. **Source-text tension recorded:** the
+  pairing note reads "DOUBLE EQUERRE POUR 14627 / 14628 / 14626" while
+  the row itself names 14 618 / 14 628 / 14 626 (14 627 belongs to the
+  `(L ; H)` row). Both statements are kept verbatim above; neither is
+  corrected, and the encoded reference set follows the ROW HEADERS
+  ({14 618, 14 628, 14 626}) because the lengths live on the row, not
+  the note.
 - Montant latéral 14 622/623/632/633: `2 × (H−74)` — two role-scoped
   rules (left/right), one piece per placement.
+- Montant central 14 619/620/630: `2 × (H−74)` — intermediate-role rule;
+  one placement covers BOTH leaves' meeting stile (fixed(2) per
+  placement). Mullions 14 650 / 14 643 are NOT named by this row and
+  stay unmatched; the row's accessory notes (bouchons AC-630,
+  AC-620/AC-621) are hardware and not encoded.
 - Traverse 14 621: `4 × (L−64)/2` — top/bottom rules, TWO pieces per
   placement (one placement spans both leaves' track halves).
+- Traverse 14 631: `4 × (L−85)/2` (2-vantaux column only) — same
+  placement mapping as 14 621.
 
 Quantity mapping: the table counts pieces per unit; AluVis rules count
 per matched `ProfileUsage` placement, so unit totals emerge from
@@ -196,21 +212,15 @@ formulas; any other opening type or leaf count surfaces as a honest
 `noRuleMatched` issue — plus `ProfileReferenceCondition` where the row
 names exact references.
 
-Scope note on existing installs: `withBuiltInCatalogSeed` merges by
-addition only, so an install whose persisted me-14600 record still says
-`ruleSetId: 'generic-placeholder'` keeps placeholder behaviour until the
-user re-selects/updates that system through the catalog UI. Fresh
-installs get the real rule set directly. This divergence is accepted
-seed philosophy, recorded here so it is discoverable.
-
 **Still deliberately unencoded** (usages surface as honest
-`noRuleMatched` issues, never wrong cuts): dormant +46 variants
-(14 618 / 14 628 / 14 626), traverse 14 631 (`(L−85)/2`, `(L−47)/3`,
-`(L−106)/4`), traverse 14 621 at 3/4 vantaux (`(L−25)/3`, `(L−60)/4`),
-montants centraux 14 619/620/630 (`ProfileType.mullion` row), chicane
-14 624 (`H−92`). The formulas themselves are verified above; encoding
-awaits its own milestone so each configuration column lands with its own
-quantity-semantics analysis.
+`noRuleMatched` issues, never wrong cuts): chicane 14 624 (`1 × (H−92)`,
+4-vantaux-only row) and EVERY 3/4-vantaux formula — traverse 14 621
+(`(L−25)/3`, `(L−60)/4`), traverse 14 631 (`(L−47)/3`, `(L−106)/4`),
+with montant/mullion quantities doubling at 4 vantaux (`4 × (H−74)`).
+The formulas themselves are verified above. The 3-vantaux column
+additionally requires an explicit modeling decision for its "avec fixe"
+configurations (how a fixed+ouvrant mix decomposes into AluVis sections)
+before anything from that column is encoded.
 
 Earlier decision text (C4b–C4e era, superseded by the C5 partial
 encoding above but kept for the record): the table was left entirely
@@ -218,6 +228,13 @@ unencoded because the engine selected rules by ProfileType + section
 conditions only -- it could not distinguish 14 621 from 14 631 nor gate
 on configuration. That blocker was removed by
 `ProfileReferenceCondition` (C5a).
+
+Scope note on existing installs: `withBuiltInCatalogSeed` merges by
+addition only, so an install whose persisted me-14600 record still says
+`ruleSetId: 'generic-placeholder'` keeps placeholder behaviour until the
+user re-selects/updates that system through the catalog UI. Fresh
+installs get the real rule set directly. This divergence is accepted
+seed philosophy, recorded here so it is discoverable.
 
 ## Corrections during transcription
 

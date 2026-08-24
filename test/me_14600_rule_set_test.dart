@@ -110,16 +110,70 @@ void main() {
       }
     });
 
-    test('other dormants stay unmatched (no +46 row encoded)', () {
-      for (final reference in ['14 618', '14 628', '14 626', '14 818']) {
+    test('dormants outside any documented débitage row stay unmatched',
+        () {
+      // Frappé dormants and mono-rail/coulisse dormants are not named by
+      // any p. 24 row.
+      for (final reference in ['14 818', '14 820', '14 640', '14 637']) {
         expect(
           meSerie14600RuleSet.select(_context(reference, role: ProfileUsageRole.top)),
           isNull,
-          reason: '$reference has no encoded débitage row yet',
+          reason: '$reference has no encoded débitage row',
         );
       }
     });
   });
+
+  group(
+    'routing: dormant 14 618/14 628/14 626 — 2+2 × (L+46 ; H+46) [p. 24]',
+    () {
+      test('top and bottom placements cut to L+46 (2046 mm), one piece each',
+          () {
+        for (final role in [ProfileUsageRole.top, ProfileUsageRole.bottom]) {
+          for (final reference in ['14 618', '14 628', '14 626']) {
+            final rule = meSerie14600RuleSet.select(
+              _context(reference, role: role),
+            );
+            expect(rule, isNotNull, reason: '$reference $role must match');
+            expect(
+              rule!.lengthExpression.evaluate(_variables),
+              2046.0,
+              reason: '$reference $role cuts at L+46',
+            );
+            expect(rule.quantity.fixedCount, 1);
+          }
+        }
+      });
+
+      test('left and right placements cut to H+46 (1546 mm), one piece each',
+          () {
+        for (final role in [ProfileUsageRole.left, ProfileUsageRole.right]) {
+          for (final reference in ['14 618', '14 628', '14 626']) {
+            final rule = meSerie14600RuleSet.select(
+              _context(reference, role: role),
+            );
+            expect(rule, isNotNull, reason: '$reference $role must match');
+            expect(
+              rule!.lengthExpression.evaluate(_variables),
+              1546.0,
+              reason: '$reference $role cuts at H+46',
+            );
+            expect(rule.quantity.fixedCount, 1);
+          }
+        }
+      });
+
+      test('intermediate role stays unmatched for +46 dormants (no '
+          'documented position between the leaves)', () {
+        expect(
+          meSerie14600RuleSet.select(
+            _context('14 618', role: ProfileUsageRole.intermediate),
+          ),
+          isNull,
+        );
+      });
+    },
+  );
 
   group(
     'routing: montant latéral 14 622/623/632/633 — 2 × (H−74) [p. 24]',
@@ -141,8 +195,9 @@ void main() {
         }
       });
 
-      test('intermediate role stays unmatched (central montants are '
-          'mullions with their own unencoded row)', () {
+      test('intermediate role stays unmatched for lateral montants '
+          '(central members are ProfileType.mullion, routed separately)',
+          () {
         expect(
           meSerie14600RuleSet.select(
             _context('14 622', role: ProfileUsageRole.intermediate),
@@ -171,23 +226,120 @@ void main() {
       }
     });
 
-    test('traverse 14 631 stays unmatched (different deductions)', () {
-      expect(
-        meSerie14600RuleSet.select(
-          _context('14 631', role: ProfileUsageRole.top),
-        ),
-        isNull,
-        reason: '14 631 is (L−85)/2 on p. 24 -- encoding it here would '
-            'fabricate wrong cuts; its rules are future work',
-      );
+    test('traverse 14 631 routes to its own rule, not the 14 621 rule '
+        '(different deductions)', () {
+      final context = _context('14 631', role: ProfileUsageRole.top);
+      final rule = meSerie14600RuleSet.select(context);
+      expect(rule, isNotNull);
+      expect(rule!.description, contains('14 631'));
+      expect(rule.description, isNot(contains('14 621')));
     });
   });
+
+  group('routing: traverse 14 631 — 4 × (L−85)/2 [p. 24]', () {
+    test('top/bottom placements yield two (L−85)/2 pieces each (957.5 mm)',
+        () {
+      for (final role in [ProfileUsageRole.top, ProfileUsageRole.bottom]) {
+        final rule = meSerie14600RuleSet.select(
+          _context('14 631', role: role),
+        );
+        expect(rule, isNotNull, reason: 'traverse $role must match');
+        expect(
+          rule!.lengthExpression.evaluate(_variables),
+          957.5,
+          reason: '(2000−85)/2 = 957.5',
+        );
+        // Same placement mapping as 14 621: one placement spans both
+        // leaves' track halves.
+        expect(rule.quantity.fixedCount, 2);
+      }
+    });
+
+    test('description records the documented pairing (69.2-face montants)',
+        () {
+      final rule = meSerie14600RuleSet.select(
+        _context('14 631', role: ProfileUsageRole.top),
+      )!;
+      expect(rule.description, contains('face 69.2'));
+    });
+
+    test('traverse at edge roles stays unmatched (no documented vertical '
+        'traverse position)', () {
+      for (final role in [
+        ProfileUsageRole.left,
+        ProfileUsageRole.right,
+      ]) {
+        for (final reference in ['14 621', '14 631']) {
+          expect(
+            meSerie14600RuleSet.select(_context(reference, role: role)),
+            isNull,
+            reason: '$reference $role has no documented débitage entry',
+          );
+        }
+      }
+    });
+  });
+
+  group(
+    'routing: montant central 14 619/620/630 — 2 × (H−74), intermediate '
+    '[p. 24]',
+    () {
+      test('intermediate placement yields two H−74 pieces (1426 mm)', () {
+        for (final reference in ['14 619', '14 620', '14 630']) {
+          final rule = meSerie14600RuleSet.select(
+            _context(reference, role: ProfileUsageRole.intermediate),
+          );
+          expect(rule, isNotNull, reason: '$reference must match');
+          expect(
+            rule!.lengthExpression.evaluate(_variables),
+            1426.0,
+            reason: '$reference cuts at H−74',
+          );
+          // One intermediate placement covers BOTH leaves' meeting
+          // stile -- the documented pair.
+          expect(rule.quantity.fixedCount, 2);
+        }
+      });
+
+      test('mullions at edge roles stay unmatched (only intermediate '
+          'fits members between the leaves)', () {
+        for (final role in [
+          ProfileUsageRole.left,
+          ProfileUsageRole.right,
+          ProfileUsageRole.top,
+          ProfileUsageRole.bottom,
+        ]) {
+          expect(
+            meSerie14600RuleSet.select(
+              _context('14 619', role: role),
+            ),
+            isNull,
+            reason: 'mullion $role has no documented position',
+          );
+        }
+      });
+
+      test('mullions not named by the débitage row stay unmatched '
+          '(14 650 / 14 643)', () {
+        for (final reference in ['14 650', '14 643']) {
+          expect(
+            meSerie14600RuleSet.select(
+              _context(reference, role: ProfileUsageRole.intermediate),
+            ),
+            isNull,
+            reason: '$reference is not part of the p. 24 central-mullion '
+                'row',
+          );
+        }
+      });
+    },
+  );
 
   group('routing safety: uncovered configurations never match', () {
     test('vantauxCount other than 2 matches nothing (only the 2-vantaux '
         'column is encoded)', () {
       for (final vantauxCount in [1, 3, 4]) {
-        for (final reference in ['14 617', '14 622', '14 621']) {
+        for (final reference in ['14 617', '14 622', '14 621', '14 631', '14 619']) {
           expect(
             meSerie14600RuleSet.select(
               _context(

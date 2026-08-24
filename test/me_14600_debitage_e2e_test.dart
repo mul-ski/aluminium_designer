@@ -157,11 +157,124 @@ void main() {
       expect(outcome.cuts.single.quantity, 4);
     });
 
-    test('traverse 14 631 is reported as unmatched, not silently cut '
-        'with 14 621 numbers', () {
+    test('a complete unit with central mullions: intermediate placement '
+        'yields the documented pair', () {
+      final usages = [
+        ..._unitUsages(),
+        _usage('mc-intermediate', '14 619', ProfileUsageRole.intermediate),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      expect(byUsageId, hasLength(9));
+
+      // Montant central 14 619: (H−74) = 1426, TWO pieces from the one
+      // intermediate placement (one meeting stile per leaf).
+      final mullionCut = byUsageId['mc-intermediate']!;
+      expect(mullionCut.length, _h - 74);
+      expect(mullionCut.quantity, 2);
+      expect(mullionCut.ruleDescription, contains('14 619'));
+
+      // Unit total grows by exactly the documented 2 × (H−74).
+      final totalPieces = outcome.cuts.fold<int>(
+        0,
+        (sum, cut) => sum + cut.quantity,
+      );
+      expect(totalPieces, 12);
+    });
+
+    test('the other documented frame family: +46 dormants, traverse '
+        '14 631, montants 69.2, central mullion — every new row end-to-end',
+        () {
+      // References are spread across the documented row members purely
+      // for coverage (e.g. 14 618 top/bottom with 14 628 left/right is
+      // not a realistic BOM); each usage is individually routed and
+      // asserted against its own débitage row.
+      final usages = [
+        _usage('d-top', '14 618', ProfileUsageRole.top),
+        _usage('d-bottom', '14 618', ProfileUsageRole.bottom),
+        _usage('d-left', '14 628', ProfileUsageRole.left),
+        _usage('d-right', '14 628', ProfileUsageRole.right),
+        _usage('m-left', '14 632', ProfileUsageRole.left),
+        _usage('m-right', '14 633', ProfileUsageRole.right),
+        _usage('t-top', '14 631', ProfileUsageRole.top),
+        _usage('t-bottom', '14 631', ProfileUsageRole.bottom),
+        _usage('mc-intermediate', '14 620', ProfileUsageRole.intermediate),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      expect(byUsageId, hasLength(9));
+
+      // Dormants +46 row: horizontals L+46 = 2046, verticals H+46 = 1546.
+      expect(byUsageId['d-top']!.length, _l + 46);
+      expect(byUsageId['d-bottom']!.length, _l + 46);
+      expect(byUsageId['d-left']!.length, _h + 46);
+      expect(byUsageId['d-right']!.length, _h + 46);
+
+      // Traverse 14 631: (L−85)/2 = 957.5, two pieces per placement.
+      expect(byUsageId['t-top']!.length, (_l - 85) / 2);
+      expect(byUsageId['t-bottom']!.length, (_l - 85) / 2);
+      expect(byUsageId['t-top']!.quantity, 2);
+      expect(byUsageId['t-bottom']!.quantity, 2);
+
+      // Montants latéraux face 69.2 and montant central: H−74 = 1426;
+      // the central placement carries the documented pair.
+      expect(byUsageId['m-left']!.length, _h - 74);
+      expect(byUsageId['m-right']!.length, _h - 74);
+      expect(byUsageId['mc-intermediate']!.length, _h - 74);
+      expect(byUsageId['mc-intermediate']!.quantity, 2);
+
+      // Per-unit counts: 2×(L+46) + 2×(H+46) + 4×((L−85)/2)
+      //                + 2×(H−74 latéral) + 2×(H−74 central).
+      final totalPieces = outcome.cuts.fold<int>(
+        0,
+        (sum, cut) => sum + cut.quantity,
+      );
+      expect(totalPieces, 12);
+    });
+
+    test('traverses route by exact reference: 14 631 never receives the '
+        '14 621 formula', () {
       final usages = [
         _usage('d-top', '14 617', ProfileUsageRole.top),
-        _usage('t-wrong', '14 631', ProfileUsageRole.top),
+        _usage('t-621', '14 621', ProfileUsageRole.top),
+        _usage('t-631', '14 631', ProfileUsageRole.top),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      expect(byUsageId, hasLength(3));
+      expect(byUsageId['t-621']!.length, (_l - 64) / 2);
+      expect(byUsageId['t-631']!.length, (_l - 85) / 2);
+      // Provenance names the exact profile each formula belongs to.
+      expect(byUsageId['t-621']!.ruleDescription, contains('14 621'));
+      expect(byUsageId['t-631']!.ruleDescription, contains('14 631'));
+    });
+
+    test('a mullion outside the documented débitage row surfaces as an '
+        'issue while the rest of the unit still calculates', () {
+      final usages = [
+        _usage('d-top', '14 617', ProfileUsageRole.top),
+        _usage('mc-wrong', '14 650', ProfileUsageRole.intermediate),
       ];
       final outcome = calculateConstructionCuts(
         _construction(profileUsages: usages),
@@ -171,7 +284,7 @@ void main() {
       expect(outcome.cuts, hasLength(1));
       expect(outcome.cuts.single.profileUsageId, 'd-top');
       expect(outcome.issues, hasLength(1));
-      expect(outcome.issues.single.profileUsageId, 't-wrong');
+      expect(outcome.issues.single.profileUsageId, 'mc-wrong');
       expect(
         outcome.issues.single.reason,
         ProfileUsageIssueReason.noRuleMatched,
