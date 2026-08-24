@@ -37,13 +37,14 @@ suite green, diff inspected, then commit + push + this file updated.
 | **C5c `test(calc): end-to-end débitage proof`** (2000×1500 coulissant unit through calculateConstructionCuts reproduces p. 24 exactly: 8 cuts, 10 pieces, provenance cites p. 24; negatives: 14 631 → issue, vantauxCount 3 → zero cuts) | ad6090d | analyze clean; full suite 380/380 |
 | **fix(calc): coulissante gating + qa-review fixes** (qa-review verdict CHANGES REQUIRED → all items addressed: OpeningTypeCondition(coulissante) on all rules -- non-coulissant 2-vantaux sections can no longer receive real cuts; angle-derivation note reaches ruleDescription; negative-dimension pin without invented clamping; quantity composition test; migrated-install divergence recorded in ledger). Re-review verdict: APPROVE | 5901e41 | analyze clean; full suite 383/383 |
 | `test(calc)` pin derived-angle provenance on every me-14600 rule (qa-review optional hardening) | b15a08f | full suite 384/384 |
+| **C6a `feat(calc): remaining verified 2-vantaux débitage rows`** (rule set 8→15: traverse 14 631 4×(L−85)/2 fixed(2)/placement; dormants 14 618/628/626 2+2×(L+46;H+46) four roles; montant central 14 619/620/630 2×(H−74) intermediate fixed(2)/placement; mullions 14 650/14 643 + chicane + all 3/4-vantaux stay honest noRuleMatched; ledger now six of seven rows; double-équerre 14627-vs-618 note tension recorded verbatim). qa-review verdict before commit: APPROVE | 24eaffa | analyze clean; full suite 396/396 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
 → 307 (after calculation C1) → 319 (after calculation C2) → 336 (after
 calculation C3) → 338 (C4a) → 340 (C4b) → 345 (C4c) → 354 (after
 calculation C4) → 361 (deletion fix) → 365 (C5a) → 377 (C5b) → 380 (C5c)
-→ **384** (after C5 fixes).
+→ 384 (after C5 fixes) → **396** (after C6a).
 
 ## In progress
 
@@ -130,13 +131,15 @@ architecture ever lands.
   deliberately NOT encoded as a `SystemRuleSet` through C4b–C4e: the rule
   engine selected by ProfileType + section conditions only and could not
   distinguish 14 621 from 14 631 nor gate on configuration. **Superseded
-  in C5** for the "2 vantaux" coulissante column: `meSerie14600RuleSet`
-  encodes dormants 14 617/627, montants latéraux and traverse 14 621 via
-  ProfileReferenceCondition + VantauxCountCondition +
-  OpeningTypeCondition + role conditions. STILL unencoded (honest
-  noRuleMatched): +46 dormant variants, traverse 14 631, montants
-  centraux (mullion row), chicane 14 624, and the 3/4-vantaux columns --
-  each needs its own quantity-semantics analysis before encoding.
+  in C5+C6a** for the whole "2 vantaux" coulissante column (six of seven
+  table rows): `meSerie14600RuleSet` encodes both dormant rows, both
+  montant rows, and both traverse references via ProfileReferenceCondition
+  + VantauxCountCondition + OpeningTypeCondition + role conditions.
+  STILL unencoded (honest noRuleMatched): chicane 14 624 (4v-only row)
+  and the entire 3/4-vantaux columns -- each needs its own quantity-
+  semantics analysis, and the 3-vantaux "avec fixe" configurations need
+  an explicit section-modeling decision before anything from that column
+  is encoded.
 - Débitage quantities follow the per-placement law: the table counts
   pieces per unit, AluVis rules count pieces per matched placement.
   Role-scoped one-piece positions get fixed(1) (unit totals emerge from
@@ -181,15 +184,21 @@ Configured under `.opencode/` (see `AGENTS.md` for when to load what):
 
 ## Current next milestone
 
-Calculation series C1–C3, verified-catalog series C4, and **C5 (first real
-manufacturer-backed calculation) are COMPLETE**: `meSerie14600RuleSet`
-computes the Série 14600 "2 vantaux" débitage column end-to-end from the
-seeded catalog, qa-review APPROVED. Documented candidates, not scheduled:
+Calculation series C1–C3, verified-catalog series C4, C5 (first real
+manufacturer-backed calculation), and **C6a (complete 2-vantaux Série
+14600 column) are COMPLETE**: `meSerie14600RuleSet` now covers six of the
+seven p. 24 table rows for the 2-vantaux coulissante configuration,
+qa-review APPROVED before commit. Documented candidates, not scheduled:
 
-- extend me-14600 rules to the 3/4-vantaux columns and remaining rows
-  (traverse 14 631, +46 dormants, mullions, chicane) -- formulas all
-  verified in docs/VERIFIED_SOURCES.md; each column needs its own
-  quantity-mapping analysis;
+- C6b: 3-vantaux débitage column — BLOCKED ON A DECISION FIRST: how
+  "avec fixe" configurations decompose into AluVis sections/usages;
+- C6c: 4-vantaux débitage column (traverse formulas, doubled
+  montant/mullion quantities, chicane 14 624);
+- C7: first verified Sepalumic system — externally gated on official
+  fabrication documentation (Coulissant 8800 brochure is the candidate
+  source to inspect; débitage/profile references not public otherwise);
+- C8: Targa Menara — fully blocked: manufacturer identity itself
+  unverified online; needs external documentation;
 - editor affordance so an existing construction can adopt a newly
   registered rule set (migrated-install divergence);
 - inertia (IXX/IYY) fields for profiles (values transcribed in
