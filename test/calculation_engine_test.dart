@@ -214,6 +214,84 @@ void main() {
     });
   });
 
+  group('ProfileReferenceCondition', () {
+    Profile profileWithRef(String reference, [ProfileType type = ProfileType.traverse]) =>
+        Profile(
+          id: reference,
+          manufacturer: 'Test Manufacturer',
+          system: 'Test System',
+          reference: reference,
+          name: 'Profile $reference',
+          type: type,
+          width: 40,
+          depth: 60,
+          weightPerMeter: 1.2,
+        );
+
+    test('matches when the profile reference is in the set', () {
+      const condition = ProfileReferenceCondition({'14 621', '14 627'});
+      final context = CalculationContext(
+        construction: _construction(),
+        profile: profileWithRef('14 621'),
+      );
+      expect(condition.matches(context), isTrue);
+    });
+
+    test('does not match when the reference differs (14 631 vs 14 621)', () {
+      const condition = ProfileReferenceCondition({'14 621'});
+      final context = CalculationContext(
+        construction: _construction(),
+        profile: profileWithRef('14 631'),
+      );
+      expect(condition.matches(context), isFalse);
+    });
+
+    test('an empty set matches nothing', () {
+      const condition = ProfileReferenceCondition({});
+      final context = CalculationContext(
+        construction: _construction(),
+        profile: _profile('P1'),
+      );
+      expect(condition.matches(context), isFalse);
+    });
+
+    test('composes with appliesTo inside a rule', () {
+      const rule = ProfileCalculationRule(
+        appliesTo: ProfileType.traverse,
+        conditions: [
+          VantauxCountCondition(2),
+          ProfileReferenceCondition({'14 621'}),
+        ],
+        lengthExpression: DimensionExpression.variable(
+          DimensionVariable.constructionWidth,
+        ),
+        quantity: CutQuantity.fixed(1),
+        angles: CutAngles.mitred45(),
+        isPlaceholder: false,
+      );
+      final section = _section(
+        's1',
+        kind: SectionKind.ouvrant,
+        openingType: OpeningType.coulissante,
+        vantauxCount: 2,
+      );
+
+      final matching = CalculationContext(
+        construction: _construction(),
+        profile: profileWithRef('14 621'),
+        section: section,
+      );
+      expect(rule.matches(matching), isTrue);
+
+      final sameTypeOtherRef = CalculationContext(
+        construction: _construction(),
+        profile: profileWithRef('14 631'),
+        section: section,
+      );
+      expect(rule.matches(sameTypeOtherRef), isFalse);
+    });
+  });
+
   group('SystemRuleSet.select', () {
     test('returns null when zero rules match', () {
       const ruleSet = SystemRuleSet(

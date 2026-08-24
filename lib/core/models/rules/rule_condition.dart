@@ -176,6 +176,34 @@ class SystemCondition extends RuleCondition {
   }
 }
 
+/// Matches when the evaluated profile's catalogue reference
+/// ([Profile.reference]) is one of [references].
+///
+/// This exists because real manufacturer débitage tables are keyed by the
+/// exact profile reference, not just by [ProfileType]: Série 14600's
+/// traverses 14 621 and 14 631 share `ProfileType.traverse` but carry
+/// different deductions ((L−64)/2 vs (L−85)/2 in the source document's
+/// débitage table -- see docs/VERIFIED_SOURCES.md), so no type-based or
+/// section-based condition can tell them apart. The set form mirrors how
+/// such tables group rows: one débitage row often covers several
+/// references that share a formula (e.g. montants latéraux 14 622/623/632/633
+/// all cut to H−74), and one condition listing that row's references keeps
+/// one rule per table row instead of one rule per reference.
+///
+/// An empty set matches nothing -- consistent with every other condition's
+/// fail-closed behaviour, and it can never be meaningful ("reference is
+/// one of none").
+class ProfileReferenceCondition extends RuleCondition {
+  final Set<String> references;
+
+  const ProfileReferenceCondition(this.references);
+
+  @override
+  bool matches(CalculationContext context) {
+    return references.contains(context.profile.reference);
+  }
+}
+
 /// A numeric field on a [CalculationContext] that a
 /// [NumericComparisonCondition] can read and compare.
 ///
