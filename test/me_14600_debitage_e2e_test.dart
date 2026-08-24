@@ -1,0 +1,167 @@
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:aluminium_designer/core/data/builtin_catalog_seed.dart';
+import 'package:aluminium_designer/core/logic/rule_set_resolution.dart';
+import 'package:aluminium_designer/core/models/calculation_outcome.dart';
+import 'package:aluminium_designer/core/models/catalog.dart';
+import 'package:aluminium_designer/core/models/construction.dart';
+import 'package:aluminium_designer/core/models/construction_type.dart';
+import 'package:aluminium_designer/core/models/layout_direction.dart';
+import 'package:aluminium_designer/core/models/opening.dart';
+import 'package:aluminium_designer/core/models/profile_usage.dart';
+import 'package:aluminium_designer/core/models/section.dart';
+
+/// C5 end-to-end proof: a real Série 14600 construction calculated through
+/// the FULL application pipeline -- Construction + seeded Catalog ->
+/// resolveRuleSetForConstruction -> ConstructionCalculator -> cuts whose
+/// lengths reproduce the source document's débitage table (p. 24,
+/// "2 vantaux" column; citations in docs/VERIFIED_SOURCES.md).
+///
+/// Source inputs for the worked example (L = 2000 mm, H = 1500 mm):
+///   Dormant 14 617 ............ 2+2 × (L ; H)
+///   Montant latéral 14 622 .... 2 × (H−74)
+///   Traverse 14 621 ........... 4 × (L−64)/2
+const double _l = 2000;
+const double _h = 1500;
+
+Catalog _catalog() => withBuiltInCatalogSeed(const Catalog());
+
+Construction _construction({
+  required List<ProfileUsage> profileUsages,
+  int vantauxCount = 2,
+}) => Construction(
+  id: 'c-me-14600',
+  name: 'Coulissant 2 vantaux',
+  type: ConstructionType.window,
+  width: _l,
+  height: _h,
+  manufacturer: 'Maghreb Extrusion (ME)',
+  system: 'Série 14600 Coulissant',
+  systemId: meSerie14600Id,
+  sections: [
+    Section(
+      id: 's-unit',
+      order: 0,
+      kind: SectionKind.ouvrant,
+      width: _l,
+      height: _h,
+      openingType: OpeningType.coulissante,
+      vantauxCount: vantauxCount,
+    ),
+  ],
+  layoutDirection: SectionLayoutDirection.horizontal,
+  profiles: const [],
+  profileUsages: profileUsages,
+);
+
+ProfileUsage _usage(String id, String profileReference, ProfileUsageRole role) {
+  final profile = meSerie14600.profilesById.values
+      .firstWhere((p) => p.reference == profileReference);
+  return ProfileUsage(
+    id: id,
+    profileId: profile.id,
+    sectionId: 's-unit',
+    role: role,
+  );
+}
+
+/// The documented 2-vantaux unit: frame + sash stiles + leaf tracks.
+List<ProfileUsage> _unitUsages() => [
+  _usage('d-top', '14 617', ProfileUsageRole.top),
+  _usage('d-bottom', '14 617', ProfileUsageRole.bottom),
+  _usage('d-left', '14 617', ProfileUsageRole.left),
+  _usage('d-right', '14 617', ProfileUsageRole.right),
+  _usage('m-left', '14 622', ProfileUsageRole.left),
+  _usage('m-right', '14 623', ProfileUsageRole.right),
+  _usage('t-top', '14 621', ProfileUsageRole.top),
+  _usage('t-bottom', '14 621', ProfileUsageRole.bottom),
+];
+
+void main() {
+  group('end-to-end: Série 14600 débitage vs source p. 24', () {
+    test('every usage produces its documented cut at L=2000 / H=1500', () {
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: _unitUsages()),
+        _catalog(),
+      );
+
+      expect(outcome, isNotNull, reason: 'the seeded system must resolve '
+          'its rule set');
+      expect(outcome!.issues, isEmpty,
+          reason: 'a fully-covered 2-vantaux unit has no skipped usages');
+
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      expect(byUsageId, hasLength(8));
+
+      // Dormant 14 617: horizontals at L, verticals at H.
+      expect(byUsageId['d-top']!.length, _l);
+      expect(byUsageId['d-bottom']!.length, _l);
+      expect(byUsageId['d-left']!.length, _h);
+      expect(byUsageId['d-right']!.length, _h);
+
+      // Montants latéraux 14 622/14 623: H−74 = 1426.
+      expect(byUsageId['m-left']!.length, _h - 74);
+      expect(byUsageId['m-right']!.length, _h - 74);
+
+      // Traverses 14 621: (L−64)/2 = 968, two pieces per placement.
+      expect(byUsageId['t-top']!.length, (_l - 64) / 2);
+      expect(byUsageId['t-bottom']!.length, (_l - 64) / 2);
+      expect(byUsageId['t-top']!.quantity, 2);
+      expect(byUsageId['t-bottom']!.quantity, 2);
+
+      // Unit totals equal the débitage table's per-unit counts:
+      // 2×(L ; H) dormants + 2×(H−74) montants + 4×(L−64)/2 traverses.
+      final totalPieces = outcome.cuts.fold<int>(
+        0,
+        (sum, cut) => sum + cut.quantity,
+      );
+      expect(totalPieces, 10);
+
+      for (final cut in outcome.cuts) {
+        expect(cut.angleStart, 45);
+        expect(cut.angleEnd, 45);
+        expect(cut.sectionId, 's-unit');
+        expect(cut.ruleDescription, isNotNull);
+        // Provenance traces every cut to the source table page.
+        expect(cut.ruleDescription, contains('p. 24'));
+      }
+    });
+
+    test('traverse 14 631 is reported as unmatched, not silently cut '
+        'with 14 621 numbers', () {
+      final usages = [
+        _usage('d-top', '14 617', ProfileUsageRole.top),
+        _usage('t-wrong', '14 631', ProfileUsageRole.top),
+      ];
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: usages),
+        _catalog(),
+      )!;
+
+      expect(outcome.cuts, hasLength(1));
+      expect(outcome.cuts.single.profileUsageId, 'd-top');
+      expect(outcome.issues, hasLength(1));
+      expect(outcome.issues.single.profileUsageId, 't-wrong');
+      expect(
+        outcome.issues.single.reason,
+        ProfileUsageIssueReason.noRuleMatched,
+      );
+    });
+
+    test('same profiles outside the encoded column (3 vantaux) produce '
+        'no cuts at all', () {
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: _unitUsages(), vantauxCount: 3),
+        _catalog(),
+      )!;
+
+      expect(outcome.cuts, isEmpty);
+      expect(outcome.issues, hasLength(8));
+      for (final issue in outcome.issues) {
+        expect(issue.reason, ProfileUsageIssueReason.noRuleMatched);
+      }
+    });
+  });
+}
