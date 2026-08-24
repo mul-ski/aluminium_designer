@@ -5,6 +5,7 @@ import 'package:aluminium_designer/core/models/catalog.dart';
 import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
 import 'package:aluminium_designer/core/models/layout_direction.dart';
+import 'package:aluminium_designer/core/models/opening.dart';
 import 'package:aluminium_designer/core/models/profile.dart';
 import 'package:aluminium_designer/core/models/profile_system.dart';
 import 'package:aluminium_designer/core/models/profile_usage.dart';
@@ -332,6 +333,41 @@ void main() {
       controller.applySectionHeight(section, '-5');
       controller.applySectionVantauxCount(section, 0);
 
+      expect(controller.canUndo, isFalse);
+    });
+
+    test('applySectionVantauxCount reaches multi-vantail counts and '
+        'coalesces stepper clicks', () {
+      // A coulissante ouvrant section at 2 vantaux -- the encoded
+      // me-14600 débitage columns live at exactly these counts.
+      final construction = _construction().copyWith(
+        sections: [
+          Section(
+            id: 's1',
+            order: 0,
+            kind: SectionKind.ouvrant,
+            width: 1000,
+            height: 1200,
+            openingType: OpeningType.coulissante,
+            vantauxCount: 2,
+          ),
+        ],
+      );
+      final controller = ConstructionEditorController(
+        construction: construction,
+      );
+      final section = controller.draft.sections.single;
+
+      // Two stepper clicks: 2 -> 3 -> 4.
+      controller
+        ..applySectionVantauxCount(section, 3)
+        ..applySectionVantauxCount(section, 4);
+
+      expect(controller.draft.sections.single.vantauxCount, 4);
+      // Consecutive clicks coalesce into ONE undo entry that jumps back
+      // before the whole run.
+      controller.undo();
+      expect(controller.draft.sections.single.vantauxCount, 2);
       expect(controller.canUndo, isFalse);
     });
 

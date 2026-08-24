@@ -207,6 +207,57 @@ void main() {
       expect(vantauxFinder, findsOneWidget);
     });
 
+    testWidgets('coulissante section steps vantaux to the encoded '
+        'multi-leaf counts', (tester) async {
+      // The real me-14600 débitage rules gate on coulissante sections at
+      // vantauxCount 2/3/4 -- pin that a user can reach those counts
+      // through the properties panel stepper.
+      await _pumpEditor(
+        tester,
+        _construction(sections: [
+          _fixedSection(),
+          Section(
+            id: 's2',
+            order: 1,
+            kind: SectionKind.ouvrant,
+            width: 800,
+            height: 1200,
+            openingType: OpeningType.coulissante,
+            vantauxCount: 1,
+          ),
+        ]),
+      );
+
+      await tester.tap(find.text('Section 2'));
+      await tester.pumpAndSettle();
+
+      final labelFinder = find.text('Vantaux :', skipOffstage: false);
+      await tester.ensureVisible(labelFinder);
+      await tester.pumpAndSettle();
+
+      // Scope to the Vantaux row: profile-assignment quantity steppers
+      // reuse the same icons elsewhere on this stage.
+      final rowFinder = find.ancestor(
+        of: labelFinder,
+        matching: find.byType(Row),
+      ).first;
+      final addFinder = find.descendant(
+        of: rowFinder,
+        matching: find.byIcon(Icons.add_circle_outline),
+      );
+      expect(addFinder, findsOneWidget);
+
+      await tester.tap(addFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(addFinder);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(of: rowFinder, matching: find.text('3')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('add section adds a new section and appears in tree', (
       tester,
     ) async {
