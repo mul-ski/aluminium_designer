@@ -254,12 +254,17 @@ conditions only -- it could not distinguish 14 621 from 14 631 nor gate
 on configuration. That blocker was removed by
 `ProfileReferenceCondition` (C5a).
 
-Scope note on existing installs: `withBuiltInCatalogSeed` merges by
-addition only, so an install whose persisted me-14600 record still says
-`ruleSetId: 'generic-placeholder'` keeps placeholder behaviour until the
-user re-selects/updates that system through the catalog UI. Fresh
-installs get the real rule set directly. This divergence is accepted
-seed philosophy, recorded here so it is discoverable.
+Scope note on existing installs (updated when the adoption mechanism
+landed): `withBuiltInCatalogSeed` merges by addition only, so an install
+seeded before a system's real rules existed would keep
+`ruleSetId: 'generic-placeholder'` forever under pure add-only merging.
+`adoptBuiltInRuleSets` (called from `CatalogStore.load` on every load)
+is the narrow, deliberate exception: for a PRESENT record matching a
+shipped built-in by id with `isBuiltIn == true` that still stores the
+placeholder id, ONLY `ruleSetId` is refreshed to the shipped value and
+the change is persisted; user-created systems, non-placeholder stored
+values, and deleted records are untouched. Fresh installs get the real
+rule set directly.
 
 ## Corrections during transcription
 

@@ -104,6 +104,18 @@ class CatalogStore {
       await seededMarker.writeAsString('1');
     }
 
+    // Adopt real built-in rule sets on EVERY load -- not just the
+    // seeding pass. Installs seeded before a built-in system's rules
+    // landed keep the sentinel above, so pure add-only merging would
+    // leave them calculating placeholder cuts forever. Identity
+    // comparison detects "nothing refreshed" (no write). Deletion
+    // stickiness is preserved: only records still present are touched.
+    final adopted = adoptBuiltInRuleSets(catalog);
+    if (!identical(adopted, catalog)) {
+      catalog = adopted;
+      await save(catalog);
+    }
+
     return catalog;
   }
 
@@ -117,4 +129,11 @@ class CatalogStore {
     final file = _catalogFile(dir);
     await file.writeAsString(jsonEncode(catalog.toJson()));
   }
+
+  /// Test-only access to the storage directory: tests that simulate
+  /// pre-seeded installs must place `.catalog_seeded` next to
+  /// `catalog.json` before calling [load].
+  // Not @visibleForTesting only because `meta` isn't a direct dependency;
+  // the doc comment carries the same contract.
+  Future<Directory> directoryForTest() => _dir();
 }

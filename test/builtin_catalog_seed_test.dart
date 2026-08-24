@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -309,6 +310,138 @@ void main() {
     });
   });
 
+  group('adoptBuiltInRuleSets (pure refresh logic)', () {
+    /// A faithful stand-in for a pre-C5 persisted record: identical to
+    /// the shipped me-14600 definition except it still points at the
+    /// placeholder rule set.
+    ProfileSystem driftedBuiltin() => ProfileSystem(
+      id: meSerie14600Id,
+      manufacturer: meSerie14600.manufacturer,
+      manufacturerId: meSerie14600.manufacturerId,
+      name: meSerie14600.name,
+      ruleSetId: 'generic-placeholder',
+      profiles: meSerie14600.profiles,
+      supportedOpenings: meSerie14600.supportedOpenings,
+      isBuiltIn: true,
+      metadata: null, // Pre-C4a installs had no metadata either.
+    );
+
+    test('refreshes a drifted built-in system in place', () {
+      // Non-null metadata pins the "verified metadata preserved exactly"
+      // promise of the refresh.
+      final withMetadata = ProfileSystem(
+        id: driftedBuiltin().id,
+        manufacturer: driftedBuiltin().manufacturer,
+        manufacturerId: driftedBuiltin().manufacturerId,
+        name: driftedBuiltin().name,
+        ruleSetId: driftedBuiltin().ruleSetId,
+        profiles: driftedBuiltin().profiles,
+        supportedOpenings: driftedBuiltin().supportedOpenings,
+        isBuiltIn: true,
+        metadata: meSerie14600.metadata,
+      );
+      final catalog = Catalog(profileSystems: [withMetadata]);
+
+      final adopted = adoptBuiltInRuleSets(catalog);
+
+      expect(adopted.profileSystems, hasLength(1));
+      final system = adopted.profileSystems.single;
+      expect(system.ruleSetId, meSerie14600Id);
+      // Everything else is preserved exactly as persisted.
+      expect(system.id, meSerie14600Id);
+      expect(system.name, meSerie14600.name);
+      expect(system.profiles, same(meSerie14600.profiles));
+      expect(system.isBuiltIn, isTrue);
+      expect(system.metadata, same(meSerie14600.metadata));
+    });
+
+    test('a stored record matching a built-in id but flagged '
+        'isBuiltIn:false stays untouched (user-created wins)', () {
+      final userOwned = ProfileSystem(
+        id: meSerie14600Id,
+        manufacturer: 'Someone',
+        manufacturerId: 'someone',
+        name: 'Recreated by user',
+        ruleSetId: 'generic-placeholder',
+        profiles: const [],
+        supportedOpenings: const [],
+        isBuiltIn: false,
+      );
+      final catalog = Catalog(profileSystems: [userOwned]);
+
+      final adopted = adoptBuiltInRuleSets(catalog);
+
+      expect(identical(adopted, catalog), isTrue);
+    });
+
+    test('is a no-op (same instance) when nothing needs adoption', () {
+      const catalog = Catalog();
+
+      expect(identical(adoptBuiltInRuleSets(catalog), catalog), isTrue);
+
+      // Already-adopted built-in: untouched.
+      final current = Catalog(profileSystems: [meSerie14600]);
+      expect(identical(adoptBuiltInRuleSets(current), current), isTrue);
+    });
+
+    test('never touches user-created systems even on placeholder rules',
+        () {
+      final userSystem = ProfileSystem(
+        id: 'user-system',
+        manufacturer: 'User Manufacturer',
+        manufacturerId: 'user-manufacturer',
+        name: 'My System',
+        ruleSetId: 'generic-placeholder',
+        profiles: const [],
+        supportedOpenings: const [],
+        isBuiltIn: false,
+      );
+      final catalog = Catalog(
+        profileSystems: [driftedBuiltin(), userSystem],
+      );
+
+      final adopted = adoptBuiltInRuleSets(catalog);
+
+      expect(adopted.profileSystems, hasLength(2));
+      expect(
+        adopted.profileSystems
+            .firstWhere((s) => s.id == 'user-system')
+            .ruleSetId,
+        'generic-placeholder',
+      );
+    });
+
+    test('a non-placeholder stored value wins -- no override of user '
+        'choices, even for a built-in id', () {
+      final customized = ProfileSystem(
+        id: meSerie14600Id,
+        manufacturer: meSerie14600.manufacturer,
+        manufacturerId: meSerie14600.manufacturerId,
+        name: meSerie14600.name,
+        ruleSetId: 'my-own-rules',
+        profiles: meSerie14600.profiles,
+        supportedOpenings: meSerie14600.supportedOpenings,
+        isBuiltIn: true,
+      );
+      final catalog = Catalog(profileSystems: [customized]);
+
+      final adopted = adoptBuiltInRuleSets(catalog);
+
+      expect(adopted.profileSystems.single.ruleSetId, 'my-own-rules');
+    });
+
+    test('idempotent: adopting an already-adopted catalog changes nothing',
+        () {
+      final once = adoptBuiltInRuleSets(
+        Catalog(profileSystems: [driftedBuiltin()]),
+      );
+      final twice = adoptBuiltInRuleSets(once);
+
+      expect(identical(twice, once), isTrue);
+      expect(twice.profileSystems.single.ruleSetId, meSerie14600Id);
+    });
+  });
+
   group('CatalogStore seeding via real file I/O', () {
     late Directory tempDir;
 
@@ -379,6 +512,63 @@ void main() {
       expect(
         reloaded.profileSystems.any((s) => s.id == meSerie14600Id),
         isFalse,
+      );
+    });
+
+    test('a pre-C5 install (drifted built-in + sentinel present) adopts '
+        'the real rule set on load and persists the adoption', () async {
+      final store = CatalogStore();
+
+      // Simulate the on-disk state of an install last run before C5b:
+      // the seeded me-14600 record still points at the placeholder, and
+      // the one-time seed sentinel already exists.
+      final drifted = ProfileSystem(
+        id: meSerie14600Id,
+        manufacturer: meSerie14600.manufacturer,
+        manufacturerId: meSerie14600.manufacturerId,
+        name: meSerie14600.name,
+        ruleSetId: 'generic-placeholder',
+        profiles: const [],
+        supportedOpenings: const [OpeningType.coulissante],
+        isBuiltIn: true,
+      );
+      await store.save(Catalog(
+        manufacturers: [maghrebExtrusion],
+        profileSystems: [drifted],
+      ));
+      final dir = await store.directoryForTest();
+      File('${dir.path}/.catalog_seeded').writeAsStringSync('1');
+
+      // Load: the adoption pass must refresh ruleSetId despite the
+      // sentinel short-circuiting the seed merge.
+      final loaded = await store.load();
+      final adopted = loaded.profileSystems
+          .firstWhere((s) => s.id == meSerie14600Id);
+      expect(adopted.ruleSetId, meSerie14600Id);
+      expect(adopted.isBuiltIn, isTrue);
+
+      // PERSISTENCE proof: read catalog.json raw, bypassing load()'s
+      // self-healing re-adoption -- a regression that drops the save()
+      // would otherwise be invisible because every load re-derives the
+      // fix in memory.
+      final rawOnDisk =
+          jsonDecode(File('${dir.path}/catalog.json').readAsStringSync())
+              as Map<String, dynamic>;
+      final storedSystems =
+          (rawOnDisk['profileSystems'] as List).cast<Map<String, dynamic>>();
+      expect(
+        storedSystems.firstWhere((s) => s['id'] == meSerie14600Id)['ruleSetId'],
+        meSerie14600Id,
+      );
+
+      // The adoption survives a fresh store too.
+      final reloadedStore = CatalogStore();
+      final reloaded = await reloadedStore.load();
+      expect(
+        reloaded.profileSystems
+            .firstWhere((s) => s.id == meSerie14600Id)
+            .ruleSetId,
+        meSerie14600Id,
       );
     });
   });

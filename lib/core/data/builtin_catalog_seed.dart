@@ -31,7 +31,10 @@
 /// existing install -- `withBuiltInCatalogSeed` only ever ADDS missing
 /// records and never removes or rewrites what a catalog already
 /// contains (see its doc comment below), so pre-existing entries stay
-/// until the user deletes them through the normal catalog UI.
+/// until the user deletes them through the normal catalog UI -- with one
+/// narrow exception: [adoptBuiltInRuleSets] refreshes ONLY the
+/// `ruleSetId` of present built-in systems still pointing at the
+/// placeholder, so installs predating a system's real rules adopt them.
 library;
 
 import '../models/catalog.dart';
@@ -640,7 +643,9 @@ const List<ProfileSystem> builtInProfileSystems = [meSerie14600];
 /// than resurrecting anything the user removed. Each record is checked
 /// independently by id: deleting one built-in manufacturer/system does
 /// not affect whether any other one gets (re-)added, and this function
-/// never modifies or re-adds a record that's already present.
+/// never modifies or re-adds a record that's already present -- with ONE
+/// deliberate exception handled separately by [adoptBuiltInRuleSets]
+/// below.
 ///
 /// This is also why removing records from the seed (e.g. the earlier
 /// ADM/Sepalumic/Menara/DOMAL placeholders) cannot clean them out of an
@@ -665,4 +670,70 @@ Catalog withBuiltInCatalogSeed(Catalog catalog) {
     manufacturers: [...catalog.manufacturers, ...manufacturersToAdd],
     profileSystems: [...catalog.profileSystems, ...systemsToAdd],
   );
+}
+
+/// Returns [catalog] with every PRESENT built-in profile system whose
+/// stored rule set is still the generic placeholder refreshed to the
+/// rule set the shipped definition carries.
+///
+/// [withBuiltInCatalogSeed] runs once per install (`CatalogStore`'s
+/// `.catalog_seeded` sentinel), so a system seeded BEFORE its real rules
+/// existed keeps `ruleSetId: 'generic-placeholder'` forever under pure
+/// add-only merging -- silently calculating placeholder cuts next to an
+/// app that now ships verified rules. This function is the narrow,
+/// deliberate exception to add-only merging:
+///
+/// - a record qualifies only if it matches a shipped built-in BY ID,
+///   carries `isBuiltIn == true`, and still stores the placeholder id;
+/// - ONLY `ruleSetId` changes -- every other field of the stored record
+///   (including user-visible names and verified metadata) is preserved
+///   exactly as persisted;
+/// - user-created systems (`isBuiltIn == false`) and any stored value
+///   that is not the placeholder are untouched -- if a user ever pointed
+///   a built-in at their own rule set, that choice wins;
+/// - built-in systems the user deleted stay deleted: only records still
+///   present are considered, nothing is resurrected.
+///
+/// Returns the SAME instance when there is nothing to refresh, so
+/// callers (CatalogStore.load) can detect "changed" by identity.
+Catalog adoptBuiltInRuleSets(Catalog catalog) {
+  var changed = false;
+  final systems = <ProfileSystem>[];
+  for (final stored in catalog.profileSystems) {
+    ProfileSystem? seed;
+    for (final candidate in builtInProfileSystems) {
+      if (candidate.id == stored.id) {
+        seed = candidate;
+        break;
+      }
+    }
+
+    final needsAdoption = seed != null &&
+        seed.ruleSetId != 'generic-placeholder' &&
+        stored.isBuiltIn &&
+        stored.ruleSetId == 'generic-placeholder';
+
+    if (!needsAdoption) {
+      systems.add(stored);
+      continue;
+    }
+
+    changed = true;
+    systems.add(
+      ProfileSystem(
+        id: stored.id,
+        manufacturer: stored.manufacturer,
+        manufacturerId: stored.manufacturerId,
+        name: stored.name,
+        ruleSetId: seed.ruleSetId,
+        profiles: stored.profiles,
+        supportedOpenings: stored.supportedOpenings,
+        isBuiltIn: stored.isBuiltIn,
+        metadata: stored.metadata,
+      ),
+    );
+  }
+
+  if (!changed) return catalog;
+  return catalog.copyWith(profileSystems: systems);
 }
