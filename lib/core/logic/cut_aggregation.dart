@@ -208,8 +208,11 @@ class CutListLine {
 /// step the workshop "Liste de découpe" view consumes directly --
 /// grouped display NEVER replaces the per-cut records it derives from.
 List<CutListLine> buildCutListLines(List<ProfileCut> cuts) {
+  // Insertion-ordered map: Dart literal maps preserve key insertion
+  // order, so returning its values at the end keeps first-encounter
+  // ordering AND reflects every merge -- no second structure to fall
+  // out of sync with.
   final byGroup = <String, CutListLine>{};
-  final lines = <CutListLine>[];
 
   for (final cut in cuts) {
     final key =
@@ -236,7 +239,6 @@ List<CutListLine> buildCutListLines(List<ProfileCut> cuts) {
         contributingSectionIds: [cut.sectionId],
       );
       byGroup[key] = line;
-      lines.add(line);
       continue;
     }
 
@@ -277,5 +279,5 @@ List<CutListLine> buildCutListLines(List<ProfileCut> cuts) {
       ],
     );
   }
-  return lines;
+  return byGroup.values.toList();
 }
