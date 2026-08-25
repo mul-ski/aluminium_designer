@@ -64,6 +64,18 @@ class ConstructionCalculator {
   /// than being silently resolved or downgraded to an issue --
   /// see `SystemRuleSet.select` for the selection/tie-breaking rules.
   ///
+  /// Each context also carries the evaluated usage's section siblings --
+  /// every OTHER successfully-resolved usage sharing its `sectionId`, as
+  /// [SectionSibling] pairs (see [CalculationContext.siblings]). This is
+  /// derived once per calculation from the construction's usages plus
+  /// [profilesById]; nothing new is read from storage and nothing
+  /// persists. Companion-profile conditions
+  /// ([CompanionProfileReferenceCondition]) quantify over this list; every
+  /// other condition ignores it. Usages whose profile fails to resolve are
+  /// omitted from sibling lists -- they carry no reference to match on,
+  /// and their own `profileUnresolved` issue already reports them in this
+  /// same outcome.
+  ///
   /// Throws [StateError] if [construction] doesn't have both overall
   /// dimensions set yet. `Construction.width`/`height` are nullable to
   /// represent a construction the editor is still building (see
@@ -117,6 +129,22 @@ class ConstructionCalculator {
       for (final section in construction.sections) section.id: section,
     };
 
+    // Companion view: resolved usages grouped by section, giving each
+    // CalculationContext its section siblings (see [SectionSibling]).
+    // Derived once per calculation from data already in hand -- the
+    // construction's usages plus [profilesById]; nothing new is read from
+    // storage and nothing persists. Unresolvable usages are omitted: they
+    // carry no reference to match on, and their own `profileUnresolved`
+    // issue is reported in the loop below.
+    final siblingsBySectionId = <String, List<SectionSibling>>{};
+    for (final u in construction.profileUsages) {
+      final p = profilesById[u.profileId];
+      if (p == null) continue;
+      (siblingsBySectionId[u.sectionId] ??= []).add(
+        SectionSibling(usage: u, profile: p),
+      );
+    }
+
     final cuts = <ProfileCut>[];
     final issues = <ProfileUsageIssue>[];
 
@@ -136,11 +164,17 @@ class ConstructionCalculator {
       }
 
       final section = sectionsById[usage.sectionId];
+      final usageId = usage.id;
+      final siblings =
+          (siblingsBySectionId[usage.sectionId] ?? const <SectionSibling>[])
+              .where((s) => s.usage.id != usageId)
+              .toList(growable: false);
       final context = CalculationContext(
         construction: construction,
         profile: profile,
         section: section,
         usage: usage,
+        siblings: siblings,
       );
 
       final rule = ruleSet.select(context);

@@ -37,12 +37,42 @@ class CalculationContext {
   /// [ProfileUsageRoleCondition].
   final ProfileUsage? usage;
 
+  /// The other successfully-resolved [ProfileUsage]s sharing the evaluated
+  /// usage's section, excluding the evaluated usage itself -- the derived
+  /// "who else is placed in this châssis" view that companion-profile
+  /// conditions read (see [CompanionProfileReferenceCondition]). Populated
+  /// by `ConstructionCalculator.calculate` from data already in hand (the
+  /// construction's usages plus the resolved profile map); never persisted
+  /// and never read from storage. Empty by default. Conditions reading it
+  /// fail closed whenever the evaluated context has no usage or no
+  /// section, exactly like every other missing-context case -- note the
+  /// list itself is keyed by the usage's raw `sectionId`, so it can be
+  /// non-empty even when the section record no longer resolves; the guard
+  /// in [CompanionProfileReferenceCondition] is what makes that state
+  /// safe. Usages whose profile does not resolve are invisible here (they
+  /// carry no identity to check); their own skip surfaces separately as a
+  /// `profileUnresolved` issue on the same outcome.
+  final List<SectionSibling> siblings;
+
   const CalculationContext({
     required this.construction,
     required this.profile,
     this.section,
     this.usage,
+    this.siblings = const [],
   });
+}
+
+/// One entry in [CalculationContext.siblings]: a [ProfileUsage] sharing the
+/// evaluated usage's section together with its resolved catalogue
+/// [Profile]. A plain pair -- no behaviour -- so conditions can quantify
+/// over "the other placed members of this section" without reaching back
+/// into the construction or the profile map themselves.
+class SectionSibling {
+  final ProfileUsage usage;
+  final Profile profile;
+
+  const SectionSibling({required this.usage, required this.profile});
 }
 
 /// Base type for rule-matching conditions.
@@ -201,6 +231,82 @@ class ProfileReferenceCondition extends RuleCondition {
   @override
   bool matches(CalculationContext context) {
     return references.contains(context.profile.reference);
+  }
+}
+
+/// Matches when the evaluated usage's section siblings establish the
+/// required companion-profile identity: at least one *sash-carrier*
+/// sibling exists and every sash-carrier sibling's catalogue reference is
+/// one of [references].
+///
+/// "Sash carrier" = a sibling whose resolved [Profile.type] is
+/// [ProfileType.ouvrant] and whose role is NOT
+/// [ProfileUsageRole.intermediate] -- i.e. the leaf-frame members AluVis
+/// places at left/right/top/bottom. The intermediate slot is excluded
+/// because real systems place members there that their sheets still type
+/// as ouvrant profiles: Sepalumic Série 4200's battue centrale 4206 is
+/// seeded `ProfileType.ouvrant` from its own B040 sheet heading yet
+/// coexists with the traverse options at 2 vantaux
+/// (docs/VERIFIED_SOURCES.md, M-2). The clause is a derivation from AluVis
+/// placement doctrine, not a source statement.
+///
+/// WHY THIS EXISTS (real source requirement; second manufacturer to hit
+/// it): Sepalumic 4200's OF traverse-option débitage is keyed by the
+/// châssis's OUVRANT reference, not by the traverse's own -- traverse 2656
+/// cuts L−117 / L−141 / L−177 beside ouvrant 4211/4219/4244, and
+/// 4405/4413 cut L−187 beside 4254 (E070/E090/E110/E130, éd. 05; per-page
+/// citations in docs/VERIFIED_SOURCES.md M-2). The same shape appears in
+/// ME Série 14800 frappe, whose parclose rows are keyed by the sibling
+/// ouvrant ref 14.802 vs 14.805 (Catalogue Général, pdf p. 65). No
+/// single-usage condition can express "the OTHER member of this section
+/// is ref X", which is exactly why those rows stayed unencoded while
+/// blocked (blockers on record in docs/VERIFIED_SOURCES.md).
+///
+/// Semantics are UNIVERSAL over the carrier class, not existential ("first
+/// match wins"): a section mixing two sash references (e.g. left stile
+/// 4211 with right stile 4219) matches NO rule here and surfaces as a
+/// plain `noRuleMatched` skip on the dependent usage, instead of two rules
+/// tying at equal specificity in `SystemRuleSet.select` and throwing
+/// `AmbiguousRuleMatchException` out of otherwise-calculating
+/// constructions. Each E-sheet documents exactly one sash reference per
+/// châssis; a mixed-sash section lies outside every documented cell.
+///
+/// Fail-closed everywhere: no usage or section in context, an empty
+/// [references] set, no sash-carrier siblings at all, or any carrier
+/// outside [references] all yield `false`. Unresolvable sibling placements
+/// are invisible here (no identity to check -- their own
+/// `profileUnresolved` issue reports them on the same outcome), so a
+/// section whose only carriers do not resolve also fails closed. Matching
+/// is exact string equality on [Profile.reference] -- never display names,
+/// never iteration-order-dependent.
+///
+/// Encoding discipline for rule authors: a multi-reference [references]
+/// set is safe only when every reference it names shares the SAME outcome
+/// (the same débitage row, e.g. Sepalumic 4405/4413 → L−187). A set
+/// spanning different-deduction references would re-admit wrong matches
+/// under the universal quantifier -- give each deduction its own rule
+/// with a single-reference set instead.
+class CompanionProfileReferenceCondition extends RuleCondition {
+  final Set<String> references;
+
+  const CompanionProfileReferenceCondition(this.references);
+
+  @override
+  bool matches(CalculationContext context) {
+    if (references.isEmpty) return false;
+    if (context.usage == null || context.section == null) return false;
+
+    var sawCarrier = false;
+    for (final sibling in context.siblings) {
+      final isSashCarrier = sibling.profile.type == ProfileType.ouvrant &&
+          sibling.usage.role != ProfileUsageRole.intermediate;
+      if (!isSashCarrier) continue;
+      if (!references.contains(sibling.profile.reference)) {
+        return false;
+      }
+      sawCarrier = true;
+    }
+    return sawCarrier;
   }
 }
 
