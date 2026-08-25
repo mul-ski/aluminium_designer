@@ -293,3 +293,78 @@ is add-only and never deletes, so installs that already persisted those
 records keep them until the user removes them through the catalog UI;
 their ids remain reserved in the sense that the seed will never re-add
 them.
+
+---
+
+## M-2: SEPALUMIC — Série 4200 (verification gate OPENED)
+
+| | |
+|---|---|
+| **File** | `~/Downloads/CAT4200_ED05.pdf` (199 pages; Sepalumic "Catalogue Technique" Série 4200, **Édition 05 — Septembre 2019**; AutoCAD-plotted sheets with text layer; visual hi-dpi verification of every encoded table) |
+| **Identity** | Sepalumic (groupe Sepalumic, France/Maroc). Série **4200** = gamme traditionnelle à frappe : fixes, ouvrants à la française 1–2 vantaux, oscillo-battants, soufflets, vasistas, projetés, portes, châssis composés (sheet A030). Dormant tubulaire **aluminium 6060, base 40 mm**, assemblé en coupe d'onglet par équerre à pion ; ouvrant à feuillure portefeuille ; **vitrage 6 à 24 mm** ; joint EPDM battue/vitrage ; NF EN 14351-1 (A030/A040). |
+| **Structure** | A Généralités (A010–A060) · B Profilés (B010–B080) · C Accessoires · D Informations · **E Débits & Nomenclatures** (drawing sheet + table sheet per configuration) · F Feuillures · G Usinages · H Éclatés · I Assemblages. Pictogramme legend (A020) defines the table symbols (Débit, Longueur, Coupe 45°, Ix/Iy cm⁴, Section…). |
+| **Source grade** | Tier 1 (manufacturer technical documentation — fabricator catalogue). |
+| **Seeded as** | manufacturer `builtin-sepalumic` "Sepalumic", system `builtin-sepalumic-4200` "Série 4200". |
+
+### B-section profile transcription (sheets B020–B080; width = face, depth = wall-plane; `0` = not labeled)
+
+| Réf | Type (sheet heading) | width | depth | Sheet | Notes |
+|---|---|---|---|---|---|
+| 4220 | Dormants | 40 | 49 | B020 | sans couvre-joint; sub-dim 22 |
+| 4221 | Dormants | 40 | 49 | B020 | avec couvre-joint; +25 clip sub-dim |
+| 4211 | Ouvrants | 50 | 37.5 | B030 | étroit; subs 26/18 |
+| 4219 | Ouvrants | 50 | 49 | B030 | subs 26/18 |
+| 4244 | Ouvrants | 49.5 | 67.5 | B030 | subs 26/18 |
+| 4254 | Ouvrants | 50 | 76 | B030 | subs 36/72/22/18 |
+| 4206 | Ouvrants | 52 | 40 | B040 | battue centrale; subs 8.9/17.7/35.5 |
+| 4413 | Traverses intermédiaires | 40 | 44 | B050 | subs 35/22/22 |
+| 4405 | Traverses intermédiaires | 40 | 26 | B050 | subs 35/22/22 |
+| 2656 | Traverses intermédiaires | 26 | 62 (derived 19+24+19) | B050 | sub 29.5 |
+| 4243 | Traverses renforcées | 40 | 44 | B060 | reinforcement tube drawn at 122; subs 35/22/22 |
+| 4233 | Traverses intermédiaires | 26 | 26 | B050 | reinforcement tube 84×70 |
+| 4253 | Traverses intermédiaires | 26 | 26 | B050 | reinforcement tube 95×70 |
+| 4464 | Parcloses | 5.4 | 22 | B070 | |
+| 4418 | Parcloses | 9.4 | 22 | B070 | |
+| 5026 | Parcloses | 14.3 | 22 | B070 | |
+| 5120 | Parcloses | 18.2 | 22 | B070 | |
+| 5016 | Parcloses | 22 | 22 | B070 | |
+| 4250 | Parcloses | 7.9 | 22 | B070 | |
+| 4252 | Parcloses | 12.1 | 26.7 | B070 | |
+| 4251 | Parcloses | 15.8 | 26.7 | B070 | |
+| 3380M | Complémentaires | 0 (unlabeled) | 30 | B080 | |
+| 4080 | Complémentaires | 0 (unlabeled) | 30 | B080 | |
+| 4081 | Complémentaires | 0 (unlabeled) | 45 | B080 | |
+| 4082 | Complémentaires | 0 (unlabeled) | 60 | B080 | |
+| 2648 | Complémentaires | 30 | 0 (28/42 chain, no total) | B080 | |
+| 463 | Complémentaires | 45 | 7 | B080 | |
+| 4582 | Complémentaires | 52 | 20 | B080 | |
+| 5067 | Complémentaires | 35 | 15 | B080 | |
+| 4568 | Complémentaires | 20 | 12 | B080 | |
+| 412 | Complémentaires | 19.6 | 4.5 | B080 | |
+
+### E-section débitage — encoded families (drawing + table sheet pairs)
+
+Variables **L** = whole dormant-frame width, **H** = whole dormant-frame height (each drawing sheet's elevation). Dormant/ouvrant cuts 45°/45°; traverse/battue cuts 90°/90°. Every table carries "Ce tableau est donné à titre indicatif…" — recorded, treated as the table's own scope caveat.
+
+**Châssis fixe** (E030/E050 — pdf pp. 39–42): dormant **4220** `2×L + 2×H` (45°/45°) OU **4221** `2×(L+50) + 2×(H+50)`; option traverse intermédiaire `1×(L−54.5)` 90°/90° in **4405 ou 4413**.
+
+**OF 1 vantail** (E070=4211 p.43-44, E090=4219 p.45-46, E110=4244 p.47-48, E130=4254 p.49-50): dormant 4220/4221 exactly as fixe; ouvrant `2×(L−43.5) + 2×(H−43.5)` 45°/45° — **same deductions for all four ouvrant refs**; option traverse `1×(L−deduction)` 90°/90° with deduction **per sibling ouvrant ref**: 4211→**117** (2656), 4219→**141** (2656), 4244→**177** (2656), 4254→**187** (4405/4413).
+
+**OF 2 vantaux** (E150=4211 p.51-52, E170=4219 p.53-54, E190=4244 p.55-56, E210=4254 p.57-58): dormant as above; ouvrant `4×(L/2−24) + 4×(H−43.5)` 45°/45° (same deductions all refs); **battue centrale 4206** `1×(H−102)` 90°/90°; option traverse `2×(L/2−deduction)` 90°/90°: 4211→**98**, 4219→**122**, 4244→**158** (all 2656), 4254→**168** (4405/4413). Parclose rows (per-ref `4×(L/2−168)` traverse + `4×(H−231)` montant etc.) are glass-configuration-dependent — NOT encoded (blocker 3 below).
+
+### Vocabulary / routing identifications
+
+- **OF = Ouvrant à la Française** → routed to `OpeningType.francaise`. Evidence: descriptif A030 pairs "Kit crémone fermeture haute et basse pour **OF** 1 ou 2 vantaux" with the "ouvrants à la française" range; accessories list "Paumelles réversible pour OF" (paumelles = inward side-hinges); the abbreviation itself.
+- **O.B. identification UNRESOLVED — do not route on either reading.** The catalogue never expands "O.B.". Two candidate readings exist and the evidence does not settle between them: (a) *à la belge* (outward side-hung) — O.B. kits use "compas" friction stays; (b) *oscillo-battant* — compas are also characteristic of O.B.-style hardware, and the A030 range explicitly includes oscillo-battants. Against (b): the accessories list a "kit verrouillage intégré **ouvrant à l'anglaise**" separately from "Point de fermeture réglable pour O.F. et O.B.", and A030 says "Fermeture multi-points pour les oscillo-battants" while the O.B. kit is "sans crémone". Both readings are recorded; neither is adopted; no rule routes on O.B. Resolving this requires an external source (Sepalumic confirmation or the E-sheet typology drawings at higher resolution).
+
+### Deliberately NOT encoded (blockers on record)
+
+0. **Single-châssis-per-construction scope limit**: every encoded L/H refers to the WHOLE dormant-frame elevation of ONE châssis (each E drawing sheet's L/H). A construction mixing a fixe section and an OF section (or any multi-châssis composition) is NOT covered by these tables — the tables' arithmetic has one L/H pair per unit. Users must model one châssis per AluVis construction until a multi-frame scope condition exists; assigning 4200 profiles across sibling sections would apply the whole-unit L/H to each section's cuts (a confident wrong number, not a noRuleMatched).
+1. **OB (à la belge OU oscillo-battant — identification unresolved, see above), Soufflet, Projeté, Porte large, Châssis composé families** — E-sheets exist and tables are present, but no honest `OpeningType` exists for any candidate reading of O.B., soufflet, or projeté, and portes/châssis composés need door & multi-panel modeling decisions. Smallest future extension: new enum values + picker support, one milestone each.
+2. **Traverse intermédiaire options for OF 1v/2v**: the deduction depends on the SIBLING ouvrant reference (117/141/177/187 at 1v; 98/122/158/168 at 2v) — a cross-usage dependency the rule engine cannot evaluate (conditions see one usage's context). Same blocker as the Série 14600 traverse/montant pairing note; this is the SECOND manufacturer hitting it with fully documented numbers — the strongest evidence yet for a future paired-profile condition extension.
+3. **Parclose cut rows**: selection among 8 refs depends on glass configuration ("ou") — no glass domain exists. Parclose PROFILES are seeded; their cuts are not.
+4. Hardware, joints, glass-dimension and usinage tables: component/machining domains, out of scope.
+
+### Examined earlier (insufficient; superseded as working source by this catalogue)
+
+Official Coulissant 8800 brochure (marketing descriptif only) and the GUIDE PROGES index (trade-hosted copy) — recorded during the C7 planning pass; the 4200 ED05 catalogue is the first Sepalumic source carrying fabrication data.

@@ -254,11 +254,20 @@ void main() {
       );
     });
 
-    test('seeding produces exactly 1 manufacturer and 1 profile system', () {
+    test('seeding produces exactly the built-in manufacturers and '
+        'systems, no duplicates', () {
       final seeded = withBuiltInCatalogSeed(const Catalog());
 
-      expect(seeded.manufacturers, hasLength(1));
-      expect(seeded.profileSystems, hasLength(1));
+      expect(seeded.manufacturers, hasLength(2));
+      expect(
+        seeded.manufacturers.map((m) => m.id).toSet(),
+        {maghrebExtrusionId, sepalumicId},
+      );
+      expect(seeded.profileSystems, hasLength(2));
+      expect(
+        seeded.profileSystems.map((s) => s.id).toSet(),
+        {meSerie14600Id, sepSerie4200Id},
+      );
     });
 
     test('each record is added independently -- pre-seeding the built-in '
@@ -504,6 +513,88 @@ void main() {
           reason: profile.reference,
         );
       }
+    });
+  });
+
+  group('seeded Sepalumic 4200 profile dimensions (M-2 transcription)',
+      () {
+    Profile profileByRef(String reference) => sepSerie4200.profilesById.values
+        .firstWhere((p) => p.reference == reference);
+
+    test('sheet-labeled width/depth pairs are seeded verbatim', () {
+      final expected = {
+        '4220': (40.0, 49.0),
+        '4221': (40.0, 49.0),
+        '4211': (50.0, 37.5),
+        '4219': (50.0, 49.0),
+        '4244': (49.5, 67.5),
+        '4254': (50.0, 76.0),
+        '4206': (52.0, 40.0),
+        '4413': (40.0, 44.0),
+        '4405': (40.0, 26.0),
+        '2656': (26.0, 62.0), // depth derived 19+24+19, shown in ledger
+        '4243': (40.0, 44.0),
+        '4233': (26.0, 26.0),
+        '4253': (26.0, 26.0),
+        '4464': (5.4, 22.0),
+        '4418': (9.4, 22.0),
+        '5026': (14.3, 22.0),
+        '5120': (18.2, 22.0),
+        '5016': (22.0, 22.0),
+        '4250': (7.9, 22.0),
+        '4252': (12.1, 26.7),
+        '4251': (15.8, 26.7),
+        '463': (45.0, 7.0),
+        '4582': (52.0, 20.0),
+        '5067': (35.0, 15.0),
+        '4568': (20.0, 12.0),
+        '412': (19.6, 4.5),
+      };
+      expected.forEach((reference, values) {
+        final profile = profileByRef(reference);
+        expect(profile.width, values.$1, reason: '$reference width');
+        expect(profile.depth, values.$2, reason: '$reference depth');
+      });
+    });
+
+    test('unlabeled dimensions stay at the 0 = not-stated marker', () {
+      // 3380M/4080/4081/4082 sheets label only the vertical dim.
+      for (final entry in [
+        ('3380M', 30.0),
+        ('4080', 30.0),
+        ('4081', 45.0),
+        ('4082', 60.0),
+      ]) {
+        final profile = profileByRef(entry.$1);
+        expect(profile.width, 0, reason: entry.$1);
+        expect(profile.depth, entry.$2, reason: entry.$1);
+      }
+      // 2648 labels a 28/42 vertical chain with no total.
+      final p2648 = profileByRef('2648');
+      expect(p2648.width, 30);
+      expect(p2648.depth, 0);
+    });
+
+    test('system metadata carries the A030/A040 facts and nothing more',
+        () {
+      final metadata = sepSerie4200.metadata!;
+      expect(metadata.frameDepthOptionsMm, [49.0]);
+      expect(metadata.sashStileDepthOptionsMm, [37.5, 49.0, 67.5, 76.0]);
+      expect(metadata.glazingMinMm, 6.0);
+      expect(metadata.glazingMaxMm, 24.0);
+      // The catalogue never mentions a thermal break for this series.
+      expect(metadata.thermalBreak, isNull);
+      // No dimension-limit statement exists in the transcribed sections.
+      expect(metadata.dimensionLimits, isEmpty);
+      expect(metadata.assemblyNote, isNotNull);
+      expect(metadata.sourceDescription, contains('4200'));
+    });
+
+    test('system wiring: rule set + supported openings', () {
+      expect(sepSerie4200.ruleSetId, sepSerie4200Id);
+      expect(sepSerie4200.supportedOpenings, [OpeningType.francaise]);
+      expect(sepSerie4200.isBuiltIn, isTrue);
+      expect(sepSerie4200.profiles, hasLength(31));
     });
   });
 

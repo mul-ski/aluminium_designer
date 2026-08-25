@@ -690,11 +690,464 @@ const ProfileSystem meSerie14600 = ProfileSystem(
   ),
 );
 
+// ============================================================================
+// SEPALUMIC — Série 4200 (châssis à frappe / oscillo-battants)
+// ============================================================================
+
+/// Manufacturer id for Sepalumic. Fixed stable string, same idempotency
+/// rationale as [maghrebExtrusionId].
+const String sepalumicId = 'builtin-sepalumic';
+
+/// System id for the Série 4200.
+const String sepSerie4200Id = 'builtin-sepalumic-4200';
+
+/// Display names (manufacturer/system), same role as the ME names.
+const String _sepalumicName = 'Sepalumic';
+const String _sepSerie4200Name = 'Série 4200';
+
+/// Sepalumic "Série 4200" — châssis à frappe et oscillo-battants, portes,
+/// châssis composés ("série froide").
+///
+/// EVERY value below is transcribed from ONE identified source document,
+/// cited per value in `docs/VERIFIED_SOURCES.md` (section M-2):
+///
+///   Sepalumic "Catalogue Technique Série 4200", Édition 05 — Septembre
+///   2019 (199-page PDF supplied by the client; AutoCAD-plotted sheets,
+///   text layer + hi-dpi visual verification of every encoded table).
+///   B-section profile sheets B020–B080; E-section débitage tables
+///   E030–E210.
+///
+/// HARD DOMAIN RULE: nothing inferred. `0` = the sheet does not label
+/// that dimension; `thermalBreak` stays null (the catalogue never
+/// mentions one); profile types follow the sheets' own headings.
+///
+/// RULE SET STATUS: `ruleSetId` points at `sepSerie4200RuleSet`
+/// (sep_4200_rule_set.dart) which encodes the honestly-representable
+/// families — Châssis fixe and OF (à la française) 1/2 vantaux. The OB /
+/// Soufflet / Projeté / Porte large / Châssis composé families and the
+/// traverse-option + parclose rows are deliberately NOT encoded — each
+/// blocker is documented in docs/VERIFIED_SOURCES.md (M-2): missing
+/// OpeningType values, a cross-usage dependency the engine cannot
+/// evaluate, and glass-dependent parclose selection. Those usages
+/// surface as honest `noRuleMatched` issues.
+const List<Profile> _sep4200Profiles = [
+  // --- DORMANTS (PROFILÉS B020) ---
+  Profile(
+    id: 'builtin-sepalumic-4200-4220',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4220',
+    name: 'Dormant sans couvre-joint',
+    type: ProfileType.dormant,
+    width: 40,
+    depth: 49,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4221',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4221',
+    name: 'Dormant avec couvre-joint',
+    type: ProfileType.dormant,
+    width: 40,
+    depth: 49,
+    weightPerMeter: 0,
+  ),
+  // --- OUVRANTS (PROFILÉS B030/B040) ---
+  Profile(
+    id: 'builtin-sepalumic-4200-4211',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4211',
+    name: 'Ouvrant étroit feuillure portefeuille',
+    type: ProfileType.ouvrant,
+    width: 50,
+    depth: 37.5,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4219',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4219',
+    name: 'Ouvrant feuillure portefeuille',
+    type: ProfileType.ouvrant,
+    width: 50,
+    depth: 49,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4244',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4244',
+    name: 'Ouvrant feuillure portefeuille',
+    type: ProfileType.ouvrant,
+    width: 49.5,
+    depth: 67.5,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4254',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4254',
+    name: 'Ouvrant feuillure portefeuille',
+    type: ProfileType.ouvrant,
+    width: 50,
+    depth: 76,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4206',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4206',
+    name: 'Battue centrale',
+    type: ProfileType.ouvrant,
+    width: 52,
+    depth: 40,
+    weightPerMeter: 0,
+  ),
+  // --- TRAVERSES INTERMÉDIAIRES / RENFORCÉES (PROFILÉS B050/B060) ---
+  Profile(
+    id: 'builtin-sepalumic-4200-4413',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4413',
+    name: 'Traverse intermédiaire',
+    type: ProfileType.traverse,
+    width: 40,
+    depth: 44,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4405',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4405',
+    name: 'Traverse intermédiaire',
+    type: ProfileType.traverse,
+    width: 40,
+    depth: 26,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-2656',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '2656',
+    name: 'Traverse intermédiaire',
+    type: ProfileType.traverse,
+    width: 26,
+    // Sheet labels a 19/24/19 chain, no total: 62 is the shown
+    // derivation (see VERIFIED_SOURCES M-2).
+    depth: 62,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4243',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4243',
+    name: 'Traverse renforcée',
+    type: ProfileType.traverse,
+    width: 40,
+    depth: 44,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4233',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4233',
+    name: 'Traverse intermédiaire renforcée',
+    type: ProfileType.traverse,
+    width: 26,
+    depth: 26,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4253',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4253',
+    name: 'Traverse intermédiaire renforcée',
+    type: ProfileType.traverse,
+    width: 26,
+    depth: 26,
+    weightPerMeter: 0,
+  ),
+  // --- PARCLOSES (PROFILÉS B070): faces vary by glass configuration ---
+  Profile(
+    id: 'builtin-sepalumic-4200-4464',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4464',
+    name: 'Parclose',
+    type: ProfileType.other,
+    width: 5.4,
+    depth: 22,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4418',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4418',
+    name: 'Parclose',
+    type: ProfileType.other,
+    width: 9.4,
+    depth: 22,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-5026',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '5026',
+    name: 'Parclose',
+    type: ProfileType.other,
+    width: 14.3,
+    depth: 22,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-5120',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '5120',
+    name: 'Parclose',
+    type: ProfileType.other,
+    width: 18.2,
+    depth: 22,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-5016',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '5016',
+    name: 'Parclose',
+    type: ProfileType.other,
+    width: 22,
+    depth: 22,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4250',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4250',
+    name: 'Parclose',
+    type: ProfileType.other,
+    width: 7.9,
+    depth: 22,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4252',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4252',
+    name: 'Parclose',
+    type: ProfileType.other,
+    width: 12.1,
+    depth: 26.7,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4251',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4251',
+    name: 'Parclose',
+    type: ProfileType.other,
+    width: 15.8,
+    depth: 26.7,
+    weightPerMeter: 0,
+  ),
+  // --- COMPLÉMENTAIRES (PROFILÉS B080): finishing/accessory profiles ---
+  Profile(
+    id: 'builtin-sepalumic-4200-3380m',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '3380M',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 0,
+    depth: 30,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4080',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4080',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 0,
+    depth: 30,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4081',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4081',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 0,
+    depth: 45,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4082',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4082',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 0,
+    depth: 60,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-2648',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '2648',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 30,
+    // Sheet labels a 28/42 vertical chain with no total.
+    depth: 0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-463',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '463',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 45,
+    depth: 7,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4582',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4582',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 52,
+    depth: 20,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-5067',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '5067',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 35,
+    depth: 15,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-4568',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '4568',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 20,
+    depth: 12,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-sepalumic-4200-412',
+    manufacturer: _sepalumicName,
+    system: _sepSerie4200Name,
+    reference: '412',
+    name: 'Profil complémentaire',
+    type: ProfileType.other,
+    width: 19.6,
+    depth: 4.5,
+    weightPerMeter: 0,
+  ),
+];
+
+/// Sepalumic "Série 4200" system record — every system-level fact the
+/// source states (A030 descriptif / A040 norms), nothing it doesn't.
+///
+/// `ruleSetId` points at `sepSerie4200RuleSet` (sep_4200_rule_set.dart):
+/// the Châssis fixe + OF (à la française) 1/2 vantaux débitage families.
+/// See this file's profile block doc for the deliberately-unencoded
+/// families and their blockers.
+const ProfileSystem sepSerie4200 = ProfileSystem(
+  id: sepSerie4200Id,
+  manufacturer: _sepalumicName,
+  manufacturerId: sepalumicId,
+  name: _sepSerie4200Name,
+  ruleSetId: sepSerie4200Id,
+  profiles: _sep4200Profiles,
+  supportedOpenings: [OpeningType.francaise],
+  isBuiltIn: true,
+  metadata: ProfileSystemMetadata(
+    // "Dormant tubulaire aluminium 6060, base de 40 mm" (A030); sheet
+    // B020 labels the depth 49.
+    frameDepthOptionsMm: [49.0],
+    // Ouvrant sheets B030: 37.5 / 49 / 67.5 / 76 across the four
+    // ouvrant refs (étroit → porte-large depths).
+    sashStileDepthOptionsMm: [37.5, 49.0, 67.5, 76.0],
+    // "Vitrage de 6 à 24 mm en portefeuille" (A030).
+    glazingMinMm: 6.0,
+    glazingMaxMm: 24.0,
+    // "Assemblé en coupe d'onglet par équerre à pion" (A030, dormant et
+    // ouvrant). The 45° angles on the encoded rules derive from this
+    // statement; square-cut members (traverse/battue) are printed
+    // 90°/90° in the E tables.
+    assemblyNote:
+        'Dormant tubulaire aluminium 6060 base 40 mm et ouvrant à '
+        'feuillure portefeuille, assemblés en coupe d\'onglet par '
+        'équerre à pion. Joint de battement EPDM. Vitrage 6 à 24 mm en '
+        'portefeuille, feuillure drainée à parclose.',
+    // A040: NF EN 14351-1 (produit), NF EN 12519; qualification
+    // européenne, essais FCBA (A050). Alloy 6060 per A030.
+    finishNote:
+        'Aluminium 6060 (A030). Qualifiée suivant la réglementation '
+        'européenne — NF EN 14351-1, NF EN 12519 (A040).',
+    // No dimension-limit statement exists in the catalogue sections
+    // transcribed; none seeded (absence = unknown).
+    sourceDescription:
+        '"Catalogue Technique Série 4200 — SEPALUMIC", Édition 05 — '
+        'Septembre 2019 (199-page PDF fourni par le client; planches '
+        'profilés B020-B080 et débitages E030-E210, lecture texte + '
+        'vérification visuelle haute résolution). Détail par valeur: '
+        'docs/VERIFIED_SOURCES.md, section M-2.',
+  ),
+);
+
 /// Every built-in manufacturer.
-const List<Manufacturer> builtInManufacturers = [maghrebExtrusion];
+const List<Manufacturer> builtInManufacturers = [
+  maghrebExtrusion,
+  sepalumic,
+];
+
+/// The Sepalumic manufacturer record.
+const Manufacturer sepalumic = Manufacturer(
+  id: sepalumicId,
+  name: _sepalumicName,
+  isBuiltIn: true,
+);
 
 /// Every built-in profile system.
-const List<ProfileSystem> builtInProfileSystems = [meSerie14600];
+const List<ProfileSystem> builtInProfileSystems = [meSerie14600, sepSerie4200];
 
 /// Returns [catalog] with every built-in manufacturer/system record above
 /// merged in, each added only if not already present (matched by id).

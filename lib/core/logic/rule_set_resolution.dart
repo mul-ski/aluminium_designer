@@ -2,6 +2,7 @@ library;
 
 import '../data/builtin_catalog_seed.dart';
 import '../data/me_14600_rule_set.dart';
+import '../data/sep_4200_rule_set.dart';
 import '../engine/construction_calculator.dart';
 import '../models/calculation_outcome.dart';
 import '../models/catalog.dart';
@@ -18,18 +19,20 @@ import '../models/rules/system_rule_set.dart';
 /// "linked by this id so `ConstructionCalculator` can find the right
 /// rules for a given system".
 ///
-/// Two entries today:
+/// Three entries today:
 ///
 /// - `generic-placeholder` -- the honest "no real per-manufacturer
 ///   calculation data" fallback, still referenced by any system without
 ///   verified rules.
-/// - `builtin-me-14600` -- the first REAL rule set: Maghreb Extrusion
-///   Série 14600's débitage table, "2 vantaux" column only (p. 24 of the
-///   source document; see docs/VERIFIED_SOURCES.md). Its rules route by
-///   profile reference + vantaux count + usage role, so they can never be
-///   silently reused for a configuration the source table does not cover.
+/// - `builtin-me-14600` -- Maghreb Extrusion Série 14600: the COMPLETE
+///   débitage table (all three configuration columns; see
+///   docs/VERIFIED_SOURCES.md S-1).
+/// - `builtin-sepalumic-4200` -- Sepalumic Série 4200: the Châssis fixe
+///   + OF (à la française) 1/2 vantaux débitage families (éd. 05;
+///   docs/VERIFIED_SOURCES.md M-2). OB/Soufflet/Projeté/Porte/Composé
+///   families stay unencoded with documented blockers.
 ///
-/// A `Map` rather than a class with fields, matching how both rule sets
+/// A `Map` rather than a class with fields, matching how all rule sets
 /// are plain top-level `const`s rather than something wrapped in a
 /// registry class -- no state, nothing to instantiate, just a lookup
 /// table. Add an entry only for a real, sourced `SystemRuleSet`; do not
@@ -37,6 +40,7 @@ import '../models/rules/system_rule_set.dart';
 const Map<String, SystemRuleSet> builtInRuleSets = {
   'generic-placeholder': genericPlaceholderRuleSet,
   meSerie14600Id: meSerie14600RuleSet,
+  sepSerie4200Id: sepSerie4200RuleSet,
 };
 
 /// Resolves [ruleSetId] to its [SystemRuleSet], or `null` if it doesn't
