@@ -45,6 +45,7 @@ suite green, diff inspected, then commit + push + this file updated.
 | **C `feat(catalog): verified profile inertia fields for Série 14600`** (`Profile.inertiaIxxCm4/inertiaIyyCm4` doubles, 0 = not stated, default params keep all call sites compiling; JSON always-writes/tolerant-reads for legacy compat; all 20 ledger-verified pairs seeded verbatim — full map pinned in tests; 14 650's axis-less "69.47" stays 0/0 as a recorded open verification item; p.23 assembly combinations remain excluded; fingerprint UNCHANGED with exclusion rationale documented — display-only until a rule consumes it; profiles-panel subtitle shows inertia only when stated). qa-review verdict before commit: APPROVE (follow-ups applied: all-20-pairs pinning, format) | e20a4dc | analyze clean; full suite 435/435 |
 | **W1 `feat(calc): pure grouped cut-list aggregation`** (`buildCutListLines`/`CutListLine` in the aggregation layer — grouping key (profile.id, exact length, both angles), first-encounter order, summed physical quantities, traceability preserved via usage-id/section-id/rule-description lists). Follow-up commit fixed an out-of-sync list/map pair that shipped before the full suite confirmed green (merged quantities invisible to callers) | f2d0b9a, 272381b | analyze clean; full suite 443/443 |
 | **W2 `feat(editor): Liste de découpe workshop view`** (fullscreen dialog opened from the banner's new action — hidden until a non-empty outcome exists; pure derivation via buildCutListLines + sumCutListLines; header summary, grouped lines with angles in banner format + section labels + distinct rule provenance, stale flag passed through, diagnostics wording byte-identical to the banner; banner header Row→Wrap so the button wraps instead of overflowing narrow panels; widget assertions scoped by find.byType(CutListDialog) since the fullscreen view stacks over the editor). qa-review verdict before commit: APPROVE | e901544 | analyze clean; full suite 446/446 |
+| **C7 `feat(catalog): Sepalumic Série 4200 — first Sepalumic system`** (client supplied the complete Catalogue Technique Éd. 05 Sept. 2019, 199 pp. — gate opened with a tier-1 fabricator catalogue; ledger M-2: 31 profiles transcribed from B020–B080, débitage families Châssis fixe + OF 1/2 vantaux encoded as 34 rules (dormant 4220/4221 L·H/L+50·H+50, ouvrant 4211/4219/4244/4254 L−43.5·H−43.5 at 1v, L/2−24·H−43.5 at 2v, battue 4206 H−102; fixe traverse 4405/4413 L−54.5). Blockers on record: OB identification UNRESOLVED (belge vs oscillo-battant — neither adopted), Soufflet/Projeté/Porte/Composé need OpeningType/door modeling, OF traverse options blocked on cross-usage sibling dependency (2nd manufacturer to hit it), parcloses glass-dependent; single-châssis-per-construction scope limit documented. Source spot-checks re-run against the PDF before push). qa-review verdict before commit: APPROVE (follow-ups applied) | a42cc02 | analyze clean; full suite 475/475 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
@@ -52,7 +53,8 @@ Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix
 calculation C3) → 338 (C4a) → 340 (C4b) → 345 (C4c) → 354 (after
 calculation C4) → 361 (deletion fix) → 365 (C5a) → 377 (C5b) → 380 (C5c)
 → 384 (after C5 fixes) → 396 (after C6a) → 408 (after C6b) → 419
-(after C6c) → 421 (A) → 428 (B) → 435 (C) → 443 (W1) → **446** (after W2).
+(after C6c) → 421 (A) → 428 (B) → 435 (C) → 443 (W1) → 446 (W2) →
+**475** (after C7).
 
 ## In progress
 
@@ -240,3 +242,27 @@ not scheduled:
 - glass/hardware/accessory architecture and ProfileCut → component
   generalization (deferred until a second component domain / verified
   data exists).
+
+## New source documents received (transcription backlog, evidence in hand)
+
+The client supplied three manufacturer documents (paths recorded in the
+ledger; binaries stay out of the repo):
+
+- **ME Catalogue Général** (`~/Downloads/855704418-...-compressed-3.pdf`,
+  146 pp): SEVEN ME series — 14300 coulissant, 14600 (cross-check source
+  for the existing seed + alloy chemistry for the 6063/6060 note),
+  **14800 frappe WITH débitage**, **14700 portes lourdes WITH débitage**,
+  14900 mur-rideau, 14100 cloisons, 14000 garde-corps.
+- **Sepalumic CAT4200 ED05**: INTEGRATED (C7 above).
+- **Sepalumic Catalogue 1100 ED5** (76 pp): mur-rideau profiles with
+  inertias.
+
+Candidates, not scheduled: C9 ME Série 14800 frappe (seed + débitage,
+data in hand) · C10 ME Série 14700 portes (door-modeling decisions
+first) · 14300 (verify visually whether a débitage table exists) ·
+14600 cross-check · façade-architecture decision before ANY
+mur-rideau work (14900/1100 held sources) · OpeningType extensions
+(belge/soufflet/projeté — identification of O.B. unresolved) ·
+paired-profile condition (cross-usage traverse deductions, now blocked
+for TWO manufacturers) · glass domain (unblocks parclose rows
+everywhere).
