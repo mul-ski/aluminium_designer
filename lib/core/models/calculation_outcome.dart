@@ -48,8 +48,20 @@ enum SectionGlassIssueReason {
   /// at the section level.
   dominantOuvrantUnresolved,
 
-  /// The section's dominant ouvrant resolved, but no glass rule in the
-  /// evaluated rule set matched the section's context.
+  /// The section carries more than one distinct `ProfileType.ouvrant`
+  /// reference among its sash carriers. The C8 precedent uses a
+  /// universal quantifier over the carrier class (any mismatch ->
+  /// `noRuleMatched`); an existential-first pick would silently map the
+  /// section to the first carrier's rules and disagree with the
+  /// profile-side skip on the same construction. Mirror the precedent
+  /// by failing closed here too: no glass/hardware item, this
+  /// diagnostic. Documented as a "porte + tierce" / mixed-sash
+  /// source-tension state (C10a blocker, etc.).
+  mixedSashCarrier,
+
+  /// The section's dominant ouvrant resolved (and the carrier set is
+  /// consistent), but no glass rule in the evaluated rule set matched
+  /// the section's context.
   noRuleMatched,
 }
 
@@ -72,8 +84,15 @@ enum SectionHardwareIssueReason {
   /// catalogue entry -- mirrors the glass-side reason.
   dominantOuvrantUnresolved,
 
-  /// The section's dominant ouvrant resolved, but no hardware rule in
-  /// the evaluated rule set matched the section's context.
+  /// The section carries more than one distinct `ProfileType.ouvrant`
+  /// reference among its sash carriers. Mirrors
+  /// [SectionGlassIssueReason.mixedSashCarrier] -- same contract: no
+  /// hardware item, this diagnostic.
+  mixedSashCarrier,
+
+  /// The section's dominant ouvrant resolved (and the carrier set is
+  /// consistent), but no hardware rule in the evaluated rule set matched
+  /// the section's context.
   noRuleMatched,
 }
 

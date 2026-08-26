@@ -1,6 +1,8 @@
 import '../models/calculation_outcome.dart';
 import '../models/construction.dart';
 import '../models/cut.dart';
+import '../models/glass_item.dart';
+import '../models/hardware_item.dart';
 import '../models/profile.dart';
 import '../models/profile_usage.dart';
 import '../models/rules/dimension_expression.dart';
@@ -231,6 +233,222 @@ class ConstructionCalculator {
       );
     }
 
-    return CalculationOutcome(cuts: cuts, issues: issues);
+    // P1 glass + hardware loops: per-section evaluation after the
+    // profile loop. Glass and hardware are NOT per-usage components:
+    // a single glass pane covers an entire opening section, a hardware
+    // item attaches to the section's frame or sash. Each opening
+    // section is evaluated once: build a [CalculationContext] whose
+    // `profile` is the section's dominant ouvrant [Profile] (the sash
+    // carrier) so the existing [ProfileReferenceCondition] keys
+    // naturally on the sash ref, run the glass and hardware selectors.
+    // A missing or split sash carrier is a documented "no glass /
+    // no hardware" state (see C8 companion-condition precedent: the
+    // "no carrier" case is a documented honest skip, and the "mixed
+    // sash" case is a documented source tension). The profile loop
+    // above is byte-identical to its pre-P1 form.
+    final glass = <GlassItem>[];
+    final hardware = <HardwareItem>[];
+    final glassIssues = <SectionGlassIssue>[];
+    final hardwareIssues = <SectionHardwareIssue>[];
+    for (final section in construction.sections) {
+      // Glass and operational hardware (paumelles, cremone, joints)
+      // attach to opening sections. Fixed panels have no glass pane
+      // and no operational hardware in our current sources; skipping
+      // them keeps the outcome clean rather than producing empty
+      // results for sections that don't have anything to evaluate.
+      if (section.kind != SectionKind.ouvrant) {
+        continue;
+      }
+
+      // Per-section variable map, same shape the profile loop used for
+      // its single resolved section. Each opening section evaluates its
+      // own glass and hardware with its own width/height so the
+      // expression engine sees the right values per section.
+      final sectionVariables = <DimensionVariable, double>{
+        DimensionVariable.constructionWidth: width,
+        DimensionVariable.constructionHeight: height,
+        DimensionVariable.openingWidth: section.width,
+        DimensionVariable.openingHeight: section.height,
+      };
+
+      // Carrier set: every distinct `ProfileType.ouvrant` reference in
+      // this section whose role is NOT intermediate. "Distinct" means
+      // the set of refs -- not the count of usages; a section with one
+      // carrier ref used four times still has a single carrier. The
+      // carrier SET is the C8 companion-condition's input: its
+      // universal quantifier fails closed on any mismatch between the
+      // carrier set and a rule's required set.
+      //
+      // The result has three honest states the workshop view must
+      // distinguish, all honest-skip diagnostics -- never a fabricated
+      // evaluation:
+      //   - empty: no resolved sash carrier -> dominantOuvrantUnresolved.
+      //   - >1 distinct refs: "porte + tierce" / mixed-sash state.
+      //     The C8 precedent (CompanionProfileReferenceCondition)
+      //     universal quantifier fails closed on the same state; we
+      //     mirror the precedent here too so the profile-side skip and
+      //     the glass/hardware side stay in agreement (an
+      //     existential-first pick would silently size the section to
+      //     one carrier's rules while the profile side reports a skip
+      //     -- contradictory diagnostics on the same construction).
+      //   - exactly 1 distinct ref: proceed with that single profile as
+      //     the section's dominant ouvrant.
+      final carrierRefs = <String>{};
+      Profile? dominant;
+      for (final usage in construction.profileUsages) {
+        if (usage.sectionId != section.id) continue;
+        final profile = profilesById[usage.profileId];
+        if (profile == null) continue;
+        if (profile.type != ProfileType.ouvrant) continue;
+        if (usage.role == ProfileUsageRole.intermediate) continue;
+        carrierRefs.add(profile.reference);
+        dominant ??= profile;
+      }
+
+      if (dominant == null) {
+        glassIssues.add(
+          SectionGlassIssue(
+            sectionId: section.id,
+            reason: SectionGlassIssueReason.dominantOuvrantUnresolved,
+          ),
+        );
+        hardwareIssues.add(
+          SectionHardwareIssue(
+            sectionId: section.id,
+            reason: SectionHardwareIssueReason.dominantOuvrantUnresolved,
+          ),
+        );
+        continue;
+      }
+
+      if (carrierRefs.length > 1) {
+        // Mixed-sash: skip with a diagnostic. Mirrors the C8
+        // precedent's universal-quantor fail-closed behaviour.
+        glassIssues.add(
+          SectionGlassIssue(
+            sectionId: section.id,
+            reason: SectionGlassIssueReason.mixedSashCarrier,
+          ),
+        );
+        hardwareIssues.add(
+          SectionHardwareIssue(
+            sectionId: section.id,
+            reason: SectionHardwareIssueReason.mixedSashCarrier,
+          ),
+        );
+        continue;
+      }
+
+      // Section-scoped context: `usage` is null because glass and
+      // hardware rules target the whole section, not a single
+      // placement. `section-scope conditions` (OpeningTypeCondition,
+      // VantauxCountCondition, SectionKindCondition) all read
+      // `context.section` and work unchanged. `ProfileReferenceCondition`
+      // reads `context.profile` -- here the dominant ouvrant, exactly
+      // the ref the glass/hardware source rows are keyed on.
+      final sectionContext = CalculationContext(
+        construction: construction,
+        profile: dominant,
+        section: section,
+        // usage intentionally omitted: glass/hardware rules do not
+        // target a single profile usage. Any condition that reads
+        // `context.usage` (e.g. ProfileUsageRoleCondition) fails
+        // closed by design -- no role is meaningful at section scope.
+        siblings: const [],
+      );
+
+      // Glass evaluation.
+      try {
+        final glassRule = ruleSet.selectGlass(sectionContext);
+        if (glassRule == null) {
+          glassIssues.add(
+            SectionGlassIssue(
+              sectionId: section.id,
+              reason: SectionGlassIssueReason.noRuleMatched,
+            ),
+          );
+        } else {
+          final widthMm = glassRule.widthExpression.evaluate(sectionVariables);
+          final heightMm =
+              glassRule.heightExpression.evaluate(sectionVariables);
+          glass.add(
+            GlassItem(
+              profileReference: dominant.reference,
+              widthMm: widthMm,
+              heightMm: heightMm,
+              quantity: glassRule.quantity, // section quantity is 1 today
+              glazingType: glassRule.glazingType,
+              glazingThicknessMm: glassRule.glazingThicknessMm,
+              sectionId: section.id,
+              ruleDescription: glassRule.description,
+            ),
+          );
+        }
+      } on AmbiguousGlassRuleMatchException {
+        // Genuine authoring ambiguity in the rule set -- surface as a
+        // diagnostic, NOT an exception that kills the whole run.
+        // The user's action is to fix the rules; the rest of the
+        // calculation continues. We don't carry the exception message
+        // into the issue (issues carry a fixed enum reason, not free
+        // text -- keeps the contract simple and the aggregation
+        // deterministic).
+        glassIssues.add(
+          SectionGlassIssue(
+            sectionId: section.id,
+            reason: SectionGlassIssueReason.noRuleMatched,
+          ),
+        );
+      }
+
+      // Hardware evaluation. Same shape as glass.
+      try {
+        final hardwareRule = ruleSet.selectHardware(sectionContext);
+        if (hardwareRule == null) {
+          hardwareIssues.add(
+            SectionHardwareIssue(
+              sectionId: section.id,
+              reason: SectionHardwareIssueReason.noRuleMatched,
+            ),
+          );
+        } else {
+          double? lengthMm;
+          if (hardwareRule.lengthExpression != null) {
+            lengthMm =
+                hardwareRule.lengthExpression!.evaluate(sectionVariables);
+          }
+          // `usageIds` is empty: hardware rules match on a per-section
+          // basis (no per-usage decomposition yet). A future evolution
+          // could record contributing usages; P1 stays simple.
+          hardware.add(
+            HardwareItem(
+              reference: hardwareRule.reference,
+              name: hardwareRule.name,
+              category: hardwareRule.category,
+              quantity: hardwareRule.quantity,
+              lengthMm: lengthMm,
+              sectionId: section.id,
+              usageIds: const [],
+              ruleDescription: hardwareRule.description,
+            ),
+          );
+        }
+      } on AmbiguousHardwareRuleMatchException {
+        hardwareIssues.add(
+          SectionHardwareIssue(
+            sectionId: section.id,
+            reason: SectionHardwareIssueReason.noRuleMatched,
+          ),
+        );
+      }
+    }
+
+    return CalculationOutcome(
+      cuts: cuts,
+      glass: glass,
+      hardware: hardware,
+      issues: issues,
+      glassIssues: glassIssues,
+      hardwareIssues: hardwareIssues,
+    );
   }
 }
