@@ -1,5 +1,6 @@
 import 'cut.dart';
 import 'glass_item.dart';
+import 'hardware_item.dart';
 
 /// Why a single [ProfileUsage] produced no cut during a calculation run.
 ///
@@ -62,6 +63,30 @@ class SectionGlassIssue {
   const SectionGlassIssue({required this.sectionId, required this.reason});
 }
 
+/// Why a single [Section] produced no hardware item during a calculation
+/// run. Mirrors the glass-issue shape (per-section, not per-usage):
+/// hardware is evaluated once per section that meets the rule's
+/// conditions, so the diagnostic carries the section id.
+enum SectionHardwareIssueReason {
+  /// The section's dominant ouvrant [Profile] did not resolve to a
+  /// catalogue entry -- mirrors the glass-side reason.
+  dominantOuvrantUnresolved,
+
+  /// The section's dominant ouvrant resolved, but no hardware rule in
+  /// the evaluated rule set matched the section's context.
+  noRuleMatched,
+}
+
+/// One [Section] that produced no hardware item, with the reason why.
+class SectionHardwareIssue {
+  /// Id of the [Section] that produced no hardware.
+  final String sectionId;
+
+  final SectionHardwareIssueReason reason;
+
+  const SectionHardwareIssue({required this.sectionId, required this.reason});
+}
+
 /// Everything one run of `ConstructionCalculator.calculate` decided.
 ///
 /// This is the calculation result envelope: today it holds the profile
@@ -89,6 +114,12 @@ class CalculationOutcome {
   /// skipped with a visible [glassIssues] reason).
   final List<GlassItem> glass;
 
+  /// Hardware items produced by matched sections, in section iteration
+  /// order. Empty when no section produced a hardware item (e.g. no
+  /// hardware rule for the system yet, or every hardware rule skipped
+  /// with a visible [hardwareIssues] reason).
+  final List<HardwareItem> hardware;
+
   /// Usages that produced no cut, each with the reason. Empty when every
   /// usage produced a cut -- or when there were no usages at all.
   final List<ProfileUsageIssue> issues;
@@ -97,16 +128,27 @@ class CalculationOutcome {
   /// when every opening section produced a glass item.
   final List<SectionGlassIssue> glassIssues;
 
+  /// Sections that produced no hardware item, each with the reason.
+  /// Empty when every section produced a hardware item.
+  final List<SectionHardwareIssue> hardwareIssues;
+
   const CalculationOutcome({
     required this.cuts,
     this.glass = const [],
+    this.hardware = const [],
     this.issues = const [],
     this.glassIssues = const [],
+    this.hardwareIssues = const [],
   });
 
-  /// True when the run produced neither cuts nor glass -- i.e. there was
-  /// nothing to calculate from (no usages assigned, no opening sections)
-  /// or nothing matched.
+  /// True when the run produced neither cuts, nor glass, nor hardware
+  /// -- i.e. there was nothing to calculate from (no usages assigned,
+  /// no opening sections) or nothing matched.
   bool get isEmpty =>
-      cuts.isEmpty && glass.isEmpty && issues.isEmpty && glassIssues.isEmpty;
+      cuts.isEmpty &&
+      glass.isEmpty &&
+      hardware.isEmpty &&
+      issues.isEmpty &&
+      glassIssues.isEmpty &&
+      hardwareIssues.isEmpty;
 }

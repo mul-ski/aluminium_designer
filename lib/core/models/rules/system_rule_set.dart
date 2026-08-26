@@ -1,5 +1,6 @@
 import 'calculation_rule.dart';
 import 'glass_calculation_rule.dart';
+import 'hardware_calculation_rule.dart';
 import 'rule_condition.dart';
 
 /// Thrown when more than one rule in a [SystemRuleSet] matches a given
@@ -48,6 +49,26 @@ class AmbiguousGlassRuleMatchException implements Exception {
   }
 }
 
+/// Thrown when more than one [HardwareCalculationRule] in a
+/// [SystemRuleSet] matches a given [CalculationContext] with equal
+/// specificity. Same contract as the other ambiguity exceptions.
+class AmbiguousHardwareRuleMatchException implements Exception {
+  final List<HardwareCalculationRule> matchedRules;
+
+  const AmbiguousHardwareRuleMatchException(this.matchedRules);
+
+  @override
+  String toString() {
+    final descriptions = matchedRules
+        .map((rule) => rule.description ?? '<hardware rule>')
+        .join(', ');
+    return 'AmbiguousHardwareRuleMatchException: ${matchedRules.length} '
+        'hardware rules matched with equal specificity: $descriptions. '
+        'Add a distinguishing condition to one of them, or remove the '
+        'overlap.';
+  }
+}
+
 /// A named collection of [ProfileCalculationRule]s for one profile system
 /// (e.g. one manufacturer's product line, or a generic placeholder system).
 ///
@@ -59,12 +80,14 @@ class AmbiguousGlassRuleMatchException implements Exception {
 ///
 /// P1 evolution: in addition to profile [rules], a rule set may carry
 /// [glassRules] (one glass pane per matched opening section) and
-/// [hardwareRules] (P1 commit 2) -- both are optional, default `const []`
-/// so the existing built-in rule sets (me-14600, sep-4200, me-14800,
+/// [hardwareRules] (one hardware item per matched section, with
+/// optional cut length) -- both are optional, default `const []` so the
+/// existing built-in rule sets (me-14600, sep-4200, me-14800,
 /// me-14700) compile unchanged. Each domain's rules are evaluated by a
-/// separate selector (see [select] for profiles, [selectGlass] for glass)
-/// -- one selector per component domain so each stays single-purpose and
-/// no domain's specificity arithmetic can interfere with another's.
+/// separate selector (see [select] for profiles, [selectGlass] for glass,
+/// [selectHardware] for hardware) -- one selector per component domain
+/// so each stays single-purpose and no domain's specificity arithmetic
+/// can interfere with another's.
 class SystemRuleSet {
   /// Identifier matching a `ProfileSystem.id`, or a synthetic id such as
   /// `'generic-placeholder'` for the built-in fallback rules.
@@ -98,6 +121,15 @@ class SystemRuleSet {
   /// placeholder glass too.
   final List<GlassCalculationRule> glassRules;
 
+  /// Hardware rules. Evaluated once per section that meets the
+  /// conditions. A rule's optional [HardwareCalculationRule.lengthExpression]
+  /// produces a cut length for length-bearing accessories (joints,
+  /// weather strips); count-only items (paumelles, equerres, gaches)
+  /// carry no length expression and no `lengthMm` on the produced
+  /// [HardwareItem]. Empty by default for the same reason as
+  /// [glassRules] -- placeholder rule sets ship no hardware rules.
+  final List<HardwareCalculationRule> hardwareRules;
+
   const SystemRuleSet({
     required this.systemId,
     required this.name,
@@ -105,6 +137,7 @@ class SystemRuleSet {
     this.isBuiltIn = true,
     required this.rules,
     this.glassRules = const [],
+    this.hardwareRules = const [],
   });
 
   /// Selects the single applicable profile rule for [context], or `null`
@@ -176,5 +209,34 @@ class SystemRuleSet {
     }
 
     throw AmbiguousGlassRuleMatchException(mostSpecific);
+  }
+
+  /// Selects the single applicable hardware rule for [context], or
+  /// `null` if no rule matches. Same contract as [select] /
+  /// [selectGlass]: specificity ranking then
+  /// [AmbiguousHardwareRuleMatchException] on a tie.
+  HardwareCalculationRule? selectHardware(CalculationContext context) {
+    final matched =
+        hardwareRules.where((rule) => rule.matches(context)).toList();
+
+    if (matched.isEmpty) {
+      return null;
+    }
+    if (matched.length == 1) {
+      return matched.single;
+    }
+
+    final maxConditionCount = matched
+        .map((rule) => rule.conditions.length)
+        .reduce((a, b) => a > b ? a : b);
+    final mostSpecific = matched
+        .where((rule) => rule.conditions.length == maxConditionCount)
+        .toList();
+
+    if (mostSpecific.length == 1) {
+      return mostSpecific.single;
+    }
+
+    throw AmbiguousHardwareRuleMatchException(mostSpecific);
   }
 }
