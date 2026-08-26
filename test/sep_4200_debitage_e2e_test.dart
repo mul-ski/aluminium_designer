@@ -240,4 +240,164 @@ void main() {
           ProfileUsageIssueReason.noRuleMatched);
     });
   });
+
+  group('end-to-end: OF traverse options (companion-gated, C8)', () {
+    test('OF 1 vantail, ouvrant 4244 + traverse 2656 reproduces sheet '
+        'E110 exactly (L−177 beside 4244)', () {
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: [
+          _usage('d-top', '4220', ProfileUsageRole.top),
+          _usage('d-bottom', '4220', ProfileUsageRole.bottom),
+          _usage('d-left', '4220', ProfileUsageRole.left),
+          _usage('d-right', '4220', ProfileUsageRole.right),
+          _usage('o-top', '4244', ProfileUsageRole.top),
+          _usage('o-bottom', '4244', ProfileUsageRole.bottom),
+          _usage('o-left', '4244', ProfileUsageRole.left),
+          _usage('o-right', '4244', ProfileUsageRole.right),
+          _usage('t-intermediate', '2656', ProfileUsageRole.intermediate),
+        ]),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      expect(byUsageId, hasLength(9));
+
+      // Traverse option: L−177 = 1823, ONE square-cut piece (E110 p. 48).
+      expect(byUsageId['t-intermediate']!.length, _l - 177);
+      expect(byUsageId['t-intermediate']!.quantity, 1);
+      expect(byUsageId['t-intermediate']!.angleStart, 90);
+      expect(byUsageId['t-intermediate']!.angleEnd, 90);
+      expect(byUsageId['t-intermediate']!.ruleDescription, contains('E110'));
+
+      // Unit total: 4 dormant + 4 sash + 1 traverse = 9 pieces.
+      expect(
+        outcome.cuts.fold<int>(0, (sum, c) => sum + c.quantity),
+        9,
+      );
+    });
+
+    test('OF 2 vantaux, ouvrant 4219 + battue + traverse 2656 reproduces '
+        'sheet E170 exactly (2×(L/2−122) beside 4219)', () {
+      final outcome = calculateConstructionCuts(
+        _construction(
+          vantauxCount: 2,
+          profileUsages: [
+            _usage('d-top', '4220', ProfileUsageRole.top),
+            _usage('d-bottom', '4220', ProfileUsageRole.bottom),
+            _usage('d-left', '4220', ProfileUsageRole.left),
+            _usage('d-right', '4220', ProfileUsageRole.right),
+            _usage('o-top', '4219', ProfileUsageRole.top),
+            _usage('o-bottom', '4219', ProfileUsageRole.bottom),
+            _usage('o-left', '4219', ProfileUsageRole.left),
+            _usage('o-right', '4219', ProfileUsageRole.right),
+            _usage('bc-intermediate', '4206', ProfileUsageRole.intermediate),
+            _usage('t-intermediate', '2656', ProfileUsageRole.intermediate),
+          ],
+        ),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      expect(byUsageId, hasLength(10));
+
+      // Traverse option: (L/2−122) = 878, TWO pieces (E170 p. 54).
+      expect(byUsageId['t-intermediate']!.length, (_l / 2) - 122);
+      expect(byUsageId['t-intermediate']!.quantity, 2);
+      expect(byUsageId['t-intermediate']!.angleStart, 90);
+      expect(byUsageId['t-intermediate']!.ruleDescription, contains('E170'));
+
+      // The battue coexists unchanged (H−102 = 1398, one piece).
+      expect(byUsageId['bc-intermediate']!.length, _h - 102);
+      expect(byUsageId['bc-intermediate']!.quantity, 1);
+
+      // Unit total: 4 dormant + 8 sash + 1 battue + 2 traverse = 15.
+      expect(
+        outcome.cuts.fold<int>(0, (sum, c) => sum + c.quantity),
+        15,
+      );
+    });
+
+    test('OF 2 vantaux, ouvrant 4254 + traverse 4413 reproduces sheet '
+        'E210 exactly (2×(L/2−168) beside 4254)', () {
+      final outcome = calculateConstructionCuts(
+        _construction(
+          vantauxCount: 2,
+          profileUsages: [
+            _usage('o-top', '4254', ProfileUsageRole.top),
+            _usage('o-bottom', '4254', ProfileUsageRole.bottom),
+            _usage('o-left', '4254', ProfileUsageRole.left),
+            _usage('o-right', '4254', ProfileUsageRole.right),
+            _usage('t-intermediate', '4413', ProfileUsageRole.intermediate),
+          ],
+        ),
+        _catalog(),
+      )!;
+
+      expect(outcome.issues, isEmpty);
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      // Traverse option: (L/2−168) = 832, TWO pieces (E210 p. 58).
+      expect(byUsageId['t-intermediate']!.length, (_l / 2) - 168);
+      expect(byUsageId['t-intermediate']!.quantity, 2);
+      expect(byUsageId['t-intermediate']!.ruleDescription, contains('E210'));
+    });
+
+    test('a mixed sash (4211 left + 4219 right) skips the traverse with '
+        'a visible issue and never throws', () {
+      final outcome = calculateConstructionCuts(
+        _construction(
+          vantauxCount: 2,
+          profileUsages: [
+            _usage('o-top', '4211', ProfileUsageRole.top),
+            _usage('o-bottom', '4211', ProfileUsageRole.bottom),
+            _usage('o-left', '4211', ProfileUsageRole.left),
+            _usage('o-right', '4219', ProfileUsageRole.right),
+            _usage('bc-intermediate', '4206', ProfileUsageRole.intermediate),
+            _usage('t-intermediate', '2656', ProfileUsageRole.intermediate),
+          ],
+        ),
+        _catalog(),
+      )!;
+
+      final byUsageId = {
+        for (final cut in outcome.cuts) cut.profileUsageId: cut,
+      };
+      // Every documented member still cuts...
+      expect(byUsageId['o-top'], isNotNull);
+      expect(byUsageId['o-right'], isNotNull);
+      expect(byUsageId['bc-intermediate'], isNotNull);
+      // ...while the traverse is skipped loudly, not wrongly cut.
+      expect(byUsageId['t-intermediate'], isNull);
+      final traverseIssue = outcome.issues.single;
+      expect(traverseIssue.profileUsageId, 't-intermediate');
+      expect(
+        traverseIssue.reason,
+        ProfileUsageIssueReason.noRuleMatched,
+      );
+    });
+
+    test('the traverse option without its sash carrier stays unmatched '
+        '(fail-closed)', () {
+      final outcome = calculateConstructionCuts(
+        _construction(profileUsages: [
+          _usage('d-top', '4220', ProfileUsageRole.top),
+          _usage('t-intermediate', '2656', ProfileUsageRole.intermediate),
+        ]),
+        _catalog(),
+      )!;
+      expect(outcome.cuts, hasLength(1)); // only the dormant
+      expect(outcome.issues.single.profileUsageId, 't-intermediate');
+      expect(
+        outcome.issues.single.reason,
+        ProfileUsageIssueReason.noRuleMatched,
+      );
+    });
+  });
 }

@@ -52,6 +52,7 @@ CalculationContext _context(
   OpeningType? openingType = OpeningType.francaise,
   int vantauxCount = 1,
   ProfileUsageRole? role,
+  List<SectionSibling> siblings = const [],
 }) {
   final profile = sepSerie4200.profilesById.values
       .firstWhere((p) => p.reference == reference);
@@ -71,6 +72,27 @@ CalculationContext _context(
             sectionId: 's1',
             role: role,
           ),
+    siblings: siblings,
+  );
+}
+
+/// A section-sibling entry built from the REAL seeded profile for
+/// [reference], as the calculator would derive it for a same-section
+/// usage at [role].
+SectionSibling _sibling(
+  String reference, {
+  ProfileUsageRole role = ProfileUsageRole.left,
+}) {
+  final profile = sepSerie4200.profilesById.values
+      .firstWhere((p) => p.reference == reference);
+  return SectionSibling(
+    usage: ProfileUsage(
+      id: 'sib-$reference-$role',
+      profileId: profile.id,
+      sectionId: 's1',
+      role: role,
+    ),
+    profile: profile,
   );
 }
 
@@ -85,6 +107,11 @@ void main() {
       expect(sepSerie4200RuleSet.systemId, sepSerie4200Id);
       expect(sepSerie4200RuleSet.isPlaceholder, isFalse);
       expect(sepSerie4200RuleSet.rules, isNotEmpty);
+    });
+
+    test('rule count: 34 base rules + 8 companion-gated traverse-option '
+        'rules (one per printed E-sheet cell)', () {
+      expect(sepSerie4200RuleSet.rules, hasLength(42));
     });
   });
 
@@ -240,17 +267,202 @@ void main() {
         );
       }
     });
+  });
 
-    test('traverse intermédiaire options are NOT encoded (cross-usage '
-        'dependency on the sibling ouvrant -- ledger blocker)', () {
-      for (final reference in ['2656', '4405', '4413']) {
+  group('routing: OF traverse options (companion-gated, 8 printed cells)',
+      () {
+    test('1v: 2656 cuts L−deduction beside its sheet\'s ouvrant ref only',
+        () {
+      final cells = {
+        '4211': 2000.0 - 117, // E070 p. 44
+        '4219': 2000.0 - 141, // E090 p. 46
+        '4244': 2000.0 - 177, // E110 p. 48
+      };
+      cells.forEach((siblingRef, expectedLength) {
+        final rule = sepSerie4200RuleSet.select(
+          _context(
+            '2656',
+            vantauxCount: 1,
+            role: ProfileUsageRole.intermediate,
+            siblings: [_sibling(siblingRef)],
+          ),
+        );
+        expect(rule, isNotNull, reason: siblingRef);
+        expect(rule!.lengthExpression.evaluate(_variables), expectedLength,
+            reason: siblingRef);
+        expect(rule.quantity.fixedCount, 1, reason: siblingRef);
+        expect(rule.angles.start, 90, reason: siblingRef);
+        expect(rule.angles.end, 90, reason: siblingRef);
+      });
+    });
+
+    test('1v: 4405/4413 cut L−187 beside ouvrant 4254 (E130 p. 50)', () {
+      for (final reference in ['4405', '4413']) {
+        final rule = sepSerie4200RuleSet.select(
+          _context(
+            reference,
+            vantauxCount: 1,
+            role: ProfileUsageRole.intermediate,
+            siblings: [_sibling('4254')],
+          ),
+        );
+        expect(rule, isNotNull, reason: reference);
+        expect(rule!.lengthExpression.evaluate(_variables), 2000.0 - 187);
+        expect(rule.quantity.fixedCount, 1);
+      }
+    });
+
+    test('2v: 2656 yields TWO L/2−deduction pieces per placement', () {
+      final cells = {
+        '4211': 1000.0 - 98, // E150 p. 52
+        '4219': 1000.0 - 122, // E170 p. 54
+        '4244': 1000.0 - 158, // E190 p. 56
+      };
+      cells.forEach((siblingRef, expectedLength) {
+        final rule = sepSerie4200RuleSet.select(
+          _context(
+            '2656',
+            vantauxCount: 2,
+            role: ProfileUsageRole.intermediate,
+            siblings: [
+              _sibling(siblingRef, role: ProfileUsageRole.left),
+              _sibling(siblingRef, role: ProfileUsageRole.right),
+              _sibling(siblingRef, role: ProfileUsageRole.top),
+              _sibling(siblingRef, role: ProfileUsageRole.bottom),
+            ],
+          ),
+        );
+        expect(rule, isNotNull, reason: siblingRef);
+        expect(rule!.lengthExpression.evaluate(_variables), expectedLength,
+            reason: siblingRef);
+        expect(rule.quantity.fixedCount, 2, reason: siblingRef);
+      });
+    });
+
+    test('2v: 4405/4413 cut L/2−168 beside ouvrant 4254 (E210 p. 58)', () {
+      for (final reference in ['4405', '4413']) {
+        final rule = sepSerie4200RuleSet.select(
+          _context(
+            reference,
+            vantauxCount: 2,
+            role: ProfileUsageRole.intermediate,
+            siblings: [_sibling('4254')],
+          ),
+        );
+        expect(rule, isNotNull, reason: reference);
+        expect(rule!.lengthExpression.evaluate(_variables), 1000.0 - 168,
+            reason: reference);
+        expect(rule.quantity.fixedCount, 2, reason: reference);
+      }
+    });
+
+    test('a battue sibling does not disturb the carrier match (4206 is '
+        'ouvrant-typed but intermediate)', () {
+      final rule = sepSerie4200RuleSet.select(
+        _context(
+          '2656',
+          vantauxCount: 2,
+          role: ProfileUsageRole.intermediate,
+          siblings: [
+            _sibling('4211', role: ProfileUsageRole.left),
+            _sibling('4206', role: ProfileUsageRole.intermediate),
+          ],
+        ),
+      );
+      expect(rule, isNotNull);
+      expect(rule!.lengthExpression.evaluate(_variables), 1000.0 - 98);
+    });
+
+    test('dormant choice (4220 OU 4221) never affects the traverse '
+        'deduction', () {
+      for (final dormant in ['4220', '4221']) {
+        final rule = sepSerie4200RuleSet.select(
+          _context(
+            '2656',
+            vantauxCount: 1,
+            role: ProfileUsageRole.intermediate,
+            siblings: [
+              _sibling('4211'),
+              _sibling(dormant, role: ProfileUsageRole.top),
+            ],
+          ),
+        );
+        expect(rule, isNotNull, reason: dormant);
+        expect(rule!.lengthExpression.evaluate(_variables), 2000.0 - 117,
+            reason: dormant);
+      }
+    });
+
+    test('undocumented cells never match', () {
+      // No printed cell pairs 2656 with ouvrant 4254 (E130/E210 name
+      // 4405/4413 there), and none pairs 4405/4413 with 4211/4219/4244.
+      expect(
+        sepSerie4200RuleSet.select(
+          _context('2656',
+              vantauxCount: 1,
+              role: ProfileUsageRole.intermediate,
+              siblings: [_sibling('4254')]),
+        ),
+        isNull,
+      );
+      for (final siblingRef in ['4211', '4219', '4244']) {
         expect(
           sepSerie4200RuleSet.select(
-            _context(reference, vantauxCount: 2, role: ProfileUsageRole.intermediate),
+            _context('4405',
+                vantauxCount: 2,
+                role: ProfileUsageRole.intermediate,
+                siblings: [_sibling(siblingRef)]),
           ),
           isNull,
-          reason: '$reference has no encodable OF traverse rule',
+          reason: siblingRef,
         );
+      }
+    });
+
+    test('no carrier, or a mixed sash, matches nothing without throwing',
+        () {
+      // No ouvrant-typed sibling at all.
+      expect(
+        sepSerie4200RuleSet.select(
+          _context('2656',
+              vantauxCount: 1,
+              role: ProfileUsageRole.intermediate,
+              siblings: [
+                _sibling('4220', role: ProfileUsageRole.top),
+              ]),
+        ),
+        isNull,
+      );
+      // Mixed sash: outside every documented cell, plain skip, no throw.
+      expect(
+        sepSerie4200RuleSet.select(
+          _context('2656',
+              vantauxCount: 2,
+              role: ProfileUsageRole.intermediate,
+              siblings: [
+                _sibling('4211', role: ProfileUsageRole.left),
+                _sibling('4219', role: ProfileUsageRole.right),
+              ]),
+        ),
+        isNull,
+      );
+    });
+
+    test('without siblings (unit-level context) the option rows stay '
+        'unmatched -- fail-closed', () {
+      for (final reference in ['2656', '4405', '4413']) {
+        for (final vantauxCount in [1, 2]) {
+          expect(
+            sepSerie4200RuleSet.select(
+              _context(reference,
+                  vantauxCount: vantauxCount,
+                  role: ProfileUsageRole.intermediate),
+            ),
+            isNull,
+            reason: '$reference at $vantauxCount vantaux without any '
+                'section sibling',
+          );
+        }
       }
     });
   });
@@ -331,40 +543,61 @@ void main() {
     });
 
     test('exhaustive sweep: no context ever selects ambiguously', () {
+      // Companion dimension: none / each documented sash ref / a mixed
+      // sash / a battue-only intermediate. CompanionProfileReference-
+      // Condition is universal over the carrier class, so every cell must
+      // resolve to zero-or-one rules -- never a tie, never a throw.
+      final companionSets = <List<SectionSibling>>[
+        const [],
+        [_sibling('4211')],
+        [_sibling('4219')],
+        [_sibling('4244')],
+        [_sibling('4254')],
+        [
+          _sibling('4211', role: ProfileUsageRole.left),
+          _sibling('4219', role: ProfileUsageRole.right),
+        ],
+        [_sibling('4206', role: ProfileUsageRole.intermediate)],
+      ];
       for (final profile in sepSerie4200.profiles) {
         for (final role in ProfileUsageRole.values) {
           for (final kind in SectionKind.values) {
             for (final openingType in OpeningType.values) {
               for (final vantauxCount in [1, 2, 3]) {
-                final isOuvrant = kind == SectionKind.ouvrant;
-                expect(
-                  () => sepSerie4200RuleSet.select(
-                    CalculationContext(
-                      construction: _construction(),
-                      profile: profile,
-                      section: Section(
-                        id: 's',
-                        order: 0,
-                        kind: kind,
-                        width: 2000,
-                        height: 1500,
-                        openingType: isOuvrant ? openingType : null,
-                        vantauxCount: isOuvrant ? vantauxCount : 0,
-                      ),
-                      usage: ProfileUsage(
-                        id: 'u',
-                        profileId: profile.id,
-                        sectionId: 's',
-                        role: role,
+                for (final siblings in companionSets) {
+                  final isOuvrant = kind == SectionKind.ouvrant;
+                  expect(
+                    () => sepSerie4200RuleSet.select(
+                      CalculationContext(
+                        construction: _construction(),
+                        profile: profile,
+                        section: Section(
+                          id: 's',
+                          order: 0,
+                          kind: kind,
+                          width: 2000,
+                          height: 1500,
+                          openingType: isOuvrant ? openingType : null,
+                          vantauxCount: isOuvrant ? vantauxCount : 0,
+                        ),
+                        usage: ProfileUsage(
+                          id: 'u',
+                          profileId: profile.id,
+                          sectionId: 's',
+                          role: role,
+                        ),
+                        siblings: siblings,
                       ),
                     ),
-                  ),
-                  returnsNormally,
-                  reason:
-                      '${profile.reference} $role $kind $openingType '
-                      '$vantauxCount must resolve to zero-or-one rules '
-                      'without ambiguity',
-                );
+                    returnsNormally,
+                    reason:
+                        '${profile.reference} $role $kind $openingType '
+                        '$vantauxCount siblings='
+                        '${siblings.map((s) => s.profile.reference).join('+')} '
+                        'must resolve to zero-or-one rules without '
+                        'ambiguity',
+                  );
+                }
               }
             }
           }
