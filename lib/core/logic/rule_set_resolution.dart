@@ -2,6 +2,7 @@ library;
 
 import '../data/builtin_catalog_seed.dart';
 import '../data/me_14600_rule_set.dart';
+import '../data/me_14800_rule_set.dart';
 import '../data/sep_4200_rule_set.dart';
 import '../engine/construction_calculator.dart';
 import '../models/calculation_outcome.dart';
@@ -19,7 +20,7 @@ import '../models/rules/system_rule_set.dart';
 /// "linked by this id so `ConstructionCalculator` can find the right
 /// rules for a given system".
 ///
-/// Three entries today:
+/// Four entries today:
 ///
 /// - `generic-placeholder` -- the honest "no real per-manufacturer
 ///   calculation data" fallback, still referenced by any system without
@@ -27,8 +28,14 @@ import '../models/rules/system_rule_set.dart';
 /// - `builtin-me-14600` -- Maghreb Extrusion Série 14600: the COMPLETE
 ///   débitage table (all three configuration columns; see
 ///   docs/VERIFIED_SOURCES.md S-1).
+/// - `builtin-me-14800` -- Maghreb Extrusion Série 14800 frappe: the
+///   p. 65 "(1 VANTAIL)" débitage table, with the parclose rows keyed by
+///   the sibling ouvrant reference via CompanionProfileReferenceCondition
+///   (first second-manufacturer consumer of the C8 capability; see
+///   docs/VERIFIED_SOURCES.md S-3).
 /// - `builtin-sepalumic-4200` -- Sepalumic Série 4200: the Châssis fixe
-///   + OF (à la française) 1/2 vantaux débitage families (éd. 05;
+///   + OF (à la française) 1/2 vantaux débitage families incl. the
+///   companion-gated traverse options (éd. 05;
 ///   docs/VERIFIED_SOURCES.md M-2). OB/Soufflet/Projeté/Porte/Composé
 ///   families stay unencoded with documented blockers.
 ///
@@ -40,6 +47,7 @@ import '../models/rules/system_rule_set.dart';
 const Map<String, SystemRuleSet> builtInRuleSets = {
   'generic-placeholder': genericPlaceholderRuleSet,
   meSerie14600Id: meSerie14600RuleSet,
+  meSerie14800Id: meSerie14800RuleSet,
   sepSerie4200Id: sepSerie4200RuleSet,
 };
 

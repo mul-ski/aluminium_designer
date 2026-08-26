@@ -6,6 +6,7 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 
 import 'package:aluminium_designer/core/data/builtin_catalog_seed.dart';
 import 'package:aluminium_designer/core/data/me_14600_rule_set.dart';
+import 'package:aluminium_designer/core/data/me_14800_rule_set.dart';
 import 'package:aluminium_designer/core/logic/rule_set_resolution.dart';
 import 'package:aluminium_designer/core/models/catalog.dart';
 import 'package:aluminium_designer/core/models/catalog_json.dart';
@@ -263,10 +264,10 @@ void main() {
         seeded.manufacturers.map((m) => m.id).toSet(),
         {maghrebExtrusionId, sepalumicId},
       );
-      expect(seeded.profileSystems, hasLength(2));
+      expect(seeded.profileSystems, hasLength(3));
       expect(
         seeded.profileSystems.map((s) => s.id).toSet(),
-        {meSerie14600Id, sepSerie4200Id},
+        {meSerie14600Id, meSerie14800Id, sepSerie4200Id},
       );
     });
 
@@ -595,6 +596,182 @@ void main() {
       expect(sepSerie4200.supportedOpenings, [OpeningType.francaise]);
       expect(sepSerie4200.isBuiltIn, isTrue);
       expect(sepSerie4200.profiles, hasLength(31));
+    });
+  });
+
+  group('seeded ME Série 14800 profile dimensions (S-3 transcription)',
+      () {
+    Profile profileByRef(String reference) => meSerie14800.profilesById.values
+        .firstWhere((p) => p.reference == reference);
+
+    test('system wiring: rule set + supported openings + profile count',
+        () {
+      expect(meSerie14800.ruleSetId, meSerie14800Id);
+      expect(
+        resolveRuleSetById(meSerie14800Id),
+        same(meSerie14800RuleSet),
+      );
+      expect(meSerie14800RuleSet.isPlaceholder, isFalse);
+      expect(meSerie14800.manufacturerId, maghrebExtrusionId);
+      expect(meSerie14800.supportedOpenings, [OpeningType.francaise]);
+      expect(meSerie14800.isBuiltIn, isTrue);
+      // The four PROFILOSCOPE sheets' full transcription (S-3):
+      // 21 profiles across pp. 50-53.
+      expect(meSerie14800.profiles, hasLength(21));
+    });
+
+    test('sheet-labeled width/depth pairs are seeded verbatim', () {
+      final expected = {
+        '14820': (42.7, 44.0),
+        '14818': (42.8, 66.3),
+        '14.800': (43.6, 44.0),
+        '14.801': (43.6, 44.0),
+        '14.802': (47.9, 61.2),
+        '14.805': (47.9, 87.8),
+        '14.809': (16.0, 19.5),
+        '14.810': (24.0, 19.5),
+        '14809/1': (12.5, 19.5),
+        '14827': (44.0, 8.7),
+        '14817': (47.9, 10.4),
+        '14806': (87.8, 47.9),
+        '14804': (56.5, 44.4),
+        '14825': (29.5, 14.5),
+        '14807': (33.5, 19.5),
+        '14803': (68.8, 40.0),
+        '14812': (88.8, 48.8),
+        '14808': (50.0, 90.0),
+        '14813': (40.0, 140.0),
+      };
+      expected.forEach((reference, values) {
+        final profile = profileByRef(reference);
+        expect(profile.width, values.$1, reason: '$reference width');
+        expect(profile.depth, values.$2, reason: '$reference depth');
+      });
+    });
+
+    test('unlabeled dimensions stay at the 0 = not-stated marker', () {
+      // 14.811 (tige de crémone) has no dimensioned sheet in the section.
+      final tige = profileByRef('14.811');
+      expect(tige.width, 0);
+      expect(tige.depth, 0);
+      // 14601 labels only the 26 height.
+      final couvreJoint = profileByRef('14601');
+      expect(couvreJoint.width, 0);
+      expect(couvreJoint.depth, 26.0);
+    });
+
+    test('types follow source statements only -- heading-less sheets '
+        'stay `other`', () {
+      expect(profileByRef('14.800').type, ProfileType.dormant);
+      expect(profileByRef('14.801').type, ProfileType.dormant);
+      expect(profileByRef('14820').type, ProfileType.dormant);
+      expect(profileByRef('14818').type, ProfileType.dormant);
+      expect(profileByRef('14.802').type, ProfileType.ouvrant);
+      expect(profileByRef('14.805').type, ProfileType.ouvrant);
+      // Parcloses: named by the table, but the enum has no parclose
+      // value -- `other`, same as the 14600 seed.
+      expect(profileByRef('14.809').type, ProfileType.other);
+      expect(profileByRef('14.810').type, ProfileType.other);
+      // No heading names these -- shape-based typing would be inference.
+      for (final reference in [
+        '14803',
+        '14804',
+        '14806',
+        '14807',
+        '14808',
+        '14812',
+        '14813',
+        '14825',
+        '14.811',
+      ]) {
+        expect(
+          profileByRef(reference).type,
+          ProfileType.other,
+          reason: '$reference: no source heading states a family',
+        );
+      }
+    });
+
+    test('system metadata carries exactly the fiche technique facts',
+        () {
+      final metadata = meSerie14800.metadata!;
+      expect(metadata.frameDepthOptionsMm, [44.0]);
+      expect(metadata.sashStileDepthOptionsMm, [47.9]);
+      expect(metadata.glazingRebateMm, 24.0);
+      expect(metadata.glazingMinMm, 6.0);
+      expect(metadata.glazingMaxMm, 20.0);
+      // Never stated in the section -> null, not false.
+      expect(metadata.thermalBreak, isNull);
+      // No dimension-limit statement exists -> none seeded.
+      expect(metadata.dimensionLimits, isEmpty);
+      expect(metadata.assemblyNote, isNotNull);
+      // The AEV classification has no structured field; the ledger S-3
+      // records it as carried verbatim inside finishNote -- pin that.
+      expect(metadata.finishNote, contains('E1050'));
+      expect(metadata.sourceDescription, contains('14800'));
+    });
+
+    test('sheet-printed IXX/IYY pairs are seeded verbatim (cm⁴)', () {
+      // ALL 12 printed pairs -- same fail-CI standard as the 14600
+      // inertia group above.
+      final expected = {
+        '14820': (3.67, 6.51),
+        '14818': (3.0, 13.35),
+        '14.800': (4.90, 2.40),
+        '14.801': (6.30, 4.60),
+        '14.802': (2.0, 3.67),
+        '14.805': (12.4, 18.9),
+        '14806': (13.4, 22.79),
+        '14804': (7.14, 6.25),
+        '14803': (6.26, 6.7),
+        '14812': (12.4, 18.9),
+        '14808': (107.73, 28.86),
+        '14813': (96.41, 16.15),
+      };
+      expected.forEach((reference, values) {
+        final profile = profileByRef(reference);
+        expect(
+          profile.inertiaIxxCm4,
+          values.$1,
+          reason: '$reference IXX must match the sheet',
+        );
+        expect(
+          profile.inertiaIyyCm4,
+          values.$2,
+          reason: '$reference IYY must match the sheet',
+        );
+      });
+    });
+
+    test('profiles whose sheets state no inertia stay at the unknown '
+        'marker (0/0), and no inertia is ever negative', () {
+      for (final profile in meSerie14800.profiles) {
+        expect(
+          profile.inertiaIxxCm4,
+          greaterThanOrEqualTo(0),
+          reason: profile.reference,
+        );
+        expect(
+          profile.inertiaIyyCm4,
+          greaterThanOrEqualTo(0),
+          reason: profile.reference,
+        );
+      }
+      for (final reference in [
+        '14.809',
+        '14.810',
+        '14809/1',
+        '14.811',
+        '14827',
+        '14817',
+        '14825',
+        '14807',
+        '14601',
+      ]) {
+        final profile = profileByRef(reference);
+        expect(profile.inertiaIxxCm4, 0, reason: reference);
+        expect(profile.inertiaIyyCm4, 0, reason: reference);
+      }
     });
   });
 

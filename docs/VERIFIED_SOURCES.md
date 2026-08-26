@@ -373,7 +373,82 @@ Official Coulissant 8800 brochure (marketing descriptif only) and the GUIDE PROG
 
 ---
 
-## S-2 (PRELIMINARY EVIDENCE NOTE — not a seeded system): ME Catalogue Général, Série 14800 frappe parclose rows
+## S-3: MAGHREB EXTRUSION — Série 14800 Frappe (Catalogue Général section)
+
+| | |
+|---|---|
+| **File** | `~/Downloads/855704418-Catalogue-General-Series-Maghreb-Extrusion-compressed-3.pdf` (146 pp, client-supplied) — Série 14800 section: title p. 47, **fiche technique pp. 48–49 (text layer)**, PROFILOSCOPE **pp. 50–53 (image-only, read visually from 100-dpi renders)**, configurations p. 54, coupes pp. 55–63, **débitage "(1 VANTAIL)" + VITRAGE + certificat d'alliage p. 65 (text layer + visual verification)** |
+| **Identity** | "CATALOGUE TECHNIQUE SERIE 14800 — FENETRE ET PORTE FENETRE A FRAPPE". Fiche: "Portes fenêtres et fenêtres ouvrant à la française 1 ou 2 vantaux, portes fenêtres et fenêtres oscillo-battants, châssis ouvrants à soufflets et châssis fixes." |
+| **Source grade** | Tier 1 (manufacturer technical documentation). |
+| **Seeded as** | system `builtin-me-14800` "Série 14800 Frappe" under the existing manufacturer `builtin-maghreb-extrusion`. |
+
+### System-level facts (fiche technique pp. 48–49, stored in `ProfileSystemMetadata`)
+
+| Fact | Value | Source |
+|---|---|---|
+| Frame depth | "Dormant tubulaires de 44 mm avec ou sans couvre joint"; assemblage en coupe d'onglet avec équerres | p. 48 |
+| Sash stile depth | "Ouvrant tubulaires de 47,9 mm", prise en feuillure portefeuille ou parclosé | p. 48 |
+| Glazing | "feuillure de 24 mm permettant de recevoir des vitrages simples ou isolants de 6 à 20 mm" | p. 48 |
+| Drainage | "trous oblongs sur la traverse basse du dormant avec mise en place de busettes à clapet anti retours" | p. 48 |
+| Thermal break | **not stated anywhere in the section** → `thermalBreak: null` | (absence) |
+| Alloy | 6063 (EXTRUMAROC, L-3441 UNE 38-337-82, chemistry table p. 48) | p. 48 |
+| Finish | laquage 60 µ QUALICOAT; anodisation 15 µ QUALANOD | p. 49 |
+| AEV (no structured model field; carried verbatim inside the seed's `finishNote`) | A4 / E1050 / V1C3, banc agréé CEBTP | p. 49 |
+| Dimension limits | none stated in the section → `dimensionLimits: []` | (absence) |
+
+### Profile transcription (21 profiles, PROFILOSCOPE pp. 50–53; width = face, depth = wall-plane; `0` = not labeled; inertias cm⁴ as printed)
+
+**Type sourcing note:** these sheets carry NO family headings (unlike S-1's headed sheets). Types follow statements only: the p. 65 table names 14.800/14.801 "Dormant", 14.802/14.805 "Ouvrant", the parcloses "Pareclose"; S-1's own "DORMANTS FRAPPE" heading covers 14820/14818 and its "PROFILES DE LIAISON" heading covers 14827/14817. Everything else stays `other` — shape-based typing would be inference.
+
+| Réf (seed notation) | Type | width | depth | IXX/IYY | Sheet | Notes |
+|---|---|---|---|---|---|---|
+| 14820 | dormant | 42.7 | 44 | 3.67/6.51 | p. 50 | sub-dim 36.5 (sash side); S-1 sheet: 42.7/44.0 ✓ |
+| 14818 | dormant | 42.8 | 66.3 | 3/13.35 | p. 50 | sub-dim 36.5; **S-1 sheet prints 42.75/66.34 — both transcribed, neither corrected**; seed follows this series' own sheet |
+| 14.800 | dormant | 43.6 | 44 | 4.90/2.40 | p. 50 | débitage "Dormant tubulaire" |
+| 14.801 | dormant | 43.6 | 44 | 6.30/4.60 | p. 50 | couvre-joint stem 23 (sub-dim) |
+| 14.802 | ouvrant | 47.9 | 61.2 | 2/3.67 | p. 51 | débitage "Ouvrant fenêtre" |
+| 14.805 | ouvrant | 47.9 | 87.8 | 12.4/18.9 | p. 51 | débitage "Ouvrant porte et fenêtre extérieur" |
+| 14.809 | other (parclose) | 16 | 19.5 | — | p. 53 | "Simple vitrage" face per p. 65 sub-labels; S-1: 16/19.5 ✓ |
+| 14.810 | other (parclose) | 24 | 19.5 | — | p. 53 | "Double vitrage" face; **S-1 sheet prints 22.5 — both transcribed**; seed follows this series' own sheet |
+| 14809/1 | other (parclose) | 12.5 | 19.5 | — | p. 53 | S-1: 12.5/19.5 ✓ |
+| 14.811 | other | 0 | 0 | — | p. 65 | "Tige de crémone"; no dimensioned sheet in the section |
+| 14827 | other (liaison) | 44 | 8.7 | — | p. 50 | S-1: 44/8.7 ✓ |
+| 14817 | other (liaison) | 47.9 | 10.4 | — | p. 50 | S-1 labeled only 47.9; this sheet adds the 10.4 height |
+| 14806 | other | 87.8 | 47.9 | 13.4/22.79 | p. 51 | famille non déclarée |
+| 14804 | other | 56.5 | 44.4 | 7.14/6.25 | p. 51 | sub-dim 27.9 |
+| 14825 | other | 29.5 | 14.5 | — | p. 51 | labeled "14825" on the p. 62 va-et-vient coupe |
+| 14807 | other | 33.5 | 19.5 | — | p. 51 | |
+| 14803 | other | 68.8 | 40 | 6.26/6.7 | p. 52 | sub-dims 28.8 |
+| 14812 | other | 88.8 | 48.8 | 12.4/18.9 | p. 52 | |
+| 14808 | other | 50 | 90 | 107.73/28.86 | p. 52 | sheet labels TWO vertical dims (90 and 110); 110 recorded here as sub-dimension, orientation not stated |
+| 14813 | other | 40 | 140 | 96.41/16.15 | p. 52 | |
+| 14601 | other (couvre-joint) | 0 | 26 | — | p. 53 | only height labeled; same reading as S-1's 14 601 |
+
+**Reference notation:** the débitage table prints dotted refs ("14.802"), the profile sheets undotted ("14802"). Seeded references follow the notation of the source element that names each profile — dotted for the seven table-named profiles (the rule set keys on that table), sheet notation for the rest. Both notations recorded here.
+
+### Débitage p. 65 — "DÉBITAGE FENÊTRE À FRAPPE SÉRIE 14.800 (1 VANTAIL)" — fully encoded
+
+Angles are PRINTED per row (45° frame/sash; 90° parclose/tige) — direct provenance, no derivation. Variables L/H = the whole dormant-frame elevation. Printed Quantité values are whole-unit counts for the 1-vantail unit; AluVis rules are per-placement fixed(1) across four role placements.
+
+| Ref (printed) | Désignation | Coupe | Qté | Débitage | Encoded as |
+|---|---|---|---|---|---|
+| 14.800 | Dormant tubulaire | 45° | 2/2 | L / H | 4 role rules |
+| 14.801 | Dormant tubulaire couvre-joint | 45° | 2/2 | L+46 / H+46 | 4 role rules |
+| 14.802 | Ouvrant fenêtre | 45° | 2/2 | L−35,2 / H−35,2 | 4 role rules |
+| 14.805 | Ouvrant porte et fenêtre extérieur | 45° | 2/2 | L−35,2 / H−35,2 | 4 role rules |
+| **14.802** (row key) | Pareclose — 14.809 Simple vitrage / 14.810 Double vitrage | 90° | 2/2 | **L−117,6 / H−157,6** | 4 role rules, `CompanionProfileReferenceCondition({'14.802'})`, own-ref set {'14.809','14.810'} (outcome-identical row) |
+| **14.805** (row key) | Pareclose — 14.809 Simple / 14.810 Double | 90° | 2/2 | **L−217,4 / H−257,4** | 4 role rules, companion {'14.805'} |
+| 14.811 | Tige de crémone | 90° | 1 | H−90 | 1 rule, NO role condition (chicane 14 624 precedent — source states no position) |
+
+**Companion dependency:** the two parclose rows are keyed in the source's own Ref column by the SIBLING OUVRANT reference — the second-manufacturer instance of the shape first resolved in C8 (M-2 blocker 2). The glazing family rides entirely on the parclose reference choice (14.809 = 16 mm simple face, 14.810 = 24 mm double face); no glass domain is consulted. This makes me-14800 the **first real second consumer** of `CompanionProfileReferenceCondition` — the C8 capability is now independently validated across manufacturers.
+
+**Recorded tension (verbatim, unresolved):** the pp. 56/60 coupes ("Porte ouvrante à la française 1/2 vantaux") label frame profile **14820** beside sash 14802/14805, while the débitage table names only 14.800/14.801 as dormants. Both statements kept; cuts follow the printed table.
+
+**NOT encoded (honest noRuleMatched):** the VITRAGE block (glass sizes per ouvrant: "Débitage pour ouvrant 14.802 → L−132/H−132; pour ouvrant 14.805 → L−185/H−185" — glass domain, no model); 2-vantaux/OB/soufflet/va-et-vient/fixe configurations (NO débitage tables exist for them in the catalogue — text-layer search confirms p. 65 is the section's only débitage page); accessories AC-8xx and joints JO-8xx (hardware); every profile the table does not name.
+
+---
+
+## S-2 (SUPERSEDED BY S-3 — kept for the record): ME Catalogue Général, Série 14800 frappe parclose rows
 
 | | |
 |---|---|
@@ -381,6 +456,6 @@ Official Coulissant 8800 brochure (marketing descriptif only) and the GUIDE PROG
 | **Identity** | "FORMULES DE COUPES — DÉBITAGE FENÊTRE À FRAPPE SÉRIE 14.800 (1 VANTAIL)", pdf p. 65 |
 | **Extraction** | `pdftotext -layout` full-document dump + `pdftoppm` 110 dpi visual render of p. 65 to confirm the row structure (the text layer scrambles the merged cells) |
 | **Source grade** | Tier 1 (manufacturer technical documentation) |
-| **Status** | NOT seeded, NO values adopted into code — recorded as the second-manufacturer evidence that motivated the paired-profile engine capability (M-2 blocker 2 resolution). Full 14800 transcription + seeding remains the C9 candidate. |
+| **Status** | NOT seeded at the time of recording, NO values adopted then — recorded as the second-manufacturer evidence that motivated the paired-profile engine capability (M-2 blocker 2 resolution). SUPERSEDED by S-3: the full 14800 transcription + seeding is now DONE (C9). |
 
 What p. 65 shows, verbatim in structure: two "Pareclose à coupe droite" rows (90°, Quantité 2+2) whose **Ref column carries the SIBLING OUVRANT reference**, not the parclose's own — row "14.802" (Ouvrant fenêtre context): parcloses 14.809 (Simple vitrage) / 14.810 (Double vitrage), Débitage `L − 117,6` / `H − 157,6`; row "14.805" (Ouvrant porte et fenêtre extérieur context): same parclose refs, Débitage `L − 217,4` / `H − 257,4`. The glazing choice is expressed through the parclose reference (14.809 vs 14.810), so these specific cuts are determined by (own parclose ref, sibling ouvrant ref) alone — no glass-thickness model needed for THIS table, unlike Sepalumic 4200's parclose "ou"-lists (M-2 blocker 3). The same sheet's VITRAGE block ("Débitage pour ouvrant 14.802 → L−132/H−132; pour ouvrant 14.805 → L−185/H−185") is glass sizing — a separate, still-out-of-scope domain. The main 14.800/14.801/14.802/14.805 profile rows on p. 65 are keyed by each member's OWN reference (no companion dependency).
