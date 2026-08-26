@@ -448,6 +448,102 @@ Angles are PRINTED per row (45° frame/sash; 90° parclose/tige) — direct prov
 
 ---
 
+## S-4: MAGHREB EXTRUSION — Série 14700 Portes Lourdes (Catalogue Général section, C10a)
+
+| | |
+|---|---|
+| **File** | `~/Downloads/855704418-Catalogue-General-Series-Maghreb-Extrusion-compressed-3.pdf` (146 pp, client-supplied) — Série 14700 section: title p. 72, **fiche technique pp. 73–75 (text layer)**, **PROFILOSCOPE pp. 76–80 (image-only, read visually from 100-dpi renders)**, configurations/coupes pp. 81–93 (image-only, including pp. 85 va-et-vient sur pivot, pp. 86–88 "porte + imposte fixe" with explicit profile labels, pp. 90+ various door variants), **débitage "PORTE À FRAPPE 1 ET 2 VANTAUX AVEC TRAVERSE BASSE" p. 94 (text layer + 150-dpi visual verification of every cell)**, parclose/vitrage mapping p. 92 |
+| **Identity** | "CATALOGUE TECHNIQUE SERIE 14700 — PORTE LOURDE" / "DESCRIPTIF SERIE PORTES LOURDES 14 700 MAGHREB EXTRUSION". Fiche p. 73: "Portes fenêtres ouvrant à la française 1 ou 2 vantaux, portes va et vient sur pivot à freins hydraulique, châssis fixe." |
+| **Source grade** | Tier 1 (manufacturer technical documentation). |
+| **Seeded as** | system `builtin-me-14700` "Série 14700 Portes Lourdes" under the existing manufacturer `builtin-maghreb-extrusion`. |
+| **C10a scope** | C10a encodes the UNAMBIGUOUS subset of p. 94 (21 rules). The 2-vantaux 14.705 stile formula and 14.706 stile formula are deliberately NOT encoded (see "C10a blocker" below). C10b will close the blocker when the tierce/porte distribution is resolved. |
+
+### System-level facts (fiche technique pp. 73–75, stored in `ProfileSystemMetadata`)
+
+| Fact | Value | Source |
+|---|---|---|
+| Frame depth | "Dormant tubulaires de 54 mm avec ou sans couvre joint", assemblage en coupe d'onglet avec équerres | p. 73 |
+| Sash stile depth | "Ouvrant tubulaires de 54 mm", prise en feuillure portefeuille ou parclosé | p. 73 |
+| Glazing | "Les ouvrants ont une feuillure pour vitrage allant de 6 à 24 mm" | p. 74 |
+| Thermal break | **not stated anywhere in the section** → `thermalBreak: null` | (absence) |
+| Alloy | 6063 (EXTRUMAROC, L-3441 UNE 38-337-82, chemistry table p. 73) | p. 73 |
+| Finish | laquage 60 µ QUALICOAT; anodisation 15 µ QUALANOD | p. 75 |
+| Drainage | "oblongs sur la traverse basse du dormant avec mise en place de busettes à clapets anti retour" | p. 74 |
+| Ferrure | "3 paumelles ou plus selon la dimension et le poids de la porte" / "serrure à 1, 2 ou 3 points" | p. 74 |
+| AEV (no structured model field) | none stated in the fiche; carried in `assemblyNote` | (absence) |
+| Dimension limits | none stated in the fiche → `dimensionLimits: []` | (absence) |
+
+The fiche states "Dormant tubulaires de 54 mm avec ou sans couvre joint" (p. 73) and "Les ouvrants ont une feuillure pour vitrage allant de 6 à 24 mm" (p. 74). The **feuillure depth itself is NOT stated** on the fiche — only the glazing range is. `glazingRebateMm` therefore stays null; `glazingMinMm`/`glazingMaxMm` carry the 6–24 mm range.
+
+### Profile transcription (18 profiles, PROFILOSCOPE pp. 76–80; width = face, depth = wall-plane; `0` = not labeled)
+
+**Type sourcing note:** the PROFILOSCOPE sheets carry no family headings (consistent with the me-14800 section). Types follow statements only: the p. 94 débitage table names 14.700 "Dormant", 14.705 "Ouvrant intérieur", 14.706 "Ouvrant extérieur", 14.807 "Complément traverse basse", 14.813 "TÉ traverse", 14.809/14.810 "Parclose", 14.811 "Tige de crémone". Everything else stays `other` with a "famille non déclarée" note — shape-based typing would be inference. The coupes (pp. 86–88) label 14.701 as the "imposte fixe" panel and 14.712 as the traverse-basse cap; both stay `other` since neither has a heading.
+
+**Reference notation:** the débitage table prints dotted refs ("14.807"), the profile sheets print undotted ones ("14707" on p. 80). The mapping is `14707 = 14.807` (14- prefix + 3-digit ref) and `14813 = 14.813`. Seeded references follow the notation of the source element that names each profile — dotted for the 9 débitage-named rows, sheet notation for the 9 sheet-only rows.
+
+| Réf (seed notation) | Type | width | depth | IXX/IYY | Sheet | Notes |
+|---|---|---|---|---|---|---|
+| 14.700 | dormant | 72.1 | 0 (fiche=54) | — | p. 76 | sub-dim 50.1; fiche 54mm → metadata |
+| 14.701 | other | 75.1 | 54.0 | — | p. 76 | imposte fixe (coupes pp.86–88) |
+| 14.705 | ouvrant | 91.8 | 0 (fiche=54) | — | p. 77 | sub-dim 71.8 |
+| 14.706 | ouvrant | 91.8 | 0 (fiche=54) | — | p. 77 | "OUVRANT A L'EXTERIEUR" p.88; sub-dims 49.8/12.2 |
+| 14.810 | other (parclose) | 22.0 | 20.0 | — | p. 80 | p.94 row "14.810 ou 14.809" with "Double vitrage" sub-label; p.92 maps 5–10mm |
+| 14.809 | other (parclose) | 16.0 | 20.0 | — | p. 80 | p.94 row "14.809 ou 14.810"; p.92 maps 12–20mm |
+| 14.809/1 | other (parclose) | 12.5 | 20.0 | — | p. 80 | not in p.94 table |
+| 14.819 | other (parclose) | 4.5 | 20.0 | — | p. 80 | p.92 maps 22–27mm; **no row in p.94 débitage** — C10a blocker |
+| 14.813 | traverse | 140.0 | 40.0 | — | p. 79 | sheet "14813"; p.94 "TÉ traverse" |
+| 14.807 | traverse | 22.0 | 48.0 | — | p. 80 | sheet "14707"; p.94 "Complément traverse basse" |
+| 14.811 | other | 0 | 0 | — | p. 94 only | "Tige de crémone"; no PROFILOSCOPE sheet in the section |
+| 14.718 | other | 117.5 | 87.6 | — | p. 78 | famille non déclarée |
+| 14.704 | other | 54.0 | 19.0 | — | p. 78 | famille non déclarée |
+| 14.712 | other | 89.2 | 54.0 | — | p. 78 | traverse-basse cap (coupe p.87) |
+| 14.708 | other | 22.0 | 54.0 | — | p. 80 | famille non déclarée |
+| 14.711 | other | 0 | 0 | — | p. 80 | tige de crémone variante; no dims |
+| 14.803 | other | 68.8 | 40.0 | — | p. 79 | famille non déclarée |
+| 14.812 | other | 88.8 | 48.8 | — | p. 79 | famille non déclarée |
+
+### Débitage p. 94 — "DÉBITAGE PORTE À FRAPPE SÉRIE 14.700 (1 ET 2 VANTAUX AVEC TRAVERSE BASSE)" — C10a encoded subset
+
+Angles are PRINTED per row: 45° (horizontal mitred) and 45°/90° (vertical, mitred top + square bottom at the traverse-basse) for frame/sash; 90° for traverse-basse / parclose / tige. Variables L = whole dormant-frame width, H = whole height (the table's own variables). The dormant 14.700 has **NO bottom piece** in either column (Qté 1 for the L-piece = top only) — the bottom position holds the **traverse-basse assembly** (14.813 + 14.807) instead.
+
+| Ref (printed) | Désignation | Coupe | 1v Qté | 1v Débitage | 2v Qté | 2v Débitage | C10a encoding |
+|---|---|---|---|---|---|---|---|
+| 14.700 | Dormant | 45° / 45°/90° | 1 / 2 | L / H | 1 / 2 | L / H | 6 rules (top/left/right × 1v+2v) |
+| 14.705 | Ouvrant intérieur | 45° / 45°/90° | 1 / 2 | L−118 / H−65 | 2 / 3 | (L−104,9)/2 / H−65 | 4 rules: 1v top+2 stiles + 2v top; **2v stiles BLOCKED** |
+| 14.706 | Ouvrant extérieur | 45°/90° | — | — | 1 | H−65 | **0 rules — C10a BLOCKER** |
+| 14.813 | TÉ traverse | 90° | 1 | L−261,6 | 2 | (L−392,1)/2 | 1 rule (bottom) — multi-ref set {'14.813','14.807'} |
+| 14.807 | Complément traverse basse | 90° | 1 | L−261,6 | 2 | (L−392,1)/2 | (same rule, multi-ref set) |
+| 14.809 ou 14.810 | Parclose (Double vitrage) | 90° | 2 / 2 | L−261,6 / H−296,8 | 4 / 4 | (L−392,1)/2 / H−296,8 | 4 rules × 2 columns = 8 rules (multi-ref set, outcome-identical) |
+| 14.810 ou 14.809 | Parclose (Simple vitrage) | 90° | 2 / 2 | L−261,6 / H−296,8 | 4 / 4 | (L−392,1)/2 / H−296,8 | (same 8 rules — both rows print identical formulas) |
+| 14.811 | Tige de crémone | 90° | 1 | H−90 | — | — | 1 rule (1v only, no role) |
+
+**C10a encoded total: 21 rules** (6 dormant + 4 14.705 + 0 14.706 + 2 traverse-basse + 8 parclose + 1 tige).
+
+### C10a BLOCKER — 2-vantaux 14.705 / 14.706 stile quantities (verbatim source conflict)
+
+The p. 94 table prints for 2 vantaux:
+- 14.705 Ouvrant intérieur: Qté 2 top + **Qté 3 stiles** (H−65)
+- 14.706 Ouvrant extérieur: **Qté 1 stile** (H−65)
+
+Total verticals = 4 (= 2 leaves × 2 stiles geometrically). The **3 + 1** split is a documented source tension:
+- The coupes p. 82 (COUPE B, meeting stile) and p. 88 explicitly label **14.705 = "OUVRANT A L'INTERIEUR"** and **14.706 = "OUVRANT A L'EXTERIEUR"**, suggesting a "porte + tierce" (main interior leaf + narrower exterior service leaf) configuration.
+- The coupe evidence at the meeting shows a symmetric 14.706/14.706 meeting (two 14.706 profiles back-to-back), but the table prints Qté 1 for 14.706.
+- **No coupe labels the per-stile positional distribution of the 3+1 split** — no coupe says "left stile = 14.705" or "meeting stile = 14.706 vs 14.705".
+
+Both interpretations are geometrically possible (one main leaf with 2 outer stiles + 1 meeting stile + a narrow service leaf with 1 outer stile; OR symmetric 2×14.705 + 2×14.706 with the table's 3+1 being a printing artifact). Without an external source resolving the per-stile role, **C10a leaves both 2v stile formulas as noRuleMatched** per the C10a locked decision. The 2v 14.705 top formula (L−104,9)/2 is unambiguous (1 printed piece, top role) and IS encoded. The 2v 14.706 stile formula H−65 is unambiguously a single piece but its role is part of the unresolved distribution; left noRuleMatched.
+
+C10b will close this blocker when an external source (Sepalumic/Magreb Extrusion technical manual, fabrication guide, or a higher-resolution coupe page that labels individual stiles) resolves the per-stile role distribution.
+
+### Other NOT encoded (honest noRuleMatched)
+
+- **14.819 parclose cuts**: the p. 92 parclose/vitrage mapping names 14.819 for 22–27 mm glazing, but p. 94 has no row for it. The 22–27 mm glazing choice is also glass-domain territory. 14.819 is seeded (profiloscope dims 4.5×20) but stays ruleless.
+- **Va-et-vient sur pivot (p. 85)**, **châssis fixe**, **1v+imposte fixe (pp. 86–88)**: fiche p. 73 names these product variants but no débitage tables exist in the section.
+- **2-vantaux OB / souflet / projété**: the catalogue does not list these for 14700.
+- **Accessories (AC-701, AC-720, AC-722, AC-723, AC-705, AC-724, JO-725, JO-826, JO-829, JO-828)** and **parclose/vitrage mapping** (p. 92): hardware / glass-domain, out of scope.
+- Every profile the p. 94 table does not name (14.701, 14.704, 14.708, 14.711, 14.712, 14.718, 14.803, 14.812, 14.809/1): seeded, ruleless.
+
+---
+
 ## S-2 (SUPERSEDED BY S-3 — kept for the record): ME Catalogue Général, Série 14800 frappe parclose rows
 
 | | |

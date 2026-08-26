@@ -2,6 +2,7 @@ library;
 
 import '../data/builtin_catalog_seed.dart';
 import '../data/me_14600_rule_set.dart';
+import '../data/me_14700_rule_set.dart';
 import '../data/me_14800_rule_set.dart';
 import '../data/sep_4200_rule_set.dart';
 import '../engine/construction_calculator.dart';
@@ -20,7 +21,7 @@ import '../models/rules/system_rule_set.dart';
 /// "linked by this id so `ConstructionCalculator` can find the right
 /// rules for a given system".
 ///
-/// Four entries today:
+/// Five entries today:
 ///
 /// - `generic-placeholder` -- the honest "no real per-manufacturer
 ///   calculation data" fallback, still referenced by any system without
@@ -28,6 +29,14 @@ import '../models/rules/system_rule_set.dart';
 /// - `builtin-me-14600` -- Maghreb Extrusion Série 14600: the COMPLETE
 ///   débitage table (all three configuration columns; see
 ///   docs/VERIFIED_SOURCES.md S-1).
+/// - `builtin-me-14700` -- Maghreb Extrusion Série 14700 Portes Lourdes:
+///   the UNAMBIGUOUS subset of the p. 94 "(1 ET 2 VANTAUX AVEC
+///   TRAVERSE BASSE)" débitage table (dormant 14.700, ouvrant
+///   intérieur 14.705 top + 1v stiles, traverse basse 14.813/14.807,
+///   parclose 14.809/14.810, tige 14.811). The 2v 14.705/14.706
+///   stile quantities are deliberately left noRuleMatched -- the
+///   3+1 split is a documented source tension (C10a blocker;
+///   docs/VERIFIED_SOURCES.md S-4).
 /// - `builtin-me-14800` -- Maghreb Extrusion Série 14800 frappe: the
 ///   p. 65 "(1 VANTAIL)" débitage table, with the parclose rows keyed by
 ///   the sibling ouvrant reference via CompanionProfileReferenceCondition
@@ -47,6 +56,7 @@ import '../models/rules/system_rule_set.dart';
 const Map<String, SystemRuleSet> builtInRuleSets = {
   'generic-placeholder': genericPlaceholderRuleSet,
   meSerie14600Id: meSerie14600RuleSet,
+  meSerie14700Id: meSerie14700RuleSet,
   meSerie14800Id: meSerie14800RuleSet,
   sepSerie4200Id: sepSerie4200RuleSet,
 };

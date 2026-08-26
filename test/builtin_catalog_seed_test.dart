@@ -6,6 +6,7 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 
 import 'package:aluminium_designer/core/data/builtin_catalog_seed.dart';
 import 'package:aluminium_designer/core/data/me_14600_rule_set.dart';
+import 'package:aluminium_designer/core/data/me_14700_rule_set.dart';
 import 'package:aluminium_designer/core/data/me_14800_rule_set.dart';
 import 'package:aluminium_designer/core/logic/rule_set_resolution.dart';
 import 'package:aluminium_designer/core/models/catalog.dart';
@@ -264,10 +265,10 @@ void main() {
         seeded.manufacturers.map((m) => m.id).toSet(),
         {maghrebExtrusionId, sepalumicId},
       );
-      expect(seeded.profileSystems, hasLength(3));
+      expect(seeded.profileSystems, hasLength(4));
       expect(
         seeded.profileSystems.map((s) => s.id).toSet(),
-        {meSerie14600Id, meSerie14800Id, sepSerie4200Id},
+        {meSerie14600Id, meSerie14700Id, meSerie14800Id, sepSerie4200Id},
       );
     });
 
@@ -772,6 +773,115 @@ void main() {
         expect(profile.inertiaIxxCm4, 0, reason: reference);
         expect(profile.inertiaIyyCm4, 0, reason: reference);
       }
+    });
+  });
+
+  group('seeded ME Série 14700 profile dimensions (S-4 transcription)',
+      () {
+    Profile profileByRef(String reference) => meSerie14700.profilesById.values
+        .firstWhere((p) => p.reference == reference);
+
+    test('system wiring: rule set + supported openings + profile count',
+        () {
+      expect(meSerie14700.ruleSetId, meSerie14700Id);
+      expect(
+        resolveRuleSetById(meSerie14700Id),
+        same(meSerie14700RuleSet),
+      );
+      expect(meSerie14700RuleSet.isPlaceholder, isFalse);
+      expect(meSerie14700.manufacturerId, maghrebExtrusionId);
+      expect(meSerie14700.supportedOpenings, [OpeningType.francaise]);
+      expect(meSerie14700.isBuiltIn, isTrue);
+      // The five PROFILOSCOPE sheets' full transcription (S-4):
+      // 18 profiles across pp. 76-80 (9 table-named + 9 sheet-only).
+      expect(meSerie14700.profiles, hasLength(18));
+    });
+
+    test('sheet-labeled width/depth pairs are seeded verbatim', () {
+      final expected = {
+        '14.700': (72.1, 0.0),    // wall-plane dim not labeled; fiche = 54mm
+        '14.701': (75.1, 54.0),
+        '14.705': (91.8, 0.0),    // fiche = 54mm
+        '14.706': (91.8, 0.0),    // fiche = 54mm; sheet sub-dims only
+        '14.810': (22.0, 20.0),
+        '14.809': (16.0, 20.0),
+        '14.809/1': (12.5, 20.0),
+        '14.819': (4.5, 20.0),
+        '14.813': (140.0, 40.0),
+        '14.807': (22.0, 48.0),
+        '14.718': (117.5, 87.6),
+        '14.704': (54.0, 19.0),
+        '14.712': (89.2, 54.0),
+        '14.708': (22.0, 54.0),
+        '14.803': (68.8, 40.0),
+        '14.812': (88.8, 48.8),
+      };
+      expected.forEach((reference, values) {
+        final profile = profileByRef(reference);
+        expect(profile.width, values.$1, reason: '$reference width');
+        expect(profile.depth, values.$2, reason: '$reference depth');
+      });
+    });
+
+    test('unlabeled dimensions stay at the 0 = not-stated marker', () {
+      // 14.811 (tige de crémone) has no PROFILOSCOPE sheet in the section.
+      final tige = profileByRef('14.811');
+      expect(tige.width, 0);
+      expect(tige.depth, 0);
+      // 14.711 (tige de crémone variante) -- no dimensions labeled.
+      final tige711 = profileByRef('14.711');
+      expect(tige711.width, 0);
+      expect(tige711.depth, 0);
+    });
+
+    test('types follow source statements only -- heading-less sheets '
+        'stay `other`', () {
+      // p.94 débitage names 14.700 "Dormant" and 14.705/14.706
+      // "Ouvrant intérieur / extérieur".
+      expect(profileByRef('14.700').type, ProfileType.dormant);
+      expect(profileByRef('14.705').type, ProfileType.ouvrant);
+      expect(profileByRef('14.706').type, ProfileType.ouvrant);
+      // Traverse basse assembly (bottom rail / threshold): named by
+      // the débitage table, both typed as traverse.
+      expect(profileByRef('14.813').type, ProfileType.traverse);
+      expect(profileByRef('14.807').type, ProfileType.traverse);
+      // Parcloses: enum has no parclose value -- `other`, same as the
+      // 14600 / 14800 seeds.
+      expect(profileByRef('14.810').type, ProfileType.other);
+      expect(profileByRef('14.809').type, ProfileType.other);
+      // 14.811 tige de crémone: no source statement on a family --
+      // `other`.
+      expect(profileByRef('14.811').type, ProfileType.other);
+      // No heading names these -- shape-based typing would be inference.
+      for (final reference in [
+        '14.701', '14.704', '14.708', '14.711', '14.712', '14.718',
+        '14.803', '14.812', '14.819', '14.809/1',
+      ]) {
+        expect(
+          profileByRef(reference).type,
+          ProfileType.other,
+          reason: '$reference: no source heading states a family',
+        );
+      }
+    });
+
+    test('system metadata carries exactly the fiche technique facts',
+        () {
+      final metadata = meSerie14700.metadata!;
+      // Fiche p.73: dormant tubulaire 54mm.
+      expect(metadata.frameDepthOptionsMm, [54.0]);
+      // Fiche p.73: ouvrant tubulaire 54mm.
+      expect(metadata.sashStileDepthOptionsMm, [54.0]);
+      // Fiche p.74: glazing 6 à 24 mm; rebate depth not stated.
+      expect(metadata.glazingMinMm, 6.0);
+      expect(metadata.glazingMaxMm, 24.0);
+      // Fiche never mentions a thermal break for this series.
+      expect(metadata.thermalBreak, isNull);
+      // No dimension-limit statement exists in the fiche section.
+      expect(metadata.dimensionLimits, isEmpty);
+      expect(metadata.assemblyNote, isNotNull);
+      expect(metadata.drainageNote, isNotNull);
+      expect(metadata.sourceDescription, contains('14700'));
     });
   });
 

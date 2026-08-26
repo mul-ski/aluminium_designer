@@ -1075,6 +1075,358 @@ const ProfileSystem meSerie14800 = ProfileSystem(
 );
 
 // ============================================================================
+// MAGHREB EXTRUSION — Série 14700 (portes lourdes à frappe)
+// ============================================================================
+
+/// System id for the Série 14700 portes, fixed for the same idempotency
+/// reason as [maghrebExtrusionId].
+const String meSerie14700Id = 'builtin-me-14700';
+
+/// Display name of the seeded 14700 system; also [Profile.system] on
+/// every seeded profile.
+const String _meSerie14700Name = 'Série 14700 Portes Lourdes';
+
+/// Every profile of the Série 14700 transcribed from the Catalogue
+/// Général's PROFILOSCOPE sheets for this series (pdf pp. 76-80) plus
+/// the débitage-only réf 14.811 (no PROFILOSCOPE sheet seen). The full
+/// transcription table -- including values the `Profile` model has no
+/// field for -- lives in `docs/VERIFIED_SOURCES.md`, section S-4.
+///
+/// Conventions: identical to the me-14600 / me-14800 blocks above
+/// (`width` = face, `depth` = wall-plane, `0` = not labeled,
+/// `weightPerMeter` = 0 everywhere).
+///
+/// TYPE SOURCING: as in me-14800, the PROFILOSCOPE sheets carry no
+/// family headings; types are assigned only where a source element
+/// states them. The p. 94 débitage table names 14.700 "Dormant",
+/// 14.705 "Ouvrant intérieur", 14.706 "Ouvrant extérieur", 14.807
+/// "Complément traverse basse", 14.813 "TÉ traverse", 14.809/14.810
+/// "Parclose", 14.811 "Tige de crémone". Everything else stays
+/// `ProfileType.other` with a "famille non déclarée" note -- shape-based
+/// guessing would violate the domain rule that types follow source
+/// headings, never inference. The coupes (pp. 86-88) label 14.701 as
+/// the "imposte fixe" panel and 14.712 as the traverse-basse cap;
+/// since neither has a heading, both stay `other`.
+///
+/// NOTATION: same dotted/undotted split as the 14800 section. The p. 94
+/// débitage table prints "14.807" (dotted) while the PROFILOSCOPE sheet
+/// p. 80 prints "14707" (undotted); the débitage table prints "14.813"
+/// while the sheet p. 79 prints "14813". Seeded references follow the
+/// notation of the source element that names each profile -- dotted for
+/// the débitage-named rows, sheet notation for the rest -- with the
+/// mapping recorded in the ledger.
+const List<Profile> _me14700Profiles = [
+  // --- DORMANTS (PROFILOSCOPE p.76; named "Dormant" by p.94 débitage) ---
+  Profile(
+    id: 'builtin-me-14700-14700',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.700',
+    name: 'Dormant',
+    type: ProfileType.dormant,
+    // Sheet labels 72.1 (face) and 50.1 (sub-dim, not the wall plane).
+    // The fiche states "Dormant tubulaire de 54 mm" as a system value
+    // (metadata.frameDepthOptionsMm); the wall-plane dim is not labeled
+    // on this profile's sheet -> stored as the labeled face.
+    width: 72.1,
+    depth: 0,
+    weightPerMeter: 0,
+  ),
+  // --- FIXE / IMPOSTE (PROFILOSCOPE p.76; coupes pp.86-88 label as
+  // --- imposte fixe) ---
+  Profile(
+    id: 'builtin-me-14700-14701',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.701',
+    name: 'Imposte fixe',
+    type: ProfileType.other,
+    // Sheet labels 75.1 (face) / 54 (wall plane) plus a 20 sub-dim.
+    width: 75.1,
+    depth: 54.0,
+    weightPerMeter: 0,
+  ),
+  // --- OUVRANTS (PROFILOSCOPE p.77; named by p.94 débitage) ---
+  Profile(
+    id: 'builtin-me-14700-14705',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.705',
+    name: 'Ouvrant intérieur',
+    type: ProfileType.ouvrant,
+    // Sheet labels 91.8 (face) / 71.8 (sub-dim). Fiche states
+    // "Ouvrant tubulaire de 54 mm" (metadata.sashStileDepthOptionsMm).
+    width: 91.8,
+    depth: 0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14706',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.706',
+    name: 'Ouvrant extérieur',
+    type: ProfileType.ouvrant,
+    // Sheet labels 91.8 (face) / 49.8 (sub-dim) plus 12.2 (another
+    // sub-dim). 14.706 is the dedicated "ouvrant extérieur" leaf
+    // (label verified p.88); narrower base than 14.705.
+    width: 91.8,
+    depth: 0,
+    weightPerMeter: 0,
+  ),
+  // --- PARCLOSES (PROFILOSCOPE p.80; named "Parclose" by p.94 débitage;
+  // --- 14.819 appears only on p.92 parclose/vitrage mapping, 22-27mm
+  // --- glazing, no débitage row in p.94) ---
+  Profile(
+    id: 'builtin-me-14700-14810',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.810',
+    name: 'Parclose (5-10mm glazing)',
+    type: ProfileType.other,
+    // Sheet p.80 labels 22 / 20 -- and p.94 row labeled "14.810 ou
+    // 14.809" with "Double vitrage" sub-label (the nomenclature
+    // disagrees with the p.92 parclose/vitrage mapping: p.80 sheet
+    // sub-labels are absent, p.92 assigns 14.810 to 5-10mm). Both
+    // statements kept verbatim in the ledger.
+    width: 22.0,
+    depth: 20.0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14809',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.809',
+    name: 'Parclose (12-20mm glazing)',
+    type: ProfileType.other,
+    // Sheet p.80 labels 16 / 20.
+    width: 16.0,
+    depth: 20.0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14809-1',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.809/1',
+    name: 'Parclose',
+    type: ProfileType.other,
+    width: 12.5,
+    depth: 20.0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14819',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.819',
+    name: 'Parclose (22-27mm glazing)',
+    type: ProfileType.other,
+    // Sheet p.80 labels 4.5 / 20. Only the p.92 parclose/vitrage
+    // mapping names this ref (for 22-27mm glazing); no row in the
+    // p.94 débitage table -- its cut formula is unknown. C10a encodes
+    // NO rule for 14.819; the profile is seeded for the catalogue
+    // map to be complete, the glass-dependent cut is a documented
+    // blocker.
+    width: 4.5,
+    depth: 20.0,
+    weightPerMeter: 0,
+  ),
+  // --- TRAVERSE BASSE ASSEMBLY (p.94 débitage: 14.813 "TÉ traverse" +
+  // --- 14.807 "Complément traverse basse"; sheet notation 14813 and
+  // --- 14707 respectively -- same profiles, dotted/undotted split) ---
+  Profile(
+    id: 'builtin-me-14700-14813',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.813',
+    name: 'Té traverse (traverse basse)',
+    type: ProfileType.traverse,
+    // Sheet p.79 labels 140 (face) / 40 (wall plane).
+    width: 140.0,
+    depth: 40.0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14707',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.807',
+    name: 'Complément traverse basse',
+    type: ProfileType.traverse,
+    // Sheet p.80 labels 22 (face) / 48 (wall plane).
+    width: 22.0,
+    depth: 48.0,
+    weightPerMeter: 0,
+  ),
+  // --- TIGE DE CRÉMONE (p.94 débitage row only; no PROFILOSCOPE sheet
+  // --- seen in the section; no dimensions labeled anywhere) ---
+  Profile(
+    id: 'builtin-me-14700-14811',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.811',
+    name: 'Tige de crémone',
+    type: ProfileType.other,
+    width: 0,
+    depth: 0,
+    weightPerMeter: 0,
+  ),
+  // --- PROFILES WITHOUT A STATED FAMILY OR DÉBITAGE ROW (PROFILOSCOPE
+  // --- pp. 78-80): heading-less sheets, not named by the p.94 table;
+  // --- used in the section's va-et-vient, imposte-fixe, and other
+  // --- coupes that C10a does NOT encode. Seeded with type `other` and
+  // --- a "famille non déclarée" note so the catalogue map is complete. ---
+  Profile(
+    id: 'builtin-me-14700-14718',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.718',
+    name: 'Profil (famille non déclarée)',
+    type: ProfileType.other,
+    // Sheet p.78 labels 117.5 / 87.6 plus sub 49.2.
+    width: 117.5,
+    depth: 87.6,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14704',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.704',
+    name: 'Profil (famille non déclarée)',
+    type: ProfileType.other,
+    // Sheet p.78 labels 54 / 19.
+    width: 54.0,
+    depth: 19.0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14712',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.712',
+    name: 'Traverse basse cap',
+    type: ProfileType.other,
+    // Sheet p.78 labels 89.2 / 54. Coupe p.87 labels this profile at
+    // the bottom-rail cap position; no heading in the source.
+    width: 89.2,
+    depth: 54.0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14708',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.708',
+    name: 'Profil (famille non déclarée)',
+    type: ProfileType.other,
+    // Sheet p.80 labels 22 / 20 / 54.
+    width: 22.0,
+    depth: 54.0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14711',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.711',
+    name: 'Tige de crémone (variante 14.811)',
+    type: ProfileType.other,
+    // Sheet p.80 -- no dimensions labeled on the sheet.
+    width: 0,
+    depth: 0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14803',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.803',
+    name: 'Profil (famille non déclarée)',
+    type: ProfileType.other,
+    // Sheet p.79 labels 68.8 / 40 plus sub 28.8.
+    width: 68.8,
+    depth: 40.0,
+    weightPerMeter: 0,
+  ),
+  Profile(
+    id: 'builtin-me-14700-14812',
+    manufacturer: _maghrebExtrusionName,
+    system: _meSerie14700Name,
+    reference: '14.812',
+    name: 'Profil (famille non déclarée)',
+    type: ProfileType.other,
+    // Sheet p.79 labels 88.8 / 48.8.
+    width: 88.8,
+    depth: 48.8,
+    weightPerMeter: 0,
+  ),
+];
+
+/// Maghreb Extrusion "Série 14700" portes lourdes system -- portes
+/// fenêtres et fenêtres à la française 1 ou 2 vantaux (fiche p.73), with
+/// every system-level fact the source states and nothing it doesn't.
+///
+/// `ruleSetId` points at `meSerie14700RuleSet` (me_14700_rule_set.dart):
+/// the unambiguous subset of the p. 94 débitage table. The 2-vantaux
+/// 14.705 stile formula (Qté 3) and 14.706 stile formula (Qté 1) are
+/// DELIBERATELY not encoded -- the 3+1 split is a documented source
+/// tension (ledger S-4; Coupes pp.87, 88 label 14.705 = "OUVRANT A
+/// L'INTERIEUR" and 14.706 = "OUVRANT A L'EXTERIEUR" but no coupe
+/// labels the per-stile positional distribution). Per the locked
+/// decision: 2v 14.705/14.706 stile rules stay noRuleMatched; the
+/// tension is recorded, not resolved by inference. See
+/// docs/VERIFIED_SOURCES.md S-4 for the full transcription and the
+/// C10b blocker.
+const ProfileSystem meSerie14700 = ProfileSystem(
+  id: meSerie14700Id,
+  manufacturer: _maghrebExtrusionName,
+  manufacturerId: maghrebExtrusionId,
+  name: _meSerie14700Name,
+  ruleSetId: meSerie14700Id,
+  profiles: _me14700Profiles,
+  supportedOpenings: [OpeningType.francaise],
+  isBuiltIn: true,
+  metadata: ProfileSystemMetadata(
+    // "Dormant tubulaires de 54 mm avec ou sans couvre joint" (p.73).
+    frameDepthOptionsMm: [54.0],
+    // "Ouvrant tubulaires de 54 mm" (p.73).
+    sashStileDepthOptionsMm: [54.0],
+    // "Les ouvrants ont une feuillure pour vitrage allant de 6 à 24 mm"
+    // (p.74). The rebate depth itself is NOT stated on the fiche --
+    // only the glazing range is. Stored as a glazing range, not as
+    // glazingRebateMm (which would be a depth, not a range).
+    glazingMinMm: 6.0,
+    glazingMaxMm: 24.0,
+    assemblyNote:
+        'Dormant tubulaire 54 mm avec ou sans couvre joint, assemblage '
+        'en coupe d\'onglet avec équerres; ouvrant tubulaire 54 mm à '
+        'prise en feuillure portefeuille ou parclosé. Ferrage par '
+        '3 paumelles ou plus selon dimension/poids; fermeture par '
+        'serrure à 1, 2 ou 3 points.',
+    drainageNote:
+        'Drainage par oblongs sur la traverse basse du dormant avec '
+        'busettes à clapets anti-retour.',
+    finishNote:
+        'Alliage 6063 (EXTRUMAROC). Laquage 60 µ QUALICOAT ou '
+        'anodisation 15 µ QUALANOD.',
+    // No dimension-limit statement exists in the fiche section.
+    dimensionLimits: [],
+    sourceDescription:
+        '"Catalogue Général — Maghreb Extrusion" (146-page PDF fourni '
+        'par le client), section Série 14700: titre p.72, fiche '
+        'technique pp.73-75, PROFILOSCOPE pp.76-80, coupes pp.81-93 '
+        '(lecture visuelle sur rendus haute résolution), débitage '
+        '"PORTE À FRAPPE 1 ET 2 VANTAUX AVEC TRAVERSE BASSE" p.94 '
+        '(texte + vérification visuelle haute résolution). Détail par '
+        'valeur et tensions documentées: docs/VERIFIED_SOURCES.md, '
+        'section S-4.',
+  ),
+);
+
+// ============================================================================
 // SEPALUMIC — Série 4200 (châssis à frappe / oscillo-battants)
 // ============================================================================
 
@@ -1534,6 +1886,7 @@ const Manufacturer sepalumic = Manufacturer(
 const List<ProfileSystem> builtInProfileSystems = [
   meSerie14600,
   meSerie14800,
+  meSerie14700,
   sepSerie4200,
 ];
 
