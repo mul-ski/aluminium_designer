@@ -48,6 +48,7 @@ suite green, diff inspected, then commit + push + this file updated.
 | **C7 `feat(catalog): Sepalumic Série 4200 — first Sepalumic system`** (client supplied the complete Catalogue Technique Éd. 05 Sept. 2019, 199 pp. — gate opened with a tier-1 fabricator catalogue; ledger M-2: 31 profiles transcribed from B020–B080, débitage families Châssis fixe + OF 1/2 vantaux encoded as 34 rules (dormant 4220/4221 L·H/L+50·H+50, ouvrant 4211/4219/4244/4254 L−43.5·H−43.5 at 1v, L/2−24·H−43.5 at 2v, battue 4206 H−102; fixe traverse 4405/4413 L−54.5). Blockers on record: OB identification UNRESOLVED (belge vs oscillo-battant — neither adopted), Soufflet/Projeté/Porte/Composé need OpeningType/door modeling, OF traverse options blocked on cross-usage sibling dependency (2nd manufacturer to hit it), parcloses glass-dependent; single-châssis-per-construction scope limit documented. Source spot-checks re-run against the PDF before push). qa-review verdict before commit: APPROVE (follow-ups applied) | a42cc02 | analyze clean; full suite 475/475 |
 | **C8 `feat(calc)+feat(catalog): paired-profile dependencies — Sepalumic 4200 OF traverse options encoded`** (engine commit: `CalculationContext.siblings` derived per calculation from existing usages + catalog resolution — nothing persisted, fingerprint untouched — plus `CompanionProfileReferenceCondition`: universal quantifier over the section's sash carriers (resolved ouvrant-typed usages at non-intermediate roles; battue 4206 excluded by placement doctrine since its own B040 heading types it ouvrant), exact-reference equality, fail-closed on every missing/ambiguous input; a mixed sash matches NO rule → plain noRuleMatched, never AmbiguousRuleMatchException. Catalog commit: rules 34→42 — the eight printed (traverse ref × sibling ouvrant ref) cells E070/E090/E110/E130 + E150/E170/E190/E210 with per-page citations; ledger M-2 blocker 2 RESOLVED with semantics on record, S-2 preliminary note recording the ME 14800 frappe parclose rows keyed by sibling ouvrant 14.802/14.805 (Catalogue Général pdf p. 65 — second manufacturer, same shape); exhaustive sweep extended with a companion dimension). qa-review verdicts before both commits: APPROVE (doc precisions applied) | 1ca523d, eee1b20 | analyze clean; full suite 492/492 → 506/506 |
 | **C9 `feat(catalog): ME Série 14800 frappe — seed + companion-gated débitage`** (FIRST real second-manufacturer consumer of the C8 companion condition, independently validating it. Seed: `builtin-me-14800` 'Série 14800 Frappe' with 21 profiles from the Catalogue Général's PROFILOSCOPE sheets pp. 50-53 — types only where source-stated, heading-less sheets stay `other`; references follow each naming source's notation; metadata = fiche facts pp. 48-49 (44/47.9, feuillure 24, vitrage 6-20, thermalBreak null). Rules 25 = the COMPLETE p. 65 "(1 VANTAIL)" table: dormants 14.800 2×(L;H) / 14.801 2×(L+46;H+46), ouvrants 14.802/14.805 2×(L−35.2;H−35.2) — angles PRINTED per row (45°/90°), direct provenance; the two parclose rows keyed BY THE SIBLING OUVRANT REF (source's own Ref column): parcloses 14.809 simple / 14.810 double share outcome-identical formulas L−117.6/H−157.6 beside 14.802 and L−217.4/H−257.4 beside 14.805 via CompanionProfileReferenceCondition — the glazing family rides on the profile choice alone, NO glass domain; tige 14.811 H−90 no-role (chicane precedent). All gated française 1v: NO 2v/OB/soufflet débitage table exists — those stay honest noRuleMatched. Ledger S-3 (full transcription + recorded tension: pp. 56/60 coupes label frame 14820 while the table names 14.800/14.801 — cuts follow the table); S-2 re-headered superseded. ALL 12 printed inertia pairs pinned fail-CI). qa-review cycle before commit: CHANGES REQUIRED (inertia pinning, drainage citation, AEV provenance) → all fixed → APPROVE | 6079528 | analyze clean; full suite 536/536 |
+| **C10a `feat(catalog): ME Série 14700 Portes Lourdes — unambiguous débitage subset`** (Fourth real manufacturer system from the Catalogue Général pp. 72-94. Seed: `builtin-me-14700` with 18 profiles from the PROFILOSCOPE sheets pp. 76-80 — types only where source-stated (p. 94 names dormant / ouvrant / parclose / Té traverse / complément / tige; heading-less sheets stay `other`); references follow each naming source's notation (dotted for the 9 débitage-named, sheet for the 9 sheet-only); metadata = fiche pp. 73-75 (54/54, glazing 6-24, thermalBreak null). Rules 21 = the UNAMBIGUOUS subset of p. 94 per the locked decision: dormant 14.700 6 rules (top/left/right × 1v+2v) with PRINTED mixed 45°/90° angles on verticals (CutAngles(45, 90), direct provenance); 14.705 4 rules (1v top + 2 stiles, 2v top only); traverse-basse {14.813, 14.807} 2 rules (multi-ref outcome-identical, bottom role); parclose {14.809, 14.810} 8 rules (multi-ref, 1v fixed(1) + 2v fixed(2)); tige 14.811 1 rule (1v only, no-role, chicane precedent). C10a BLOCKERS documented but NOT resolved by inference: 2v 14.705 stile formula H−65 Qté 3 and 2v 14.706 stile formula H−65 Qté 1 stay noRuleMatched (the "3+1 split" is a documented source tension -- Coupes p.87/p.88 label 14.705 = "OUVRANT A L'INTERIEUR" / 14.706 = "OUVRANT A L'EXTERIEUR" suggesting a "porte + tierce" configuration, but no coupe labels the per-stile positional distribution); 14.819 parclose stays noRuleMatched (p. 92 maps 22-27mm glazing, p. 94 has no row); va-et-vient sur pivot, châssis fixe, 1v+imposte fixe stay unencoded (no débitage tables). Ledger S-4 records the full evidence + blocker narrative. qa-review verdict before commit: APPROVE (one doc-drift fix applied)) | 9df291e | analyze clean; full suite 572/572 |
 
 Suite size history: 119 → 242 (through boundary drag) → 244 (containment fix)
 → 259 (after M1) → 275 → 279 → 283 → 289 → 295 → 299 (through label editing)
@@ -57,7 +58,7 @@ calculation C3) → 338 (C4a) → 340 (C4b) → 345 (C4c) → 354 (after C4) →
 → 384 (after C5 fixes) → 396 (after C6a) → 408 (after C6b) → 419
 (after C6c) → 421 (A) → 428 (B) → 435 (C) → 443 (W1) → 446 (W2) →
 475 (after C7) → 492 (C8 engine capability) → 506 (C8 rules) →
-**536** (C9 ME 14800 frappe).
+536 (C9 ME 14800 frappe) → **572** (C10a ME 14700 unambiguous subset).
 
 ## In progress
 
@@ -283,14 +284,20 @@ ledger; binaries stay out of the repo):
 - **Sepalumic Catalogue 1100 ED5** (76 pp): mur-rideau profiles with
   inertias.
 
-Candidates, not scheduled: C10 ME Série 14700 portes (door-modeling
-decisions first; its débitage table needs visual verification — the
-text layer mangles the numbers) · 14300 (verify visually whether a
-débitage table exists) · 14600 cross-check · façade-architecture
-decision before ANY mur-rideau work (14900/1100 held sources) ·
-OpeningType extensions (belge/soufflet/projeté — identification of
-O.B. unresolved; the 14800 fiche documents OB/soufflet variants with
-no débitage) · glass domain (unblocks parclose rows everywhere —
-Sepalumic 4200's "ou"-lists and 14800's VITRAGE sizes) · 14800
-2-vantaux/OB/soufflet débitage if an external source ever supplies
-tables the Catalogue Général lacks.
+Candidates, not scheduled: **C10b ME 14700 stile blocker** (2v 14.705/14.706
+"3+1 split" needs an external source documenting the per-stile
+positional distribution -- tierce vs porte interpretation per Coupes
+p.87/p.88, but no coupe labels the role mapping; resolves the
+documented ledger S-4 tension) · C10+ ME 14700 va-et-vient sur
+pivot (p. 85 coupes only; no débitage table; OpeningType extension
+needed) · C10+ ME 14700 châssis fixe / 1v+imposte fixe (no débitage
+tables; coupes pp. 86-88 use 14.701 / 14.712 / 14.707 etc.) · C11
+ME Série 14700 portes (door-modeling decisions + visual table
+verification; the 14700 table's text layer mangles numbers) · 14300
+(verify visually whether a débitage table exists) · 14600 cross-check
+· façade-architecture decision before ANY mur-rideau work (14900/1100
+held sources) · OpeningType extensions (belge/soufflet/projeté --
+identification of O.B. unresolved; the 14800 fiche documents
+OB/soufflet variants with no débitage) · glass domain (unblocks
+parclose rows everywhere -- Sepalumic 4200's "ou"-lists, 14800's
+VITRAGE sizes, 14700's 14.819 + vitrage).
