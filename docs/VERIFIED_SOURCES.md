@@ -444,7 +444,113 @@ Angles are PRINTED per row (45° frame/sash; 90° parclose/tige) — direct prov
 
 **Recorded tension (verbatim, unresolved):** the pp. 56/60 coupes ("Porte ouvrante à la française 1/2 vantaux") label frame profile **14820** beside sash 14802/14805, while the débitage table names only 14.800/14.801 as dormants. Both statements kept; cuts follow the printed table.
 
-**NOT encoded (honest noRuleMatched):** the VITRAGE block (glass sizes per ouvrant: "Débitage pour ouvrant 14.802 → L−132/H−132; pour ouvrant 14.805 → L−185/H−185" — glass domain, no model); 2-vantaux/OB/soufflet/va-et-vient/fixe configurations (NO débitage tables exist for them in the catalogue — text-layer search confirms p. 65 is the section's only débitage page); accessories AC-8xx and joints JO-8xx (hardware); every profile the table does not name.
+**NOT encoded (honest noRuleMatched):** the 2-vantaux/OB/soufflet/va-et-vient/fixe
+configurations (NO débitage tables exist for them in the catalogue —
+text-layer search confirms p. 65 is the section's only débitage page);
+every profile the table does not name. **P1 (2026) PARTIALLY
+CLOSES** this bullet for the 1-vantail française configuration: the
+VITRAGE block (glass sizes beside 14.802 and 14.805) and the
+ACCESSOIRES block (11 of the 12 items) are now encoded as P1 glass +
+hardware rules in `meSerie14800RuleSet` -- the 12th ("Clapet
+Anti-refoulement") remains honest `noRuleMatched` because the source
+prints quantity `*` (variable). Full P1 evidence and verbatim
+citations: ledger S-3 "P1 commit 5" addendum below.
+
+### P1 commit 5 addendum — 1v française glass + hardware (p. 65 VITRAGE + ACCESSOIRES)
+
+The p. 65 débitage page (the section's only débitage page) also contains,
+in addition to the 25 profile rows already encoded by C9, two more
+blocks the P1 pivot brings under computation: the **VITRAGE** block
+(glass sizes per dominant ouvrant ref) and the **ACCESSOIRES** block
+(per-section hardware list with quantities and joint length formulas).
+
+#### VITRAGE block (1v française) — encoded as 2 `GlassCalculationRule`s
+
+| Verbatim source line (p. 65 VITRAGE) | Encoded as | Rule gating |
+|---|---|---|
+| `Débitage pour ouvrant 14.802` → `L−132` / `H−132` | `GlassCalculationRule` with `widthExpression = constructionWidth − 132`, `heightExpression = constructionHeight − 132`, `quantity = 1` | `VantauxCountCondition(1) + OpeningTypeCondition(francaise) + ProfileReferenceCondition({'14.802'})` |
+| `Débitage pour ouvrant 14.805` → `L−185` / `H−185` | `GlassCalculationRule` with `widthExpression = constructionWidth − 185`, `heightExpression = constructionHeight − 185`, `quantity = 1` | `VantauxCountCondition(1) + OpeningTypeCondition(francaise) + ProfileReferenceCondition({'14.805'})` |
+
+The `ProfileReferenceCondition` keys on the calculator's section-context
+`profile` (set by P1 commit 4's wiring to the section's dominant
+ouvrant carrier). A section with dominant ouvrant 14.802 sizes its
+pane to `L−132 / H−132`; a section with 14.805 sizes to
+`L−185 / H−185`. Mixed-sash (two distinct refs) is caught upstream in
+the calculator as `mixedSashCarrier` (mirrors the C8 universal-
+quantifier contract — the profile side already skips there; the
+glass side must not silently size to one carrier). Fixed sections
+skip the whole glass path (no pane, no diagnostic).
+
+#### ACCESSOIRES block (1v française) — encoded as 11 `HardwareCalculationRule`s
+
+| Verbatim source item (p. 65 ACCESSOIRES) | Rule ref | Quantity | Length formula | Category |
+|---|---|---|---|---|
+| Vérin de pose multi séries ×2 | `AC-805` | 2 | — | hardware |
+| Clapet Anti-refoulement ×`*` | **NOT ENCODED** | — | — | — |
+| Entraîneur moulé ×1 | `AC-822` | 1 | — | hardware |
+| Paumelles réversible pour OF ×2 | `AC-805P` | 2 | — | hardware |
+| Crémone-serrure ×1 | `AC-807` | 1 | — | hardware |
+| Support pour ouvrant ×1 | `AC-823` | 1 | — | hardware |
+| Point supp. + gâche ×2 | `AC-808` | 2 | — | hardware |
+| Crémone droit 1 fourche ×1 | `AC-808C` | 1 | — | hardware |
+| Équerre à pions ×8 | `AC-600` | 8 | — | hardware |
+| Joint battue 2L+2H | `JO-825` | 1 | `2L + 2H` | accessory |
+| Joint de vitrage 2L+2H | `JO-826` | 1 | `2L + 2H` | accessory |
+| Joint de vitrage portefeuille 2L+2H | `JO-828` | 1 | `2L + 2H` | accessory |
+
+The three joint rules share the same `2L + 2H` formula but carry
+DIFFERENT identifiers and DIFFERENT category tags so the workshop
+view can show per-ref lines (the multi-ref-set pattern would
+collapse three accessory lines into one). Each is its own rule
+keyed on the same `VantauxCountCondition(1) + OpeningTypeCondition
+(francaise)` gating — exactly the per-section "all matching rules
+apply" semantics P1 commit 4's wiring expects.
+
+The 12th item, "Clapet Anti-refoulement ×`*`", is **intentionally not
+encoded**: the source itself does not state a quantity (`*` = variable
+per the source's own convention). Encoding any number would be
+fabrication. The workshop view surfaces it as `noRuleMatched` — the
+same honest-diagnostic contract as parclose selection in M-2
+Sepalumic 4200 and the C10a 14.819 parclose.
+
+#### Per-section "all matching rules apply" semantics (P1 commit 4)
+
+Hardware rules use a per-section "all rules apply" selector
+(`SystemRuleSet.selectAllHardware`) rather than the per-usage
+"most-specific rule" selector used for profile cuts
+(`SystemRuleSet.select`). The ACCESSOIRES model lists multiple items
+that share the same gating conditions (vantaux 1 + française); a
+per-section evaluation must emit ALL items, not pick one. The
+profile-side single-rule semantics do not apply here. Two equal-
+specificity hardware rules is the normal case, not an authoring
+bug. No `AmbiguousHardwareRuleMatchException` exists; the
+hardware selector returns `List<HardwareCalculationRule>`. (Glass
+still uses the single-rule selector via `selectGlass` -- its two
+rules have different `ProfileReferenceCondition` keys, so they
+never tie.)
+
+#### Test gate (P1 commit 5 gold-standard e2e)
+
+`test/me_14800_p1_complete_bom_e2e_test.dart` runs one real 1v
+française construction at L=2000/H=1500 through
+`calculateConstructionCuts` and asserts EVERY documented component
+from p. 65 is computed:
+
+- **13 profile cuts** (4 dormant + 4 ouvrant + 4 parclose + 1 tige) at
+  the exact printed lengths and angles.
+- **1 glass item** at L−132/H−132 beside 14.802 (or L−185/H−185
+  beside 14.805 in a second test).
+- **11 hardware items** with their printed quantities; joints
+  evaluate `2L+2H = 7000.0` mm; category tags split hardware vs
+  accessory.
+- **0 issues** on the happy path.
+- **2v française** produces 0 glass + 0 hardware + `noRuleMatched`
+  diagnostics (the 2v column of p. 65 has no glass or hardware
+  rows).
+
+The Clapet Anti-refoulement item is verified as NOT invented:
+the test asserts the actual hardware refs produced and the absent ref
+is not present.
 
 ---
 

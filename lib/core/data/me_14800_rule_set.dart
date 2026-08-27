@@ -67,18 +67,53 @@
 /// rule). The eight parclose cells stay mutually exclusive by (own ref ×
 /// companion ref); AmbiguousRuleMatchException stays loud.
 ///
+/// P1 GLASS RULES (p. 65 VITRAGE block, 1 vantail française): the source
+/// prints one glass dimension per dominant ouvrant ref -- the glass
+/// pane sizes to the section's sash carrier, the same way a
+/// CompanionProfileReferenceCondition evaluates at section scope. Two
+/// glass rules cover the two ouvrant refs 14.802 and 14.805 (the
+/// same 1v française frame, different sash depth). Formulae: width
+/// L−132, height H−132 beside 14.802; width L−185, height H−185
+/// beside 14.805. Each rule's gating profile reference is the
+/// section's dominant ouvrant ref (built by the calculator in P1
+/// commit 4); the multi-ref set gates on the 2-vantail-gated
+/// française configuration, same contract as the profile rules. NO 2v
+/// glass row exists in p. 65 -- the 2v française domain stays
+/// noRuleMatched with a documented blocker (ledger S-3).
+///
+/// P1 HARDWARE RULES (p. 65 ACCESSOIRES block, 1 vantail française):
+/// 11 of the 12 ACCESSOIRES items have explicit quantities. The
+/// "Clapet Anti-refoulement" row prints quantity `*` (variable);
+/// that item is INTENTIONALLY left unencoded -- the source itself
+/// does not state a quantity, so encoding any number would invent
+/// data. The workshop view surfaces it as noRuleMatched (the same
+/// honest-diagnostic contract as parclose selection in M-2
+/// Sepalumic 4200). Each hardware item is its own rule; the
+/// "hardware" / "accessory" category follows the model's split
+/// (metal piece vs gasket). The three joint rules all print the
+/// same "2L+2H" formula -- one rule per joint ref (different
+/// identifiers, same outcome) so the BOM view can render per-ref
+/// lines, exactly the outcome-identical-row discipline used in the
+/// profile-side parclose encoding (C8).
+///
 /// NOT ENCODED (honest noRuleMatched; blockers in docs/VERIFIED_SOURCES.md
-/// S-3): the VITRAGE block (glass sizes per ouvrant — glass domain), the
-/// 2-vantaux/OB/soufflet/va-et-vient configurations (no débitage tables),
-/// accessories/joints (hardware), and every profile the table does not
-/// name (14803/14804/14806/... — seeded, ruleless).
+/// S-3): the 2-vantail glass + hardware (no rows in p. 65 -- the
+/// 2v column of the débitage table lists profiles only, not glass
+/// dimensions or hardware quantities); OB/soufflet/va-et-vient/fixe
+/// configurations (no débitage tables); "Clapet Anti-refoulement"
+/// quantity (source prints `*`, unstated); accessories AC-8xx that
+/// don't appear in p. 65's 1v ACCESSOIRES block; every profile the
+/// table does not name (14803/14804/14806/... — seeded, ruleless).
 library;
 
+import '../models/hardware_item.dart';
 import '../models/opening.dart';
 import '../models/profile.dart';
 import '../models/profile_usage.dart';
 import '../models/rules/calculation_rule.dart';
 import '../models/rules/dimension_expression.dart';
+import '../models/rules/glass_calculation_rule.dart';
+import '../models/rules/hardware_calculation_rule.dart';
 import '../models/rules/rule_condition.dart';
 import '../models/rules/system_rule_set.dart';
 import 'builtin_catalog_seed.dart';
@@ -642,6 +677,315 @@ const SystemRuleSet meSerie14800RuleSet = SystemRuleSet(
           'Tige de crémone 14.811 — H−90 '
           '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 · '
           '90° imprimé; position non déclarée par la source]',
+    ),
+  ],
+  // --- P1 glass rules (p. 65 VITRAGE block, 1 vantail française) ---
+  // One rule per dominant ouvrant ref: the section's dominant ouvrant
+  // carrier is the gating ref (calculator builds the CalculationContext
+  // with profile = that ref in P1 commit 4). The ProfileReferenceCondition
+  // here keys on that dominant ref, so a 1v française section whose
+  // dominant ouvrant is 14.802 sizes its pane to L−132/H−132, and one
+  // whose dominant is 14.805 sizes to L−185/H−185. Mixed-sash (two
+  // distinct refs) is caught upstream in the calculator (mixedSashCarrier
+  // diagnostic), so no rule needs to defend against it here.
+  glassRules: [
+    GlassCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+        ProfileReferenceCondition({'14.802'}),
+      ],
+      widthExpression: BinaryExpression(
+        left: DimensionExpression.variable(
+          DimensionVariable.constructionWidth,
+        ),
+        operator: BinaryOperator.subtract,
+        right: DimensionExpression.constant(132.0),
+      ),
+      heightExpression: BinaryExpression(
+        left: DimensionExpression.variable(
+          DimensionVariable.constructionHeight,
+        ),
+        operator: BinaryOperator.subtract,
+        right: DimensionExpression.constant(132.0),
+      ),
+      quantity: 1,
+      isPlaceholder: false,
+      description:
+          'Vitrage à côté d\'ouvrant 14.802 — L−132 / H−132 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'VITRAGE · 1v française]',
+    ),
+    GlassCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+        ProfileReferenceCondition({'14.805'}),
+      ],
+      widthExpression: BinaryExpression(
+        left: DimensionExpression.variable(
+          DimensionVariable.constructionWidth,
+        ),
+        operator: BinaryOperator.subtract,
+        right: DimensionExpression.constant(185.0),
+      ),
+      heightExpression: BinaryExpression(
+        left: DimensionExpression.variable(
+          DimensionVariable.constructionHeight,
+        ),
+        operator: BinaryOperator.subtract,
+        right: DimensionExpression.constant(185.0),
+      ),
+      quantity: 1,
+      isPlaceholder: false,
+      description:
+          'Vitrage à côté d\'ouvrant 14.805 — L−185 / H−185 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'VITRAGE · 1v française]',
+    ),
+  ],
+  // --- P1 hardware rules (p. 65 ACCESSOIRES block, 1 vantail française) ---
+  // 11 of the 12 ACCESSOIRES items have explicit quantities from the
+  // source. The "Clapet Anti-refoulement" row prints quantity `*`
+  // (variable) -- INTENTIONALLY left unencoded (the source itself does
+  // not state a quantity, so encoding any number would invent data;
+  // the workshop view surfaces it as noRuleMatched, the same honest-
+  // diagnostic contract as parclose selection in M-2). Each item is its
+  // own rule. The category follows the model's split: hardware (metal
+  // pieces) vs accessory (gaskets / joints). The three joint rules all
+  // use the same 2L+2H formula -- one rule per joint ref so the BOM
+  // view renders per-ref lines, exactly the outcome-identical-row
+  // discipline used in the profile-side parclose encoding (C8).
+  // Length-formula joints carry a lengthExpression; count-only items
+  // (paumelles, equerres, etc.) carry no lengthExpression and the
+  // calculator's lengthMm stays null.
+  hardwareRules: [
+    // Vérin de pose multi séries ×2
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 2,
+      reference: 'AC-805',
+      name: 'Vérin de pose multi séries',
+      category: HardwareCategory.hardware,
+      isPlaceholder: false,
+      description:
+          'Vérin de pose multi séries ×2 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Entraîneur moulé ×1
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 1,
+      reference: 'AC-822',
+      name: 'Entraîneur moulé',
+      category: HardwareCategory.hardware,
+      isPlaceholder: false,
+      description:
+          'Entraîneur moulé ×1 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Paumelles réversible pour OF ×2
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 2,
+      reference: 'AC-805P',
+      name: 'Paumelles réversible pour OF',
+      category: HardwareCategory.hardware,
+      isPlaceholder: false,
+      description:
+          'Paumelles réversible pour OF ×2 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Crémone-serrure ×1
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 1,
+      reference: 'AC-807',
+      name: 'Crémone-serrure',
+      category: HardwareCategory.hardware,
+      isPlaceholder: false,
+      description:
+          'Crémone-serrure ×1 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Support pour ouvrant ×1
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 1,
+      reference: 'AC-823',
+      name: 'Support pour ouvrant',
+      category: HardwareCategory.hardware,
+      isPlaceholder: false,
+      description:
+          'Support pour ouvrant ×1 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Point supp. + gâche ×2
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 2,
+      reference: 'AC-808',
+      name: 'Point supp. + gâche',
+      category: HardwareCategory.hardware,
+      isPlaceholder: false,
+      description:
+          'Point supp. + gâche ×2 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Crémone droit 1 fourche ×1
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 1,
+      reference: 'AC-808C',
+      name: 'Crémone droit 1 fourche',
+      category: HardwareCategory.hardware,
+      isPlaceholder: false,
+      description:
+          'Crémone droit 1 fourche ×1 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Equerre à pions ×8
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 8,
+      reference: 'AC-600',
+      name: 'Équerre à pions',
+      category: HardwareCategory.hardware,
+      isPlaceholder: false,
+      description:
+          'Équerre à pions ×8 '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Joint battue 2L+2H
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 1,
+      lengthExpression: BinaryExpression(
+        left: BinaryExpression(
+          left: DimensionExpression.variable(
+            DimensionVariable.constructionWidth,
+          ),
+          operator: BinaryOperator.multiply,
+          right: DimensionExpression.constant(2.0),
+        ),
+        operator: BinaryOperator.add,
+        right: BinaryExpression(
+          left: DimensionExpression.variable(
+            DimensionVariable.constructionHeight,
+          ),
+          operator: BinaryOperator.multiply,
+          right: DimensionExpression.constant(2.0),
+        ),
+      ),
+      reference: 'JO-825',
+      name: 'Joint de battue',
+      category: HardwareCategory.accessory,
+      isPlaceholder: false,
+      description:
+          'Joint de battue 2L+2H '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Joint de vitrage 2L+2H
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 1,
+      lengthExpression: BinaryExpression(
+        left: BinaryExpression(
+          left: DimensionExpression.variable(
+            DimensionVariable.constructionWidth,
+          ),
+          operator: BinaryOperator.multiply,
+          right: DimensionExpression.constant(2.0),
+        ),
+        operator: BinaryOperator.add,
+        right: BinaryExpression(
+          left: DimensionExpression.variable(
+            DimensionVariable.constructionHeight,
+          ),
+          operator: BinaryOperator.multiply,
+          right: DimensionExpression.constant(2.0),
+        ),
+      ),
+      reference: 'JO-826',
+      name: 'Joint de vitrage',
+      category: HardwareCategory.accessory,
+      isPlaceholder: false,
+      description:
+          'Joint de vitrage 2L+2H '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
+    ),
+    // Joint de vitrage portefeuille 2L+2H
+    HardwareCalculationRule(
+      conditions: [
+        VantauxCountCondition(1),
+        OpeningTypeCondition(OpeningType.francaise),
+      ],
+      quantity: 1,
+      lengthExpression: BinaryExpression(
+        left: BinaryExpression(
+          left: DimensionExpression.variable(
+            DimensionVariable.constructionWidth,
+          ),
+          operator: BinaryOperator.multiply,
+          right: DimensionExpression.constant(2.0),
+        ),
+        operator: BinaryOperator.add,
+        right: BinaryExpression(
+          left: DimensionExpression.variable(
+            DimensionVariable.constructionHeight,
+          ),
+          operator: BinaryOperator.multiply,
+          right: DimensionExpression.constant(2.0),
+        ),
+      ),
+      reference: 'JO-828',
+      name: 'Joint de vitrage portefeuille',
+      category: HardwareCategory.accessory,
+      isPlaceholder: false,
+      description:
+          'Joint de vitrage portefeuille 2L+2H '
+          '[débitage 14800 frappe 1 vantail, Catalogue Général p. 65 '
+          'ACCESSOIRES · 1v française]',
     ),
   ],
 );

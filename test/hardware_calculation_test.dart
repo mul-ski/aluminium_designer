@@ -168,18 +168,20 @@ void main() {
     });
   });
 
-  group('SystemRuleSet.selectHardware (specificity + ambiguity)', () {
+  group('SystemRuleSet.selectAllHardware (per-section "all matches")',
+      () {
     HardwareCalculationRule hardwareRule({
       String? description,
       List<RuleCondition> conditions = const [],
       HardwareCategory category = HardwareCategory.hardware,
       int quantity = 1,
+      String reference = 'X',
     }) =>
         HardwareCalculationRule(
           conditions: conditions,
           quantity: quantity,
-          reference: 'X',
-          name: 'X',
+          reference: reference,
+          name: reference,
           category: category,
           isPlaceholder: false,
           description: description,
@@ -194,46 +196,37 @@ void main() {
           hardwareRules: hardwareRules,
         );
 
-    test('returns null when no hardware rule matches', () {
+    test('returns empty list when no hardware rule matches', () {
       final set = ruleSet([]);
-      expect(set.selectHardware(_hardwareContext()), isNull);
+      expect(set.selectAllHardware(_hardwareContext()), isEmpty);
     });
 
-    test('returns the only matching rule', () {
-      final rule = hardwareRule(description: 'only');
-      final set = ruleSet([rule]);
-      final selected = set.selectHardware(_hardwareContext());
-      expect(selected, same(rule));
+    test('returns every matching rule (per-section "all matches" '
+        'semantics)', () {
+      // The ME 14800 ACCESSOIRES model (p. 65) lists 11 items that
+      // all share the same gating conditions (vantaux 1 + française);
+      // a per-section evaluation must emit all 11 items, not pick
+      // one. The profile-side single-rule semantics do not apply.
+      final a = hardwareRule(description: 'a', reference: 'A');
+      final b = hardwareRule(description: 'b', reference: 'B');
+      final c = hardwareRule(description: 'c', reference: 'C');
+      final set = ruleSet([a, b, c]);
+      final selected = set.selectAllHardware(_hardwareContext());
+      expect(selected, hasLength(3));
+      expect(selected.map((r) => r.reference), ['A', 'B', 'C']);
     });
 
-    test('prefers the rule with more conditions (specificity)', () {
-      final bare = hardwareRule(description: 'bare');
-      final specific = hardwareRule(
-        description: 'specific',
-        conditions: const [
-          OpeningTypeCondition(OpeningType.francaise),
-          VantauxCountCondition(1),
-        ],
-      );
-      final set = ruleSet([bare, specific]);
-      final selected = set.selectHardware(_hardwareContext());
-      expect(selected, same(specific));
-    });
-
-    test('throws AmbiguousHardwareRuleMatchException on a tie', () {
-      final a = hardwareRule(
-        conditions: const [OpeningTypeCondition(OpeningType.francaise)],
-        description: 'a',
-      );
+    test('skips rules whose conditions do not hold', () {
+      final a = hardwareRule(description: 'a', reference: 'A');
       final b = hardwareRule(
-        conditions: const [VantauxCountCondition(1)],
         description: 'b',
+        reference: 'B',
+        conditions: const [OpeningTypeCondition(OpeningType.coulissante)],
       );
       final set = ruleSet([a, b]);
-      expect(
-        () => set.selectHardware(_hardwareContext()),
-        throwsA(isA<AmbiguousHardwareRuleMatchException>()),
-      );
+      final selected = set.selectAllHardware(_hardwareContext());
+      expect(selected, hasLength(1));
+      expect(selected.single.reference, 'A');
     });
   });
 

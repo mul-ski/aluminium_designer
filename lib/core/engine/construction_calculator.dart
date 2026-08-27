@@ -400,17 +400,21 @@ class ConstructionCalculator {
         );
       }
 
-      // Hardware evaluation. Same shape as glass.
-      try {
-        final hardwareRule = ruleSet.selectHardware(sectionContext);
-        if (hardwareRule == null) {
-          hardwareIssues.add(
-            SectionHardwareIssue(
-              sectionId: section.id,
-              reason: SectionHardwareIssueReason.noRuleMatched,
-            ),
-          );
-        } else {
+      // Hardware evaluation. Per-section "all matching rules apply"
+      // semantics: the ACCESSOIRES block in every current source lists
+      // multiple items that all share the same gating conditions, so
+      // a per-section evaluation emits one item per matching rule.
+      // (The profile-side single-rule semantics do not apply here.)
+      final hardwareRules = ruleSet.selectAllHardware(sectionContext);
+      if (hardwareRules.isEmpty) {
+        hardwareIssues.add(
+          SectionHardwareIssue(
+            sectionId: section.id,
+            reason: SectionHardwareIssueReason.noRuleMatched,
+          ),
+        );
+      } else {
+        for (final hardwareRule in hardwareRules) {
           double? lengthMm;
           if (hardwareRule.lengthExpression != null) {
             lengthMm =
@@ -432,13 +436,6 @@ class ConstructionCalculator {
             ),
           );
         }
-      } on AmbiguousHardwareRuleMatchException {
-        hardwareIssues.add(
-          SectionHardwareIssue(
-            sectionId: section.id,
-            reason: SectionHardwareIssueReason.noRuleMatched,
-          ),
-        );
       }
     }
 

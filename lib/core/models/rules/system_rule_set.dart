@@ -31,7 +31,11 @@ class AmbiguousRuleMatchException implements Exception {
 ///
 /// Same "ambiguous rules must be reported" contract as the profile-rule
 /// ambiguity exception -- a different rule list to keep the type honest
-/// and the message precise.
+/// and the message precise. (Hardware does not have an analogous
+/// exception: the hardware selector returns ALL matches
+/// ([selectAllHardware]) because the ACCESSOIRES model lists many items
+/// that share the same gating conditions; per-section "all rules
+/// apply" is the correct shape there.)
 class AmbiguousGlassRuleMatchException implements Exception {
   final List<GlassCalculationRule> matchedRules;
 
@@ -45,26 +49,6 @@ class AmbiguousGlassRuleMatchException implements Exception {
     return 'AmbiguousGlassRuleMatchException: ${matchedRules.length} '
         'glass rules matched with equal specificity: $descriptions. Add '
         'a distinguishing condition to one of them, or remove the '
-        'overlap.';
-  }
-}
-
-/// Thrown when more than one [HardwareCalculationRule] in a
-/// [SystemRuleSet] matches a given [CalculationContext] with equal
-/// specificity. Same contract as the other ambiguity exceptions.
-class AmbiguousHardwareRuleMatchException implements Exception {
-  final List<HardwareCalculationRule> matchedRules;
-
-  const AmbiguousHardwareRuleMatchException(this.matchedRules);
-
-  @override
-  String toString() {
-    final descriptions = matchedRules
-        .map((rule) => rule.description ?? '<hardware rule>')
-        .join(', ');
-    return 'AmbiguousHardwareRuleMatchException: ${matchedRules.length} '
-        'hardware rules matched with equal specificity: $descriptions. '
-        'Add a distinguishing condition to one of them, or remove the '
         'overlap.';
   }
 }
@@ -211,32 +195,24 @@ class SystemRuleSet {
     throw AmbiguousGlassRuleMatchException(mostSpecific);
   }
 
-  /// Selects the single applicable hardware rule for [context], or
-  /// `null` if no rule matches. Same contract as [select] /
-  /// [selectGlass]: specificity ranking then
-  /// [AmbiguousHardwareRuleMatchException] on a tie.
-  HardwareCalculationRule? selectHardware(CalculationContext context) {
+  /// Selects every applicable hardware rule for [context]. Returns the
+  /// list (possibly empty) of matching rules in source-declaration
+  /// order. No single-rule semantics: hardware is a per-section
+  /// "ALL matching rules apply" selector, not a per-usage "most-
+  /// specific rule" selector. The 14800 ACCESSOIRES block (p. 65) lists
+  /// 11 items that all share the same gating conditions (vantaux 1 +
+  /// française); a per-section evaluation needs to emit ALL 11 items,
+  /// not pick one. The C8 profile-side `select` ambiguity contract
+  /// does not apply here -- two equal-specificity hardware rules is
+  /// the normal case, not an authoring bug. A per-section selector
+  /// returning all matches is the right shape; if a future
+  /// manufacturer needs "pick the most specific", it can layer that on
+  /// top of this list.
+  List<HardwareCalculationRule> selectAllHardware(
+    CalculationContext context,
+  ) {
     final matched =
         hardwareRules.where((rule) => rule.matches(context)).toList();
-
-    if (matched.isEmpty) {
-      return null;
-    }
-    if (matched.length == 1) {
-      return matched.single;
-    }
-
-    final maxConditionCount = matched
-        .map((rule) => rule.conditions.length)
-        .reduce((a, b) => a > b ? a : b);
-    final mostSpecific = matched
-        .where((rule) => rule.conditions.length == maxConditionCount)
-        .toList();
-
-    if (mostSpecific.length == 1) {
-      return mostSpecific.single;
-    }
-
-    throw AmbiguousHardwareRuleMatchException(mostSpecific);
+    return matched;
   }
 }

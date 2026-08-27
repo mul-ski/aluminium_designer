@@ -442,22 +442,30 @@ void main() {
       );
     });
 
-    test('hardware-rule ambiguity is also caught and reported (same '
-        'contract as glass)', () {
-      final ouv = _ouvrant('p-amb-h');
+    test('hardware: all matching rules apply (per-section "all matches" '
+        'semantics, no ambiguity)', () {
+      // Hardware is NOT a per-usage "most-specific rule" selector
+      // (that's the profile-side contract). It is a per-section
+      // "all matching rules apply" selector, because the source's
+      // ACCESSOIRES model lists multiple items that share the same
+      // gating conditions (e.g. ME 14800 p. 65's 11 items all gated
+      // on vantaux 1 + française). This test pins that contract: two
+      // rules with the SAME matched conditions both apply, and the
+      // calculator emits one hardware item per matching rule.
+      final ouv = _ouvrant('p-all-h');
       final rule1 = HardwareCalculationRule(
-        conditions: const [OpeningTypeCondition(OpeningType.francaise)],
+        conditions: const [VantauxCountCondition(1)],
         quantity: 1,
-        reference: 'X',
-        name: 'X',
+        reference: 'A',
+        name: 'A',
         category: HardwareCategory.hardware,
         isPlaceholder: false,
       );
       final rule2 = HardwareCalculationRule(
         conditions: const [VantauxCountCondition(1)],
         quantity: 1,
-        reference: 'X',
-        name: 'X',
+        reference: 'B',
+        name: 'B',
         category: HardwareCategory.hardware,
         isPlaceholder: false,
       );
@@ -482,12 +490,8 @@ void main() {
         construction,
         profilesById: {ouv.id: ouv},
       );
-      expect(outcome.hardware, isEmpty);
-      expect(outcome.hardwareIssues, hasLength(1));
-      expect(
-        outcome.hardwareIssues.single.reason,
-        SectionHardwareIssueReason.noRuleMatched,
-      );
+      expect(outcome.hardware, hasLength(2));
+      expect(outcome.hardwareIssues, isEmpty);
     });
   });
 
