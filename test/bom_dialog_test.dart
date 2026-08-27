@@ -106,9 +106,13 @@ void main() {
       await _open(tester, outcome);
       // Header totals (pinned: 13 pieces, vitrage ~2.56 m² from
       // 1868×1368 pane, hardware length 21.0 m from 3×7000mm joints).
+      // "2.56 m²" and "21.00 m" both appear in the header AND in the
+      // per-line secondary row of the glass/hardware domain sections
+      // (P1 commit 6 added those per-line totals so a workshop view
+      // can read each line without recomputing the grand sum).
       expect(find.textContaining('13'), findsWidgets);
-      expect(find.textContaining('2.56 m²'), findsOneWidget);
-      expect(find.textContaining('21.00 m'), findsOneWidget);
+      expect(find.textContaining('2.56 m²'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('21.00 m'), findsAtLeastNWidgets(1));
       // Representative BOM lines (per-domain field semantics). The exact
       // domain section titles are asserted in the rendering test below --
       // here we verify the lines themselves are present and use the

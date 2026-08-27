@@ -53,13 +53,23 @@ class CalculationResultsBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Cap the banner at 1/3 of the viewport so a long calculation result
+    // (13+ cuts with totals + diagnostics) can never overflow the right
+    // properties panel. The user scrolls within the banner once it
+    // reaches the bound -- the panel itself stays pinned. Without the
+    // cap, a full result pushes the section panels off-screen because
+    // the banner has no intrinsic height limit.
+    final maxHeight = MediaQuery.of(context).size.height / 3;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      constraints: BoxConstraints(maxHeight: maxHeight),
       color: const Color(0xFFF3F5F6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
           if (isStale) ...[
             const Row(
               children: [
@@ -85,6 +95,7 @@ class CalculationResultsBanner extends StatelessWidget {
           ],
           _buildContent(context),
         ],
+        ),
       ),
     );
   }

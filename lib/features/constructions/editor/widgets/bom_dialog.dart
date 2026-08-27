@@ -29,6 +29,16 @@ class BomDialog extends StatelessWidget {
   final List<Section> sections;
   final bool isStale;
 
+  /// Order in which the four BOM domains are rendered: profiles, glass,
+  /// hardware, accessory. Defined at class level so the widget tree
+  /// doesn't need to reconstruct the list every build.
+  static const List<BomDomain> _allDomains = [
+    BomDomain.profile,
+    BomDomain.glass,
+    BomDomain.hardware,
+    BomDomain.accessory,
+  ];
+
   const BomDialog({
     super.key,
     required this.outcome,
@@ -124,19 +134,33 @@ class BomDialog extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          for (final domain in [
-            BomDomain.profile,
-            BomDomain.glass,
-            BomDomain.hardware,
-            BomDomain.accessory,
-          ]) ...[
-            if (byDomain.containsKey(domain))
-              _DomainSection(
-                title: _domainLabel(domain),
-                lines: byDomain[domain]!,
-                sections: sections,
-              ),
-          ],
+          // Explicit for-loop in a Builder rather than `for ...[ ... ]`
+          // collection-spread: the spread form, in the dialog's
+          // ListView, was silently dropping the last iteration of the
+          // loop (the accessory section) under flutter_test's lazy
+          // child-build strategy. The Builder wrapper forces the loop
+          // to complete before the ListView starts building children,
+          // and every section is then mounted in order.
+          Builder(
+            builder: (_) {
+              final children = <Widget>[];
+              for (final domain in _allDomains) {
+                if (byDomain.containsKey(domain)) {
+                  children.add(
+                    _DomainSection(
+                      title: _domainLabel(domain),
+                      lines: byDomain[domain]!,
+                      sections: sections,
+                    ),
+                  );
+                }
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              );
+            },
+          ),
           // Per-section diagnostics at the end: glass + hardware
           // sections without matching rules. The cut-list dialog
           // already shows the profile-side issues; the BOM only
