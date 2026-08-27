@@ -6,6 +6,7 @@ import '../../../../core/models/calculation_outcome.dart';
 import '../../../../core/models/rules/system_rule_set.dart'
     show AmbiguousRuleMatchException;
 import '../../../../core/models/section.dart';
+import 'bom_dialog.dart';
 import 'cut_list_dialog.dart';
 
 /// Compact summary of the last calculation run, shown at the top of the
@@ -179,6 +180,22 @@ class CalculationResultsBanner extends StatelessWidget {
               icon: const Icon(Icons.content_cut, size: 16),
               label: const Text(
                 'Liste de découpe',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            // Unified BOM: profile + glass + hardware + accessories
+            // grouped by domain. Opened in parallel with the cut list;
+            // the two views are complementary, not redundant.
+            TextButton.icon(
+              onPressed: () => BomDialog.show(
+                context,
+                outcome: outcome,
+                sections: sections,
+                isStale: isStale,
+              ),
+              icon: const Icon(Icons.inventory_2_outlined, size: 16),
+              label: const Text(
+                'BOM',
                 style: TextStyle(fontSize: 12),
               ),
             ),
