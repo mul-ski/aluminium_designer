@@ -60,7 +60,7 @@ calculation C3) → 338 (C4a) → 340 (C4b) → 345 (C4c) → 354 (after C4) →
 (after C6c) → 421 (A) → 428 (B) → 435 (C) → 443 (W1) → 446 (W2) →
 475 (after C7) → 492 (C8 engine capability) → 506 (C8 rules) →
 536 (C9 ME 14800 frappe) → 572 (C10a ME 14700 unambiguous subset) →
-**623** (P1 ME 14800 complete BOM, commits 1–5).
+623 (P1 ME 14800 complete BOM, commits 1–5) → **625** (P1 commit 6, BOM dialog).
 
 ## In progress
 
