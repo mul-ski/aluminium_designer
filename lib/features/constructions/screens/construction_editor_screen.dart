@@ -776,6 +776,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
       hadNoRuleSet: _controller.calculationHadNoRuleSet,
       sections: _controller.draft.sections,
       isStale: _controller.calculationIsStale,
+      construction: _controller.draft,
     );
   }
 }

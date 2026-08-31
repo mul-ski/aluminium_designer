@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../../core/logic/cut_aggregation.dart';
 import '../../../../core/logic/cut_grouping.dart';
 import '../../../../core/models/calculation_outcome.dart';
+import '../../../../core/models/construction.dart';
 import '../../../../core/models/rules/system_rule_set.dart'
     show AmbiguousRuleMatchException;
 import '../../../../core/models/section.dart';
 import 'bom_dialog.dart';
 import 'cut_list_dialog.dart';
+import 'production_export_dialog.dart';
 
 /// Compact summary of the last calculation run, shown at the top of the
 /// Sections stage's right panel regardless of whether a section is
@@ -42,6 +44,15 @@ class CalculationResultsBanner extends StatelessWidget {
   final List<Section> sections;
   final bool isStale;
 
+  /// The construction whose calculation is being shown. Needed for
+  /// the production-export action: the export's metadata block and
+  /// filename both read fields from this. The button is hidden in
+  /// the no-rule-set / error / empty paths, so non-null is only
+  /// required in the populated-result branch -- but we declare it
+  /// non-null at the class level because every banner call site that
+  /// shows the populated branch has a construction to pass.
+  final Construction? construction;
+
   const CalculationResultsBanner({
     super.key,
     required this.result,
@@ -49,6 +60,7 @@ class CalculationResultsBanner extends StatelessWidget {
     required this.hadNoRuleSet,
     required this.sections,
     required this.isStale,
+    this.construction,
   });
 
   @override
@@ -207,6 +219,28 @@ class CalculationResultsBanner extends StatelessWidget {
               icon: const Icon(Icons.inventory_2_outlined, size: 16),
               label: const Text(
                 'BOM',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+            // Production documents: writes the cut list and BOM to
+            // disk as two CSV files in a subdirectory of
+            // <documents>/aluvis/exports/. Hidden when there is
+            // nothing to export -- a button that exports empty files
+            // would be inert UI. The button opens a small dialog
+            // asking for a subdirectory name (default `production`),
+            // then writes both files and surfaces the paths in a
+            // SnackBar.
+            TextButton.icon(
+              onPressed: () => ProductionExportDialog.show(
+                context,
+                outcome: outcome,
+                construction: construction!,
+                sections: sections,
+                isStale: isStale,
+              ),
+              icon: const Icon(Icons.file_download_outlined, size: 16),
+              label: const Text(
+                'Exporter la production',
                 style: TextStyle(fontSize: 12),
               ),
             ),
