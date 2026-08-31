@@ -468,11 +468,18 @@ class ConstructionEditorController extends ChangeNotifier {
   /// means "leave unchanged" -- so the draft is rebuilt directly here
   /// instead of via copyWith).
   ///
+  /// A parsed value <= 0 is ignored (no draft rebuild, no undo entry) so
+  /// a typed negative or zero cannot silently propagate into the
+  /// calculator -- mirrors the validation the section dialog already
+  /// applies on `applySectionWidth`. The state's `width` stays at its
+  /// previous value; the field's text re-syncs on the next render.
+  ///
   /// Every other field, including the authoritative `manufacturerId`/
   /// `systemId`, is carried over unchanged: dimension edits must never
   /// detach the construction from its selected manufacturer/system.
   void setWidth(String value) {
     final parsed = _parseDimensionMm(value);
+    if (parsed != null && parsed <= 0) return;
     _updateDraft(
       Construction(
         id: _draft.id,
@@ -495,9 +502,12 @@ class ConstructionEditorController extends ChangeNotifier {
   }
 
   /// Applies a typed height. See [setWidth] for why this rebuilds the draft
-  /// directly and carries every non-dimension field over unchanged.
+  /// directly and carries every non-dimension field over unchanged. The
+  /// `<= 0` guard mirrors the section dialog's existing validation -- a
+  /// non-positive value is ignored, the draft keeps its previous height.
   void setHeight(String value) {
     final parsed = _parseDimensionMm(value);
+    if (parsed != null && parsed <= 0) return;
     _updateDraft(
       Construction(
         id: _draft.id,

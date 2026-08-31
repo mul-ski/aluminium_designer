@@ -195,6 +195,61 @@ void main() {
       },
     );
 
+    test(
+      'non-positive construction width/height are IGNORED: no mutation, '
+      'no undo entry, model untouched',
+      () {
+        // Mirrors the section-level guard (precision dimension parsing
+        // group) at the construction level. A typed negative or zero must
+        // not propagate into the calculator -- the engine throws on
+        // null, not on <=0, so a silent negative would crash the run
+        // instead of being caught by the controller.
+        final controller = ConstructionEditorController(
+          construction: _construction(manufacturerId: 'mfr-1', systemId: 'sys-1'),
+        );
+        // First set a known-good value to anchor the test.
+        controller.setWidth('2000');
+        controller.setHeight('1500');
+        expect(controller.canUndo, isTrue);
+
+        for (final bad in const ['-5', '0', '-0.01']) {
+          // Undo back to a clean state per iteration so the canUndo
+          // assertion below only reflects the bad-input attempt.
+          while (controller.canUndo) {
+            controller.undo();
+          }
+          final widthBefore = controller.draft.width;
+          final heightBefore = controller.draft.height;
+
+          controller.setWidth(bad);
+          controller.setHeight(bad);
+
+          expect(
+            controller.draft.width,
+            widthBefore,
+            reason: "'$bad' must not change width",
+          );
+          expect(
+            controller.draft.height,
+            heightBefore,
+            reason: "'$bad' must not change height",
+          );
+          expect(
+            controller.canUndo,
+            isFalse,
+            reason: "'$bad' must not create history",
+          );
+        }
+        // Unparseable and empty inputs are still allowed to clear to
+        // null (the "not set yet" state). A bare empty string is NOT a
+        // non-positive number; it is a deliberate unset.
+        controller.setWidth('');
+        controller.setHeight('');
+        expect(controller.draft.width, isNull);
+        expect(controller.draft.height, isNull);
+      },
+    );
+
     test('dimension edits leave every other construction field untouched', () {
       final original = _construction(
         manufacturerId: 'mfr-1',
