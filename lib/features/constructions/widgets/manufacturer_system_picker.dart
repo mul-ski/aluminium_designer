@@ -21,12 +21,17 @@ import 'profile_system_profiles_panel.dart';
 /// ("Fiche système"). Keeping both out of this widget is deliberate:
 /// this picker's job is "which system", not "what's in the system".
 ///
-/// [catalog] starts empty for a fresh install and stays empty until the
-/// user creates their first manufacturer here -- there is no seeded data.
-/// [onCatalogChanged] is called whenever a new manufacturer/system is
-/// created or deleted, so the caller (the construction editor) can persist
-/// the updated catalog via `CatalogStore` and keep its own copy in sync;
-/// this widget does not talk to storage directly.
+/// On first launch the catalog is seeded with the verified built-in
+/// manufacturers and systems (see `withBuiltInCatalogSeed` +
+/// `CatalogStore.load`); the user can then create additional
+/// manufacturer / system entries here. Built-in entries stay inspectable
+/// and editable through the "Profils" / "Fiche système" buttons (the
+/// fiches and profiles are the user-editable surface for a real system)
+/// but cannot be deleted from this picker -- the trash affordance is
+/// hidden for `isBuiltIn: true` records, since deleting them would leave
+/// the calculator with no rule set for constructions already pointing at
+/// them and the seeding pass only re-adds records that were never
+/// persisted as deleted, not records the user removed mid-session.
 ///
 /// [selectedManufacturerId]/[selectedSystemId] are the AUTHORITATIVE
 /// current selection -- `Construction.manufacturerId`/`.systemId`. This
@@ -380,13 +385,20 @@ class ManufacturerSystemPicker extends StatelessWidget {
               tooltip: 'Créer un fabricant',
               onPressed: () => _createManufacturer(context),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Supprimer ce fabricant',
-              onPressed: manufacturer == null
-                  ? null
-                  : () => _deleteManufacturer(context, manufacturer),
-            ),
+            // Built-in manufacturers are seeded data and can't be
+            // removed from this picker (the calculator needs them to
+            // resolve constructions already pointing at them; the
+            // CatalogStore's seeding pass is add-only on the first
+            // launch and adopts the user's stored state thereafter).
+            // The trash affordance is hidden, not just disabled, so the
+            // user can't trigger a confirmation flow for a record the
+            // app will not let them remove anyway.
+            if (manufacturer != null && !manufacturer.isBuiltIn)
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Supprimer ce fabricant',
+                onPressed: () => _deleteManufacturer(context, manufacturer),
+              ),
           ],
         ),
         const SizedBox(height: 12),
@@ -439,13 +451,18 @@ class ManufacturerSystemPicker extends StatelessWidget {
                   ? null
                   : () => _createSystem(context, manufacturer),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Supprimer ce système',
-              onPressed: manufacturer == null || selectedSystem == null
-                  ? null
-                  : () => _deleteSystem(context, manufacturer, selectedSystem!),
-            ),
+            // Same built-in guard as the manufacturer delete button:
+            // seeded systems are read-only in the picker, the trash
+            // affordance is hidden for `isBuiltIn: true` records.
+            if (manufacturer != null &&
+                selectedSystem != null &&
+                !selectedSystem.isBuiltIn)
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Supprimer ce système',
+                onPressed: () =>
+                    _deleteSystem(context, manufacturer, selectedSystem!),
+              ),
           ],
         ),
         if (selectedSystem != null) ...[
