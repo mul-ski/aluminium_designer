@@ -168,6 +168,18 @@ void main() {
       await _open(tester, outcome);
       expect(find.text('Sections sans vitrage'), findsOneWidget);
       expect(find.text('Sections sans quincaillerie'), findsOneWidget);
+      // Diagnostic rows resolve the section id to the human-readable
+      // `Section N` label (same convention as the cut list), never
+      // the raw storage id. The `_open` helper passes an empty
+      // section list (the real banner always passes the draft's
+      // sections), so the label helper's distinct stale-reference
+      // fallback applies here -- with no profile usages the carrier
+      // search finds nothing, hence dominant-ouvrant, once per
+      // domain.
+      expect(
+        find.text('Section supprimée — aucun ouvrant dominant résolu'),
+        findsNWidgets(2),
+      );
     });
   });
 }

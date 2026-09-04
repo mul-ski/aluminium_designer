@@ -97,6 +97,7 @@ class ProductionExporter {
     );
     final bomRenderer = BomCsvRenderer(
       header: header,
+      sections: sections,
       outcome: outcome,
     );
 

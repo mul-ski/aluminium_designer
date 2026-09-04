@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/logic/component_aggregation.dart';
+import '../../../../core/logic/cut_grouping.dart';
 import '../../../../core/models/calculation_outcome.dart';
 import '../../../../core/models/section.dart';
 
@@ -180,7 +181,7 @@ class BomDialog extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Text(
-                  'Section ${issue.sectionId} — '
+                  '${sectionLabelForCutGroup(issue.sectionId, sections)} — '
                   '${_labelForGlassReason(issue.reason)}',
                   style: const TextStyle(
                     fontSize: 12,
@@ -204,7 +205,7 @@ class BomDialog extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Text(
-                  'Section ${issue.sectionId} — '
+                  '${sectionLabelForCutGroup(issue.sectionId, sections)} — '
                   '${_labelForHardwareReason(issue.reason)}',
                   style: const TextStyle(
                     fontSize: 12,

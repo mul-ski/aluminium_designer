@@ -12,6 +12,7 @@
 
 import 'package:aluminium_designer/core/data/builtin_catalog_seed.dart';
 import 'package:aluminium_designer/core/logic/rule_set_resolution.dart';
+import 'package:aluminium_designer/core/models/calculation_outcome.dart';
 import 'package:aluminium_designer/core/models/catalog.dart';
 import 'package:aluminium_designer/core/models/construction.dart';
 import 'package:aluminium_designer/core/models/construction_type.dart';
@@ -758,6 +759,7 @@ void main() {
       );
       final renderer = BomCsvRenderer(
         header: header,
+        sections: c.sections,
         outcome: outcome,
       );
       final rendered = renderer.render();
@@ -813,6 +815,7 @@ void main() {
       );
       final renderer = BomCsvRenderer(
         header: header,
+        sections: c.sections,
         outcome: outcome,
       );
       final rendered = renderer.render();
@@ -888,6 +891,7 @@ void main() {
       );
       final renderer = BomCsvRenderer(
         header: header,
+        sections: c.sections,
         outcome: outcome,
       );
       final rendered = renderer.render();
@@ -913,6 +917,13 @@ void main() {
       expect(rendered, contains('# Sections sans quincaillerie\n'));
       expect(rendered, contains('aucun ouvrant dominant résolu'));
       expect(rendered, contains('aucun ouvrant dominant résolu'));
+      // Diagnostic rows resolve the section id to the human-readable
+      // `Section N` label (same convention as the cut list and the
+      // on-screen BOM dialog), never the raw storage id.
+      expect(
+        rendered,
+        contains('# Section 1 — aucun ouvrant dominant résolu'),
+      );
     });
 
     test('Sepalumic 4200 OF 2v: profile-only BOM with diagnostics', () {
@@ -926,6 +937,7 @@ void main() {
       );
       final renderer = BomCsvRenderer(
         header: header,
+        sections: c.sections,
         outcome: outcome,
       );
       final rendered = renderer.render();
@@ -935,6 +947,56 @@ void main() {
       expect(rendered, isNot(contains('\naccessory,')));
       expect(rendered, contains('# Sections sans vitrage'));
       expect(rendered, contains('# Sections sans quincaillerie'));
+      // Same `Section N` label convention as above; the fixture's
+      // single section (id 's1', order 0) renders as `Section 1`.
+      expect(rendered, contains('# Section 1 — '));
+    });
+
+    test('diagnostic for an unresolvable section id falls back to the '
+        'distinct "Section supprimée" label', () {
+      // A glass/hardware issue can reference a section that no longer
+      // exists (removed after calculation). The label helper falls
+      // back to a distinct string so the row reads as "this section
+      // is gone", never as some other section or a raw storage id.
+      const outcome = CalculationOutcome(
+        cuts: [],
+        glassIssues: [
+          SectionGlassIssue(
+            sectionId: 'gone',
+            reason: SectionGlassIssueReason.noRuleMatched,
+          ),
+        ],
+        hardwareIssues: [
+          SectionHardwareIssue(
+            sectionId: 'gone',
+            reason: SectionHardwareIssueReason.noRuleMatched,
+          ),
+        ],
+      );
+      final c = _me14800_1v();
+      final header = ProductionHeader.fromConstruction(
+        exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
+        construction: c,
+        isStale: false,
+      );
+      final renderer = BomCsvRenderer(
+        header: header,
+        sections: c.sections,
+        outcome: outcome,
+      );
+      final rendered = renderer.render();
+      expect(
+        rendered,
+        contains('# Section supprimée — aucune règle de vitrage ne correspond'),
+      );
+      expect(
+        rendered,
+        contains(
+          '# Section supprimée — aucune règle de quincaillerie ne correspond',
+        ),
+      );
+      expect(rendered, contains('# (no BOM lines)\n'));
     });
 
     test('stale construction includes the warning in the BOM metadata '
@@ -949,6 +1011,7 @@ void main() {
       );
       final renderer = BomCsvRenderer(
         header: header,
+        sections: c.sections,
         outcome: outcome,
       );
       final rendered = renderer.render();

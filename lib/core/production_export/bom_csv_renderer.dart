@@ -1,5 +1,7 @@
 import '../logic/component_aggregation.dart';
+import '../logic/cut_grouping.dart';
 import '../models/calculation_outcome.dart';
+import '../models/section.dart';
 import 'csv_field.dart';
 import 'production_header.dart';
 
@@ -26,6 +28,13 @@ class BomCsvRenderer {
   /// metadata block. The renderer's output begins with that block.
   final ProductionHeader header;
 
+  /// Sections used to resolve diagnostic rows to the human-readable
+  /// `Section N` labels via [sectionLabelForCutGroup] -- the same
+  /// convention the on-screen BOM dialog and the cut list use. Kept
+  /// (unlike other redundant inputs) because the renderer genuinely
+  /// reads it below.
+  final List<Section> sections;
+
   /// The last calculation run. All three domain lists
   /// ([CalculationOutcome.cuts], [CalculationOutcome.glass],
   /// [CalculationOutcome.hardware]) and both per-section issue
@@ -35,6 +44,7 @@ class BomCsvRenderer {
 
   const BomCsvRenderer({
     required this.header,
+    required this.sections,
     required this.outcome,
   });
 
@@ -128,7 +138,7 @@ class BomCsvRenderer {
         buf.write('# Sections sans vitrage\n');
         for (final issue in outcome.glassIssues) {
           buf.write(
-            '# Section ${issue.sectionId} — '
+            '# ${sectionLabelForCutGroup(issue.sectionId, sections)} — '
             '${_labelForGlassReason(issue.reason)}\n',
           );
         }
@@ -137,7 +147,7 @@ class BomCsvRenderer {
         buf.write('# Sections sans quincaillerie\n');
         for (final issue in outcome.hardwareIssues) {
           buf.write(
-            '# Section ${issue.sectionId} — '
+            '# ${sectionLabelForCutGroup(issue.sectionId, sections)} — '
             '${_labelForHardwareReason(issue.reason)}\n',
           );
         }
