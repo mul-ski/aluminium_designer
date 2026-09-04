@@ -36,16 +36,10 @@ class CutsCsvRenderer {
   /// hardware) are not relevant to the cut list.
   final CalculationOutcome outcome;
 
-  /// `true` when the construction has changed since the calculation
-  /// was produced (the controller's `calculationIsStale` flag).
-  /// Surfaced as the `Stale: yes` line in the header.
-  final bool isStale;
-
   const CutsCsvRenderer({
     required this.header,
     required this.sections,
     required this.outcome,
-    required this.isStale,
   });
 
   static const _header = <String>[

@@ -44,14 +44,13 @@ class CalculationResultsBanner extends StatelessWidget {
   final List<Section> sections;
   final bool isStale;
 
-  /// The construction whose calculation is being shown. Needed for
-  /// the production-export action: the export's metadata block and
-  /// filename both read fields from this. The button is hidden in
-  /// the no-rule-set / error / empty paths, so non-null is only
-  /// required in the populated-result branch -- but we declare it
-  /// non-null at the class level because every banner call site that
-  /// shows the populated branch has a construction to pass.
-  final Construction? construction;
+  /// The construction whose calculation is being shown. Required and
+  /// non-nullable: the production-export action reads the export
+  /// metadata block and filename inputs from it. The export button
+  /// itself only renders in the populated-result branch, but the
+  /// field is required at the class level so no call site can render
+  /// a banner whose export path would crash on a null dereference.
+  final Construction construction;
 
   /// Name of the project the construction belongs to. Threaded from
   /// the editor screen (which receives it from the project
@@ -67,7 +66,7 @@ class CalculationResultsBanner extends StatelessWidget {
     required this.sections,
     required this.isStale,
     required this.projectName,
-    this.construction,
+    required this.construction,
   });
 
   @override
@@ -241,7 +240,7 @@ class CalculationResultsBanner extends StatelessWidget {
               onPressed: () => ProductionExportDialog.show(
                 context,
                 outcome: outcome,
-                construction: construction!,
+                construction: construction,
                 projectName: projectName,
                 sections: sections,
                 isStale: isStale,

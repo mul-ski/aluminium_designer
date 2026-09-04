@@ -1,6 +1,7 @@
 import '../models/calculation_outcome.dart';
 import '../models/construction.dart';
 import '../models/construction_type.dart';
+import '../models/section.dart';
 
 /// The metadata block prepended to every produced CSV file.
 ///
@@ -50,20 +51,20 @@ class ProductionHeader {
   final bool isStale;
 
   /// The total number of sections in the construction (for the
-  /// `Sections: N` line). Held separately from the construction so
-  /// the header can be constructed in tests without a full Section
-  /// list, and so it stays a one-line summary rather than a structured
-  /// breakdown.
+  /// `Sections: N` line). Always derived from [construction.sections]
+  /// by the factory below -- never passed separately, so the counts
+  /// can never disagree with the construction the header describes.
   final int sectionCount;
 
   /// Number of fixed sections in the construction, for the
-  /// `N fixe / N ouvrant` sub-summary.
+  /// `N fixe / N ouvrant` sub-summary. Derived, like [sectionCount].
   final int fixedSectionCount;
 
-  /// Number of ouvrant sections in the construction.
+  /// Number of ouvrant sections in the construction. Derived, like
+  /// [sectionCount].
   final int ouvrantSectionCount;
 
-  const ProductionHeader({
+  const ProductionHeader._({
     required this.exportedAt,
     required this.projectName,
     required this.construction,
@@ -72,6 +73,37 @@ class ProductionHeader {
     required this.fixedSectionCount,
     required this.ouvrantSectionCount,
   });
+
+  /// Builds a header from a construction, deriving the section counts
+  /// by walking [Construction.sections] once. This is the only way to
+  /// construct a header: counts passed separately could disagree with
+  /// the construction, so there is no generative constructor taking
+  /// them.
+  factory ProductionHeader.fromConstruction({
+    required DateTime exportedAt,
+    required String projectName,
+    required Construction construction,
+    required bool isStale,
+  }) {
+    var fixed = 0;
+    var ouvrant = 0;
+    for (final s in construction.sections) {
+      if (s.kind == SectionKind.fixed) {
+        fixed++;
+      } else {
+        ouvrant++;
+      }
+    }
+    return ProductionHeader._(
+      exportedAt: exportedAt,
+      projectName: projectName,
+      construction: construction,
+      isStale: isStale,
+      sectionCount: construction.sections.length,
+      fixedSectionCount: fixed,
+      ouvrantSectionCount: ouvrant,
+    );
+  }
 
   /// Renders the block as a single multi-line string with a trailing
   /// `# ---` separator. The trailing separator is followed by LF so

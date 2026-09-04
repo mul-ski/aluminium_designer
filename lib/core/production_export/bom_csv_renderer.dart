@@ -1,6 +1,5 @@
 import '../logic/component_aggregation.dart';
 import '../models/calculation_outcome.dart';
-import '../models/section.dart';
 import 'csv_field.dart';
 import 'production_header.dart';
 
@@ -27,11 +26,6 @@ class BomCsvRenderer {
   /// metadata block. The renderer's output begins with that block.
   final ProductionHeader header;
 
-  /// Sections are reserved for future per-section diagnostics. Today
-  /// the diagnostics only use section ids, which the outcome already
-  /// carries.
-  final List<Section> sections;
-
   /// The last calculation run. All three domain lists
   /// ([CalculationOutcome.cuts], [CalculationOutcome.glass],
   /// [CalculationOutcome.hardware]) and both per-section issue
@@ -39,15 +33,9 @@ class BomCsvRenderer {
   /// [CalculationOutcome.hardwareIssues]) are read.
   final CalculationOutcome outcome;
 
-  /// `true` when the construction has changed since the calculation
-  /// was produced.
-  final bool isStale;
-
   const BomCsvRenderer({
     required this.header,
-    required this.sections,
     required this.outcome,
-    required this.isStale,
   });
 
   static const _header = <String>[

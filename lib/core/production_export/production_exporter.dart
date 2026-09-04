@@ -84,18 +84,20 @@ class ProductionExporter {
       await directory.create(recursive: true);
     }
 
-    final header = _buildHeader(construction, projectName, isStale);
+    final header = ProductionHeader.fromConstruction(
+      exportedAt: exportedAt,
+      projectName: projectName,
+      construction: construction,
+      isStale: isStale,
+    );
     final cutsRenderer = CutsCsvRenderer(
       header: header,
       sections: sections,
       outcome: outcome,
-      isStale: isStale,
     );
     final bomRenderer = BomCsvRenderer(
       header: header,
-      sections: sections,
       outcome: outcome,
-      isStale: isStale,
     );
 
     final cutsContents = cutsRenderer.render();
@@ -115,41 +117,5 @@ class ProductionExporter {
       ProductionExportFile(path: cutsPath, contents: cutsContents),
       ProductionExportFile(path: bomPath, contents: bomContents),
     ];
-  }
-
-  /// Builds the [ProductionHeader] from a [Construction] + the
-  /// section counts. The section counts are derived by walking
-  /// [sections] once; the construction itself is passed through
-  /// unchanged so the header reads every field from the same source
-  /// the construction editor does.
-  ProductionHeader _buildHeader(
-    Construction construction,
-    String projectName,
-    bool isStale,
-  ) {
-    // Section count split: the editor already maintains this
-    // invariant (see `lib/features/constructions/widgets/section_list_editor.dart`'s
-    // `SectionKind` rendering) and the project's [Construction] is
-    // the authoritative list. We walk it once and pass the two
-    // counts to the header.
-    final sections = construction.sections;
-    var fixed = 0;
-    var ouvrant = 0;
-    for (final s in sections) {
-      if (s.kind == SectionKind.fixed) {
-        fixed++;
-      } else {
-        ouvrant++;
-      }
-    }
-    return ProductionHeader(
-      exportedAt: exportedAt,
-      projectName: projectName,
-      construction: construction,
-      isStale: isStale,
-      sectionCount: sections.length,
-      fixedSectionCount: fixed,
-      ouvrantSectionCount: ouvrant,
-    );
   }
 }
