@@ -153,6 +153,7 @@ void main() {
           MaterialApp(
             home: ConstructionEditorScreen(
               construction: c,
+              projectName: 'Chantier Test',
               catalogStore: _PreSeededCatalogStore(preSeededCatalog),
             ),
           ),
@@ -213,10 +214,10 @@ void main() {
             Directory('${tempDir.path}/aluvis/exports/production');
         expect(await expectedDir.exists(), isTrue);
         final cutsFile = File(
-          '${expectedDir.path}/aluvis-me-14800-1v-francaise-c-1480.cuts.csv',
+          '${expectedDir.path}/aluvis-chantier-test-me-14800-1v-francaise-c-1480.cuts.csv',
         );
         final bomFile = File(
-          '${expectedDir.path}/aluvis-me-14800-1v-francaise-c-1480.bom.csv',
+          '${expectedDir.path}/aluvis-chantier-test-me-14800-1v-francaise-c-1480.bom.csv',
         );
         expect(await cutsFile.exists(), isTrue);
         expect(await bomFile.exists(), isTrue);

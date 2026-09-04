@@ -86,6 +86,13 @@ const double _kMinDesktopWidth = 900;
 class ConstructionEditorScreen extends StatefulWidget {
   final Construction construction;
 
+  /// Name of the project this construction belongs to. Threaded from
+  /// [ProjectWorkspaceScreen], which owns the [Project]. Used for the
+  /// production-export header (`# Project:`) and filename slug --
+  /// never as a substitute for the construction name. Required: the
+  /// export boundary must receive the real project name.
+  final String projectName;
+
   /// Where this screen loads its [Catalog] snapshot from (and persists
   /// picker-created manufacturers/systems to). Defaults to the real
   /// on-disk [CatalogStore]; tests may inject a stub so widget tests never
@@ -98,6 +105,7 @@ class ConstructionEditorScreen extends StatefulWidget {
   const ConstructionEditorScreen({
     super.key,
     required this.construction,
+    required this.projectName,
     this.catalogStore,
   });
 
@@ -777,6 +785,7 @@ class _ConstructionEditorScreenState extends State<ConstructionEditorScreen> {
       sections: _controller.draft.sections,
       isStale: _controller.calculationIsStale,
       construction: _controller.draft,
+      projectName: widget.projectName,
     );
   }
 }

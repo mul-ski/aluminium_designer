@@ -74,6 +74,7 @@ class ProductionExporter {
   /// expected to surface the error to the user (e.g. a SnackBar).
   Future<List<ProductionExportFile>> exportToDirectory({
     required Construction construction,
+    required String projectName,
     required CalculationOutcome outcome,
     required List<Section> sections,
     required bool isStale,
@@ -83,7 +84,7 @@ class ProductionExporter {
       await directory.create(recursive: true);
     }
 
-    final header = _buildHeader(construction, isStale);
+    final header = _buildHeader(construction, projectName, isStale);
     final cutsRenderer = CutsCsvRenderer(
       header: header,
       sections: sections,
@@ -101,7 +102,7 @@ class ProductionExporter {
     final bomContents = bomRenderer.render();
 
     final baseName =
-        'aluvis-${header.slug()}-${header.shortId()}';
+        'aluvis-${header.projectSlug()}-${header.slug()}-${header.shortId()}';
     final cutsPath = '${directory.path}/$baseName.cuts.csv';
     final bomPath = '${directory.path}/$baseName.bom.csv';
 
@@ -123,6 +124,7 @@ class ProductionExporter {
   /// the construction editor does.
   ProductionHeader _buildHeader(
     Construction construction,
+    String projectName,
     bool isStale,
   ) {
     // Section count split: the editor already maintains this
@@ -142,6 +144,7 @@ class ProductionExporter {
     }
     return ProductionHeader(
       exportedAt: exportedAt,
+      projectName: projectName,
       construction: construction,
       isStale: isStale,
       sectionCount: sections.length,

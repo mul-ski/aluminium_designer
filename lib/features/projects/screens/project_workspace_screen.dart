@@ -119,7 +119,10 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
     final result = await Navigator.push<ConstructionEditorResult>(
       context,
       MaterialPageRoute(
-        builder: (_) => ConstructionEditorScreen(construction: construction),
+        builder: (_) => ConstructionEditorScreen(
+          construction: construction,
+          projectName: _project.name,
+        ),
       ),
     );
 

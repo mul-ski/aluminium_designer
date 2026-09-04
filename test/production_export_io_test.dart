@@ -117,6 +117,7 @@ void main() {
 
       final written = await exporter.exportToDirectory(
         construction: c,
+        projectName: 'Chantier Test',
         outcome: outcome,
         sections: c.sections,
         isStale: false,
@@ -141,7 +142,8 @@ void main() {
     });
 
     test('produces the documented filename format: '
-        'aluvis-{slug}-{short-id}.cuts.csv and .bom.csv', () async {
+        'aluvis-{project-slug}-{construction-slug}-{short-id}.cuts.csv '
+        'and .bom.csv', () async {
       final c = _me14800_1v();
       final outcome = calculateConstructionCuts(c, _catalog())!;
       final exporter = ProductionExporter(
@@ -150,16 +152,19 @@ void main() {
 
       final written = await exporter.exportToDirectory(
         construction: c,
+        projectName: 'Chantier Test',
         outcome: outcome,
         sections: c.sections,
         isStale: false,
         directory: tempDir,
       );
 
-      // Expected: slug = "me-14800-1v-francaise" (lowercased,
-      // diacritic-stripped, alnum-+-), shortId = "c-1480" (first 6
-      // chars of the construction id).
-      final expectedBase = 'aluvis-me-14800-1v-francaise-c-1480';
+      // Expected: project slug = "chantier-test", construction slug =
+      // "me-14800-1v-francaise" (lowercased, diacritic-stripped,
+      // alnum-+-), shortId = "c-1480" (first 6 chars of the
+      // construction id).
+      final expectedBase =
+          'aluvis-chantier-test-me-14800-1v-francaise-c-1480';
       expect(written[0].path, '${tempDir.path}/$expectedBase.cuts.csv');
       expect(written[1].path, '${tempDir.path}/$expectedBase.bom.csv');
     });
@@ -176,6 +181,7 @@ void main() {
       );
       await exporter.exportToDirectory(
         construction: c,
+        projectName: 'Chantier Test',
         outcome: outcome,
         sections: c.sections,
         isStale: false,
@@ -183,9 +189,9 @@ void main() {
       );
 
       expect(await nested.exists(), isTrue);
-      // The cuts file is inside the new dir.
+      // The cuts file is inside the new dir (two-slug base name).
       final cutsFile = File('${nested.path}/'
-          'aluvis-me-14800-1v-francaise-c-1480.cuts.csv');
+          'aluvis-chantier-test-me-14800-1v-francaise-c-1480.cuts.csv');
       expect(await cutsFile.exists(), isTrue);
     });
 
@@ -217,6 +223,7 @@ void main() {
       );
       final written = await exporter.exportToDirectory(
         construction: cWithName,
+        projectName: 'Chantier Test',
         outcome: outcome,
         sections: cWithName.sections,
         isStale: false,
@@ -255,6 +262,7 @@ void main() {
       );
       final written = await exporter.exportToDirectory(
         construction: c,
+        projectName: 'Chantier Test',
         outcome: outcome,
         sections: c.sections,
         isStale: true,
@@ -279,6 +287,7 @@ void main() {
       // First export creates the files.
       final first = await exporter.exportToDirectory(
         construction: c,
+        projectName: 'Chantier Test',
         outcome: outcome,
         sections: c.sections,
         isStale: false,
@@ -289,6 +298,7 @@ void main() {
       // Second export overwrites.
       final second = await exporter.exportToDirectory(
         construction: c,
+        projectName: 'Chantier Test',
         outcome: outcome,
         sections: c.sections,
         isStale: false,

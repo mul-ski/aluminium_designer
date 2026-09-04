@@ -229,6 +229,7 @@ void main() {
       final c = _me14800_1v();
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -248,6 +249,7 @@ void main() {
       final c = _me14800_1v();
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -264,6 +266,7 @@ void main() {
       final c = _me14800_1v();
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: true,
         sectionCount: 1,
@@ -286,6 +289,7 @@ void main() {
       final c = _me14800_1v();
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -302,6 +306,7 @@ void main() {
       final c = _me14800_1v().copyWith(type: ConstructionType.window);
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -314,6 +319,7 @@ void main() {
       final c = _me14800_1v();
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -326,6 +332,7 @@ void main() {
       final c = _me14800_1v().copyWith(type: ConstructionType.curtainWall);
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -339,6 +346,7 @@ void main() {
       final c = _me14800_1v();
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -380,6 +388,7 @@ void main() {
       );
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -395,6 +404,7 @@ void main() {
       final c = _me14800_1v();
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -425,6 +435,7 @@ void main() {
       );
       final headerNoDims = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: cNoDims,
         isStale: false,
         sectionCount: 1,
@@ -439,6 +450,7 @@ void main() {
       final c = _me14800_1v().copyWith(sections: const []);
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 0,
@@ -485,6 +497,7 @@ void main() {
       );
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: cMulti,
         isStale: false,
         sectionCount: 2,
@@ -499,6 +512,7 @@ void main() {
       final c = _me14800_1v().copyWith(name: 'Multi\nline\nname\twith tabs');
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -506,8 +520,9 @@ void main() {
         ouvrantSectionCount: 1,
       );
       final rendered = header.render();
-      // The construction name appears twice (Project: and Construction:
-      // lines). Both occurrences must have the newlines and tabs
+      // The construction name appears once, on the Construction: line
+      // (the Project: line carries the real project name, never the
+      // construction name). The occurrence must have newlines and tabs
       // collapsed to single spaces.
       final occurrences =
           RegExp(r'# Construction: (.+)').allMatches(rendered).toList();
@@ -518,10 +533,34 @@ void main() {
       expect(captured.contains('  '), isFalse);
     });
 
+    test('project and construction names render on distinct metadata lines',
+        () {
+      final c = _me14800_1v();
+      final header = ProductionHeader(
+        exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Dupont',
+        construction: c,
+        isStale: false,
+        sectionCount: 1,
+        fixedSectionCount: 0,
+        ouvrantSectionCount: 1,
+      );
+      final rendered = header.render();
+      expect(rendered, contains('# Project: Chantier Dupont\n'));
+      expect(
+        rendered,
+        contains("# Construction: ${c.name} (Porte)\n"),
+      );
+      // The two lines must differ: the project name must never be the
+      // construction name smuggled in.
+      expect('# Project: Chantier Dupont\n', isNot(contains(c.name)));
+    });
+
     test('slug() lowercases, strips non-ASCII, collapses to alnum-+-', () {
       final c = _me14800_1v().copyWith(name: 'Fénêtre Sud 01 — étage 2');
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -539,6 +578,7 @@ void main() {
       final c = _me14800_1v().copyWith(name: '   !!!---!!!   ');
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -552,6 +592,7 @@ void main() {
       final c = _me14800_1v();
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -582,6 +623,7 @@ void main() {
       );
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -599,6 +641,7 @@ void main() {
       final outcome = calculateConstructionCuts(c, _catalog)!;
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -653,6 +696,7 @@ void main() {
       final outcome = calculateConstructionCuts(c, _catalog)!;
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -684,6 +728,7 @@ void main() {
       final outcome = calculateConstructionCuts(c, _catalog)!;
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -713,6 +758,7 @@ void main() {
       final outcome = calculateConstructionCuts(c, _catalog)!;
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: true,
         sectionCount: 1,
@@ -749,6 +795,7 @@ void main() {
       final outcome = calculateConstructionCuts(c, _catalog)!;
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -782,6 +829,7 @@ void main() {
       final outcome = calculateConstructionCuts(c, _catalog)!;
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -831,6 +879,7 @@ void main() {
       final outcome = calculateConstructionCuts(c, _catalog)!;
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -873,6 +922,7 @@ void main() {
       final outcome = calculateConstructionCuts(c, _catalog)!;
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
@@ -900,6 +950,7 @@ void main() {
       final outcome = calculateConstructionCuts(c, _catalog)!;
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: true,
         sectionCount: 1,
@@ -918,26 +969,92 @@ void main() {
   });
 
   group('ProductionExporter.filename (built without writing to disk)', () {
-    // Pins the documented filename pattern:
+    // Pins the locked filename pattern:
     //   `aluvis-{project-slug}-{construction-slug}-{short-id}.cuts.csv`
     //   `aluvis-{project-slug}-{construction-slug}-{short-id}.bom.csv`
-    // The slug is the lowercased ASCII-only form of the construction
-    // name; the short id is the first 6 chars of the construction id.
-    // The disk-round-trip test in a separate file confirms the same
+    // Each slug is the lowercased ASCII-only form of its name; the
+    // short id is the first 6 chars of the construction id. The
+    // disk-round-trip test in a separate file confirms the same
     // names actually land on disk.
-    test('12800 1v française with id "c-14800-1v" produces the '
+    test('14800 1v française with id "c-14800-1v" produces the '
         'documented base name', () {
       final c = _me14800_1v();
       final header = ProductionHeader(
         exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
         construction: c,
         isStale: false,
         sectionCount: 1,
         fixedSectionCount: 0,
         ouvrantSectionCount: 1,
       );
-      expect('aluvis-${header.slug()}-${header.shortId()}',
-          'aluvis-me-14800-1v-francaise-c-1480');
+      expect(
+        'aluvis-${header.projectSlug()}-${header.slug()}-${header.shortId()}',
+        'aluvis-chantier-test-me-14800-1v-francaise-c-1480',
+      );
+    });
+
+    test(
+        'two constructions with the same name under the same project '
+        'still receive different filenames through their short IDs', () {
+      Construction named(String id) {
+        final base = _me14800_1v();
+        return Construction(
+          id: id,
+          name: base.name,
+          type: base.type,
+          width: base.width,
+          height: base.height,
+          manufacturer: base.manufacturer,
+          system: base.system,
+          manufacturerId: base.manufacturerId,
+          systemId: base.systemId,
+          sections: base.sections,
+          layoutDirection: base.layoutDirection,
+          profiles: base.profiles,
+          profileUsages: base.profileUsages,
+        );
+      }
+
+      ProductionHeader headerFor(Construction c) => ProductionHeader(
+            exportedAt: _fixedExportedAt,
+            projectName: 'Chantier Test',
+            construction: c,
+            isStale: false,
+            sectionCount: 1,
+            fixedSectionCount: 0,
+            ouvrantSectionCount: 1,
+          );
+
+      final a = headerFor(named('c-aaa111'));
+      final b = headerFor(named('c-bbb222'));
+      String base(ProductionHeader h) =>
+          'aluvis-${h.projectSlug()}-${h.slug()}-${h.shortId()}';
+      expect(base(a), isNot(equals(base(b))));
+      expect(
+        base(a),
+        'aluvis-chantier-test-me-14800-1v-francaise-c-aaa1',
+      );
+      expect(
+        base(b),
+        'aluvis-chantier-test-me-14800-1v-francaise-c-bbb2',
+      );
+    });
+
+    test('slug conversion maps œ/æ/ß/ø to ASCII digraphs', () {
+      ProductionHeader headerFor(String name) => ProductionHeader(
+            exportedAt: _fixedExportedAt,
+            projectName: name,
+            construction: _me14800_1v(),
+            isStale: false,
+            sectionCount: 1,
+            fixedSectionCount: 0,
+            ouvrantSectionCount: 1,
+          );
+      // Lowercase forms.
+      expect(headerFor('Cœur Ærø ß').projectSlug(), 'coeur-aero-ss');
+      // Uppercase forms lower first, so they map identically.
+      expect(headerFor('CŒUR ÆRØ').projectSlug(), 'coeur-aero');
     });
   });
 }

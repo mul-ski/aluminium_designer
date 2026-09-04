@@ -53,6 +53,12 @@ class CalculationResultsBanner extends StatelessWidget {
   /// shows the populated branch has a construction to pass.
   final Construction? construction;
 
+  /// Name of the project the construction belongs to. Threaded from
+  /// the editor screen (which receives it from the project
+  /// workspace); forwarded to the export dialog. Required: the
+  /// export header and filename must carry the real project name.
+  final String projectName;
+
   const CalculationResultsBanner({
     super.key,
     required this.result,
@@ -60,6 +66,7 @@ class CalculationResultsBanner extends StatelessWidget {
     required this.hadNoRuleSet,
     required this.sections,
     required this.isStale,
+    required this.projectName,
     this.construction,
   });
 
@@ -235,6 +242,7 @@ class CalculationResultsBanner extends StatelessWidget {
                 context,
                 outcome: outcome,
                 construction: construction!,
+                projectName: projectName,
                 sections: sections,
                 isStale: isStale,
               ),

@@ -93,6 +93,7 @@ Future<void> _pumpEditor(
     MaterialApp(
       home: ConstructionEditorScreen(
         construction: construction,
+        projectName: 'Chantier Test',
         catalogStore: catalog == null
             ? _stubCatalogStore
             : _StubCatalogStore(catalog),
@@ -338,6 +339,7 @@ void main() {
                     MaterialPageRoute(
                       builder: (_) => ConstructionEditorScreen(
                         construction: _construction(),
+                        projectName: 'Chantier Test',
                         catalogStore: _stubCatalogStore,
                       ),
                     ),
@@ -380,6 +382,7 @@ void main() {
                       MaterialPageRoute(
                         builder: (_) => ConstructionEditorScreen(
                           construction: _construction(),
+                          projectName: 'Chantier Test',
                           catalogStore: _stubCatalogStore,
                         ),
                       ),
@@ -483,6 +486,7 @@ void main() {
                     MaterialPageRoute(
                       builder: (_) => ConstructionEditorScreen(
                         construction: _construction(),
+                        projectName: 'Chantier Test',
                         catalogStore: _stubCatalogStore,
                       ),
                     ),
@@ -530,6 +534,7 @@ void main() {
                       MaterialPageRoute(
                         builder: (_) => ConstructionEditorScreen(
                           construction: _construction(),
+                          projectName: 'Chantier Test',
                           catalogStore: _stubCatalogStore,
                         ),
                       ),

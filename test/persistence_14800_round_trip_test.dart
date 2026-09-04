@@ -291,6 +291,7 @@ void main() {
         MaterialApp(
           home: ConstructionEditorScreen(
             construction: diskRoundTripped,
+            projectName: 'Chantier 14800 round-trip',
             catalogStore: _PreSeededCatalogStore(preSeededCatalog),
           ),
         ),

@@ -56,6 +56,7 @@ Future<void> _pump(WidgetTester tester, Catalog catalog, {Construction? c}) asyn
     MaterialApp(
       home: ConstructionEditorScreen(
         construction: c ?? _stubConstruction(),
+        projectName: 'Chantier Test',
         catalogStore: _RecordingStore(catalog),
       ),
     ),

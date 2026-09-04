@@ -25,6 +25,12 @@ import '../../../../core/production_export/production_export.dart';
 class ProductionExportDialog extends StatefulWidget {
   final CalculationOutcome outcome;
   final Construction construction;
+
+  /// Name of the project the construction belongs to. Threaded from
+  /// the editor screen; forwarded to the exporter for the header
+  /// (`# Project:`) and filename slug. Required: never substitute
+  /// the construction name.
+  final String projectName;
   final List<Section> sections;
   final bool isStale;
 
@@ -32,6 +38,7 @@ class ProductionExportDialog extends StatefulWidget {
     super.key,
     required this.outcome,
     required this.construction,
+    required this.projectName,
     required this.sections,
     required this.isStale,
   });
@@ -40,6 +47,7 @@ class ProductionExportDialog extends StatefulWidget {
     BuildContext context, {
     required CalculationOutcome outcome,
     required Construction construction,
+    required String projectName,
     required List<Section> sections,
     required bool isStale,
   }) {
@@ -48,6 +56,7 @@ class ProductionExportDialog extends StatefulWidget {
       builder: (_) => ProductionExportDialog(
         outcome: outcome,
         construction: construction,
+        projectName: projectName,
         sections: sections,
         isStale: isStale,
       ),
@@ -116,6 +125,7 @@ class _ProductionExportDialogState extends State<ProductionExportDialog> {
       final exporter = ProductionExporter(exportedAt: DateTime.now());
       final written = await exporter.exportToDirectory(
         construction: widget.construction,
+        projectName: widget.projectName,
         outcome: widget.outcome,
         sections: widget.sections,
         isStale: widget.isStale,

@@ -8,14 +8,14 @@
 /// - A field that contains none of those four characters is left
 ///   unquoted (Excel / LibreOffice both accept this).
 ///
-/// Note: a field consisting only of whitespace, only of `0`, or only
-/// of `null` IS emitted as the empty string `""` for null / unknown
-/// markers (e.g. `weightKg == null` → empty cell). The renderer for
-/// the cell decides whether to emit a value or fall through to empty;
-/// this encoder is purely about the escaping, not about the semantics
-/// of "no data". That separation is what lets a workshop see
-/// `weight_kg,` (empty cell) for an unknown weight -- exactly the
-/// same surface the in-app dialog shows.
+/// Note: null and the empty string both encode as the empty cell
+/// (bare, no quotes). The renderer for each cell decides whether to
+/// emit a value or fall through to empty; this encoder is purely
+/// about escaping, not about the semantics of "no data". That
+/// separation is what lets a workshop see an empty `weight_kg` cell
+/// for an unknown weight -- exactly the same surface the in-app
+/// dialog shows. A whitespace-only value (e.g. `' '`) is NOT empty:
+/// it passes through bare, matching Excel/LibreOffice behavior.
 class CsvField {
   /// Encodes [value] as a single CSV field. Null becomes the empty
   /// string (no quotes, no value -- a workshop importing the file

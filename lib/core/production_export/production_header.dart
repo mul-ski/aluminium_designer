@@ -29,10 +29,18 @@ class ProductionHeader {
   /// production code passes `DateTime.now()`.
   final DateTime exportedAt;
 
+  /// Name of the project the exported construction belongs to. A plain
+  /// string snapshot taken at export time (not a `Project` reference)
+  /// so this layer stays decoupled from project plumbing. Required:
+  /// the locked filename pattern and the `# Project:` metadata line
+  /// both need the real project name -- the construction name is not
+  /// a substitute.
+  final String projectName;
+
   /// The construction whose calculation is being exported. Used for
-  /// the project / manufacturer / system / dimensions / sections lines.
-  /// The exporter does not re-derive the engineering data from here --
-  /// it pulls cuts, glass, and hardware from [outcome].
+  /// the construction / manufacturer / system / dimensions / sections
+  /// lines. The exporter does not re-derive the engineering data from
+  /// here -- it pulls cuts, glass, and hardware from [outcome].
   final Construction construction;
 
   /// The last calculation run. The exporter reads [CalculationOutcome.isStale]
@@ -57,6 +65,7 @@ class ProductionHeader {
 
   const ProductionHeader({
     required this.exportedAt,
+    required this.projectName,
     required this.construction,
     required this.isStale,
     required this.sectionCount,
@@ -85,7 +94,7 @@ class ProductionHeader {
 
     final lines = <String>[
       '# AluVis export',
-      '# Project: ${_sanitizeForComment(c.name)}',
+      '# Project: ${_sanitizeForComment(projectName)}',
       '# Construction: ${_sanitizeForComment(c.name)} ($type)',
       '# Manufacturer: ${_sanitizeForComment(mfr)}',
       '# System: ${_sanitizeForComment(sys)}',
@@ -114,6 +123,11 @@ class ProductionHeader {
   /// construction as a string (not a property of the calculation or
   /// the BOM).
   String slug() => _slug(construction.name);
+
+  /// Slug of the project name, for the first slug slot in the locked
+  /// filename pattern
+  /// (`aluvis-{project-slug}-{construction-slug}-{short-id}`).
+  String projectSlug() => _slug(projectName);
 
   /// First 6 characters of [Construction.id], used as a
   /// collision-resistant suffix in the export filename. Stable
@@ -157,15 +171,22 @@ class ProductionHeader {
   ///
   /// The diacritic strip is a small fixed table covering the Latin-1
   /// Supplement (French, German, Spanish, Portuguese -- the workshop
-  /// language set we care about). Unicode NFD decomposition alone is
-  /// not enough: Dart's `String` exposes precomposed code points like
-  /// `ç` (U+00E7) as a single rune, and the combining-mark range
-  /// `[\u0300-\u036f]` does not include the cedilla combining mark
-  /// (U+0327). The table approach is explicit, deterministic, and
+  /// language set we care about), plus a pre-pass for the four
+  /// two-letter mappings (`œ→oe`, `æ→ae`, `ß→ss`, `ø→o`, applied
+  /// after lowercasing so uppercase forms are covered too) which the
+  /// single-code-unit table cannot express. Unicode NFD decomposition
+  /// alone is not enough: Dart's `String` exposes precomposed code
+  /// points like `ç` (U+00E7) as a single rune, and the combining-mark
+  /// range `[\u0300-\u036f]` does not include the cedilla combining
+  /// mark (U+0327). The table approach is explicit, deterministic, and
   /// audit-friendly; a future workshop language can extend the table
   /// without touching the rest of the slug logic.
   static String _slug(String raw) {
-    final lower = raw.toLowerCase();
+    // Multi-char mappings first: these need two ASCII letters per
+    // source rune, which the single-code-unit `_stripDiacritic` table
+    // below cannot express. Lowercase first so only lowercase forms
+    // need mapping.
+    final lower = raw.toLowerCase().replaceAll('œ', 'oe').replaceAll('æ', 'ae').replaceAll('ß', 'ss').replaceAll('ø', 'o');
     final stripped = StringBuffer();
     for (final rune in lower.runes) {
       stripped.writeCharCode(_stripDiacritic(rune));

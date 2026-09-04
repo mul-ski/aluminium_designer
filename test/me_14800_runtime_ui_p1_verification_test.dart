@@ -107,6 +107,7 @@ Future<void> _pump(WidgetTester tester, Construction c) async {
     MaterialApp(
       home: ConstructionEditorScreen(
         construction: c,
+        projectName: 'Chantier Test',
         catalogStore: _RealSeedCatalogStore(catalog),
       ),
     ),
