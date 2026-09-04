@@ -69,12 +69,19 @@ class ProductionExportDialog extends StatefulWidget {
 
 class _ProductionExportDialogState extends State<ProductionExportDialog> {
   late final TextEditingController _subdirController;
+
+  /// Cached `getApplicationDocumentsDirectory()` future. Created once
+  /// in [initState] so rebuilds (e.g. the `_busy` toggles around the
+  /// export) do not re-fire a platform-channel call per frame.
+  late final Future<Directory> _docsDirFuture;
+
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
     _subdirController = TextEditingController(text: 'production');
+    _docsDirFuture = getApplicationDocumentsDirectory();
   }
 
   @override
@@ -138,7 +145,8 @@ class _ProductionExportDialogState extends State<ProductionExportDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Exports écrits :\n$paths'),
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 6),
+          showCloseIcon: true,
         ),
       );
     } catch (e) {
@@ -168,7 +176,7 @@ class _ProductionExportDialogState extends State<ProductionExportDialog> {
           ),
           const SizedBox(height: 8),
           FutureBuilder<Directory>(
-            future: getApplicationDocumentsDirectory(),
+            future: _docsDirFuture,
             builder: (context, snapshot) {
               final base = snapshot.data != null
                   ? '${snapshot.data!.path}/aluvis/exports/'

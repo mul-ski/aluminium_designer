@@ -245,4 +245,67 @@ void main() {
       });
     },
   );
+
+  testWidgets(
+    'export dialog cancel path writes nothing and shows no success '
+    'feedback',
+    (tester) async {
+      tester.view.physicalSize = _desktopSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final c = _me14800_1v();
+      final preSeededCatalog = withBuiltInCatalogSeed(const Catalog());
+
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ConstructionEditorScreen(
+              construction: c,
+              projectName: 'Chantier Test',
+              catalogStore: _PreSeededCatalogStore(preSeededCatalog),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      });
+
+      await tester.tap(find.text('Sections'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.calculate_outlined));
+      await tester.pumpAndSettle();
+
+      // Open the dialog. Same runAsync wrapping as the happy path:
+      // the dialog's cached docs-dir future resolves via the real
+      // path_provider surface.
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Exporter la production'));
+        await tester.pumpAndSettle();
+      });
+      expect(find.text('Sous-dossier'), findsOneWidget);
+
+      // Cancel: no file I/O happens on this path, so no runAsync is
+      // needed -- the pop is pure fake-async.
+      await tester.tap(find.widgetWithText(TextButton, 'Annuler'));
+      await tester.pumpAndSettle();
+
+      // The dialog is gone and the banner button is back.
+      expect(find.text('Sous-dossier'), findsNothing);
+      expect(find.text('Exporter la production'), findsOneWidget);
+
+      // No success feedback, and crucially no files: cancellation
+      // has no side effects.
+      expect(find.textContaining('Exports écrits :'), findsNothing);
+      await tester.runAsync(() async {
+        final exportsRoot = Directory('${tempDir.path}/aluvis/exports');
+        final exists = await exportsRoot.exists();
+        if (exists) {
+          final entries = await exportsRoot.list().toList();
+          expect(entries, isEmpty);
+        }
+      });
+
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
