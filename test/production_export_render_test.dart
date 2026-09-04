@@ -868,9 +868,99 @@ void main() {
       expect(rendered, contains('glass,14.802,14.802,1,,1868,1368'));
       expect(rendered, contains('accessory,JO-825,Joint de battue,1,7000'));
 
-      // Summary: 35 total pieces, 2.56 m² glass, 21.00 m hardware.
+      // Summary: 35 total pieces, 2.56 m² glass, 21000 mm hardware
+      // (the summary length_mm cell stays in millimetres, same unit
+      // as the data rows -- see the unit-regression test below).
       expect(rendered, contains('# Summary\n'));
       expect(rendered, contains('# Glass area: 2.56 m²'));
+    });
+
+    test('BOM summary length_mm equals the integer sum of the data rows '
+        '(unit regression)', () {
+      // Regression test for the metres-in-a-mm-column bug: the summary
+      // row once rendered `hardwareTotalLengthMm / 1000` (metres,
+      // e.g. `21.00`) into the `length_mm` column whose data cells
+      // hold integer millimetres (e.g. `7000`). A spreadsheet SUM()
+      // over the column then added mm + m silently. This test parses
+      // the rendered data rows and asserts the summary cell equals
+      // the integer millimetre total. It fails against the old
+      // implementation (`21.00` != `21000`).
+      final c = _me14800_1v();
+      final outcome = calculateConstructionCuts(c, _catalog)!;
+      final header = ProductionHeader(
+        exportedAt: _fixedExportedAt,
+        projectName: 'Chantier Test',
+        construction: c,
+        isStale: false,
+        sectionCount: 1,
+        fixedSectionCount: 0,
+        ouvrantSectionCount: 1,
+      );
+      final renderer = BomCsvRenderer(
+        header: header,
+        sections: c.sections,
+        outcome: outcome,
+        isStale: false,
+      );
+      final rendered = renderer.render();
+      final lines = rendered.split('\n');
+
+      // Quote-aware split for the first fields of a row (provenance
+      // may itself contain quoted commas; length_mm at index 4 and
+      // quantity at index 3 precede it, but names could too, so
+      // split properly rather than with String.split).
+      List<String> splitRow(String row) {
+        final fields = <String>[];
+        final buf = StringBuffer();
+        var inQuotes = false;
+        for (var i = 0; i < row.length; i++) {
+          final ch = row[i];
+          if (inQuotes) {
+            if (ch == '"') {
+              if (i + 1 < row.length && row[i + 1] == '"') {
+                buf.write('"');
+                i++;
+              } else {
+                inQuotes = false;
+              }
+            } else {
+              buf.write(ch);
+            }
+          } else if (ch == '"') {
+            inQuotes = true;
+          } else if (ch == ',') {
+            fields.add(buf.toString());
+            buf.clear();
+          } else {
+            buf.write(ch);
+          }
+        }
+        fields.add(buf.toString());
+        return fields;
+      }
+
+      var expectedTotalMm = 0;
+      for (final line in lines) {
+        if (!line.startsWith('hardware,') &&
+            !line.startsWith('accessory,')) {
+          continue;
+        }
+        final fields = splitRow(line);
+        // quantity at index 3, length_mm at index 4; empty means
+        // count-only (contributes 0).
+        final quantity = int.parse(fields[3]);
+        final lengthCell = fields[4];
+        if (lengthCell.isNotEmpty) {
+          expectedTotalMm += int.parse(lengthCell) * quantity;
+        }
+      }
+      expect(expectedTotalMm, 21000);
+
+      // The summary row is the single data-shaped row after `# Summary`.
+      final summaryIdx = lines.indexOf('# Summary');
+      expect(summaryIdx, greaterThanOrEqualTo(0));
+      final summaryFields = splitRow(lines[summaryIdx + 1]);
+      expect(summaryFields[4], expectedTotalMm.toString());
     });
 
     test('ME 14600 2v: profile-only BOM, no glass / hardware / '

@@ -104,9 +104,11 @@ class BomCsvRenderer {
     }
 
     // Blank line + summary. The summary row carries the
-    // construction-wide pieces / glass area / hardware length on the
-    // cells that map to those quantities; the rest of the row is empty
-    // so a downstream reader sees a single consistent "totals" row.
+    // construction-wide pieces / hardware length on the cells that map
+    // to those quantities; the rest of the row is empty so a
+    // downstream reader sees a single consistent "totals" row. The
+    // hardware length stays in millimetres (same unit as the data
+    // rows' length_mm cells) so the column remains summable.
     buf.write('\n');
     buf.write('# Summary\n');
     buf.write(csvRow([
@@ -116,18 +118,13 @@ class BomCsvRenderer {
       summary.totalPieces.toString(),
       summary.hardwareTotalLengthMm == 0
           ? null
-          : (summary.hardwareTotalLengthMm / 1000).toStringAsFixed(2),
+          : summary.hardwareTotalLengthMm.toStringAsFixed(0),
       null,
       null,
       null,
       null,
-      // The glass-area summary is rendered into the `width_mm` /
-      // `height_mm` cells using the convention "width_mm = area in m²,
-      // height_mm = nothing" so the existing column structure carries
-      // the summary without inventing new columns. (See the comment in
-      // [BomSummary] -- the construction-wide glass area is the only
-      // glass summary the aggregation exposes, and the file already
-      // gives each pane its own width × height.)
+      // Glass area is surfaced only via the '# Glass area:' line
+      // below, never in a data cell.
       null,
     ]));
     buf.write('\n');
