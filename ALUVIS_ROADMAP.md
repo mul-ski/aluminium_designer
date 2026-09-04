@@ -98,7 +98,10 @@ cancel-path test; non-finite dimension guard on all four
 mutators. Silent overwrite on re-export is intentional v1
 behaviour; a future version may add overwrite confirmation if
 requested. Raw Section IDs in diagnostics remain out of scope
-for C12 hardening as a follow-up item).
+for C12 hardening as a follow-up item) →
+**686** (G7 diagnostics section labels: BOM glass/hardware rows in
+the dialog and both CSV renderers resolve `Section N` via
+sectionLabelForCutGroup with the `Section supprimée` fallback).
 
 ## In progress
 
