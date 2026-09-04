@@ -471,15 +471,20 @@ class ConstructionEditorController extends ChangeNotifier {
   /// A parsed value <= 0 is ignored (no draft rebuild, no undo entry) so
   /// a typed negative or zero cannot silently propagate into the
   /// calculator -- mirrors the validation the section dialog already
-  /// applies on `applySectionWidth`. The state's `width` stays at its
-  /// previous value; the field's text re-syncs on the next render.
+  /// applies on `applySectionWidth`. Non-finite values (NaN, ±Infinity
+  /// -- `double.tryParse` accepts exactly 'NaN'/'Infinity' plus
+  /// overflow spellings like '1e999') are rejected the same
+  /// way: `NaN <= 0` is false, so a bare `<= 0` check would let NaN
+  /// through into the draft, the calculator, and any exported
+  /// document. The state's `width` stays at its previous value; the
+  /// field's text re-syncs on the next render.
   ///
   /// Every other field, including the authoritative `manufacturerId`/
   /// `systemId`, is carried over unchanged: dimension edits must never
   /// detach the construction from its selected manufacturer/system.
   void setWidth(String value) {
     final parsed = _parseDimensionMm(value);
-    if (parsed != null && parsed <= 0) return;
+    if (parsed != null && (!parsed.isFinite || parsed <= 0)) return;
     _updateDraft(
       Construction(
         id: _draft.id,
@@ -504,10 +509,11 @@ class ConstructionEditorController extends ChangeNotifier {
   /// Applies a typed height. See [setWidth] for why this rebuilds the draft
   /// directly and carries every non-dimension field over unchanged. The
   /// `<= 0` guard mirrors the section dialog's existing validation -- a
-  /// non-positive value is ignored, the draft keeps its previous height.
+  /// non-positive or non-finite value is ignored, the draft keeps its
+  /// previous height.
   void setHeight(String value) {
     final parsed = _parseDimensionMm(value);
-    if (parsed != null && parsed <= 0) return;
+    if (parsed != null && (!parsed.isFinite || parsed <= 0)) return;
     _updateDraft(
       Construction(
         id: _draft.id,
@@ -606,7 +612,7 @@ class ConstructionEditorController extends ChangeNotifier {
 
   void applySectionWidth(Section section, String value) {
     final parsed = _parseDimensionMm(value);
-    if (parsed == null || parsed <= 0) return;
+    if (parsed == null || !parsed.isFinite || parsed <= 0) return;
     _replaceSection(
       _withSectionFields(section, width: parsed),
       tag: 'section.width:${section.id}',
@@ -615,7 +621,7 @@ class ConstructionEditorController extends ChangeNotifier {
 
   void applySectionHeight(Section section, String value) {
     final parsed = _parseDimensionMm(value);
-    if (parsed == null || parsed <= 0) return;
+    if (parsed == null || !parsed.isFinite || parsed <= 0) return;
     _replaceSection(
       _withSectionFields(section, height: parsed),
       tag: 'section.height:${section.id}',

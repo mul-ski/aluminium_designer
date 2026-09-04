@@ -92,7 +92,14 @@ void main() {
       final controller = _controllerWithSection();
       final section = controller.draft.sections.single;
 
-      for (final bad in const ['-5', '0', 'abc', '']) {
+      // 'NaN'/'Infinity' parse successfully (double.tryParse accepts
+      // exactly those spellings, plus overflow like '1e999') but are
+      // not finite dimensions: NaN would poison every downstream
+      // computation silently (`NaN <= 0` is false, so a bare
+      // non-positive check lets it through), and infinities are not
+      // real workshop dimensions either. (Lowercase 'nan'/'inf' are
+      // unparseable and already take the null/clear path like 'abc'.)
+      for (final bad in const ['-5', '0', 'abc', '', 'NaN', 'Infinity', '-Infinity', '1e999']) {
         controller.applySectionWidth(section, bad);
         controller.applySectionHeight(section, bad);
         expect(
@@ -212,7 +219,11 @@ void main() {
         controller.setHeight('1500');
         expect(controller.canUndo, isTrue);
 
-        for (final bad in const ['-5', '0', '-0.01']) {
+        // 'NaN'/'Infinity' parse successfully but are not finite: NaN in
+        // particular would otherwise slip past the `<= 0` check
+        // (`NaN <= 0` is false) into the draft, the calculator, and
+        // any exported document.
+        for (final bad in const ['-5', '0', '-0.01', 'NaN', 'Infinity', '-Infinity', '1e999']) {
           // Undo back to a clean state per iteration so the canUndo
           // assertion below only reflects the bad-input attempt.
           while (controller.canUndo) {
