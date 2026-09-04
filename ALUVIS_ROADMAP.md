@@ -86,7 +86,19 @@ the project); the dialog picks a subdirectory name and writes
 two CSV files -- a cut list and a BOM -- under
 <documents>/aluvis/exports/<subdir>/. Every value in the file is
 data already on a model field; the only new value the exporter
-introduces is the file-metadata `Exported at` timestamp).
+introduces is the file-metadata `Exported at` timestamp) →
+**685** (C12 hardening E1–E5: real project name threaded
+workspace → screen → banner → dialog → exporter → header with the
+locked two-slug filename; BOM summary length_mm back to integer
+millimetres with a unit-regression test; banner construction
+required with the force-unwrap removed; dead renderer/header
+params deleted with counts derived via fromConstruction; dialog
+Future cached with 6s dismissible success SnackBar plus a
+cancel-path test; non-finite dimension guard on all four
+mutators. Silent overwrite on re-export is intentional v1
+behaviour; a future version may add overwrite confirmation if
+requested. Raw Section IDs in diagnostics remain out of scope
+for C12 hardening as a follow-up item).
 
 ## In progress
 
