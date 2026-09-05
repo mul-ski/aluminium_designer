@@ -308,6 +308,112 @@ void main() {
     });
   });
 
+  group('pruneRemovedBuiltIns (pure prune logic)', () {
+    /// A faithful stand-in for a pre-C4b persisted catalog: the old
+    /// `Aluminium du Maroc` / `Cuzco 713 OM` seed, exactly as stored on
+    /// disk by installs from that era (see the C4b clean-slate note).
+    Catalog preC4bCatalog() => Catalog(
+      manufacturers: const [
+        Manufacturer(
+          id: 'builtin-aluminium-du-maroc',
+          name: 'Aluminium du Maroc',
+          isBuiltIn: true,
+        ),
+      ],
+      profileSystems: const [
+        ProfileSystem(
+          id: 'builtin-cuzco-713-om',
+          manufacturer: 'Aluminium du Maroc',
+          manufacturerId: 'builtin-aluminium-du-maroc',
+          name: 'Cuzco 713 OM',
+          ruleSetId: 'generic-placeholder',
+          profiles: [],
+          supportedOpenings: [OpeningType.francaise],
+          isBuiltIn: true,
+        ),
+      ],
+    );
+
+    test('drops superseded built-ins and keeps everything else', () {
+      final userMfr = Manufacturer(
+        id: 'user-mfr-1',
+        name: 'Atelier du coin',
+        isBuiltIn: false,
+      );
+      final withUser = preC4bCatalog().copyWith(
+        manufacturers: [...preC4bCatalog().manufacturers, userMfr],
+      );
+
+      final pruned = pruneRemovedBuiltIns(withUser);
+
+      expect(
+        pruned.manufacturers.map((m) => m.id),
+        isNot(contains('builtin-aluminium-du-maroc')),
+      );
+      expect(
+        pruned.profileSystems.map((s) => s.id),
+        isNot(contains('builtin-cuzco-713-om')),
+      );
+      // User-created records survive untouched, whatever their ids.
+      expect(
+        pruned.manufacturers.map((m) => m.id),
+        contains('user-mfr-1'),
+      );
+    });
+
+    test('a pre-C4b install heals to the full shipped seed on merge+prune',
+        () {
+      final healed = pruneRemovedBuiltIns(
+        withBuiltInCatalogSeed(preC4bCatalog()),
+      );
+
+      // Real systems arrive...
+      expect(
+        healed.manufacturers.map((m) => m.id),
+        containsAll([maghrebExtrusionId, sepalumicId]),
+      );
+      expect(
+        healed.profileSystems.map((s) => s.id),
+        containsAll([meSerie14600Id, meSerie14800Id, sepSerie4200Id]),
+      );
+      // ...and the superseded seed is gone.
+      expect(
+        healed.manufacturers.map((m) => m.id),
+        isNot(contains('builtin-aluminium-du-maroc')),
+      );
+      expect(
+        healed.profileSystems.map((s) => s.id),
+        isNot(contains('builtin-cuzco-713-om')),
+      );
+    });
+
+    test('returns the same instance when there is nothing to prune', () {
+      final seeded = withBuiltInCatalogSeed(const Catalog());
+      expect(identical(pruneRemovedBuiltIns(seeded), seeded), isTrue);
+    });
+
+    test('never touches user-created records, even with odd ids', () {
+      final catalog = Catalog(
+        manufacturers: const [
+          Manufacturer(id: 'x', name: 'Y', isBuiltIn: false),
+        ],
+        profileSystems: const [
+          ProfileSystem(
+            id: 'z',
+            manufacturer: 'Y',
+            manufacturerId: 'x',
+            name: 'Z',
+            ruleSetId: 'generic-placeholder',
+            profiles: [],
+            supportedOpenings: [],
+            isBuiltIn: false,
+          ),
+        ],
+      );
+      expect(identical(pruneRemovedBuiltIns(catalog), catalog), isTrue);
+    });
+  });
+
   group('adoptBuiltInRuleSets (pure refresh logic)', () {
     /// A faithful stand-in for a pre-C5 persisted record: identical to
     /// the shipped me-14600 definition except it still points at the
@@ -930,34 +1036,46 @@ void main() {
       );
     });
 
-    test('deleting the built-in manufacturer and reloading does not '
-        'resurrect it -- the one-time seed sentinel is respected', () async {
+    test('a missing built-in is restored on reload, while user-created '
+        'records are never touched by the merge', () async {
+      // New contract (the picker no longer offers delete for built-in
+      // records, so re-adding a missing one cannot resurrect a
+      // deliberate user deletion): every-load merging restores any
+      // shipped built-in absent from disk, and never touches
+      // user-created records.
       final store = CatalogStore();
       final catalog = await store.load(); // Seeds on first load.
 
-      // Simulate the user deleting the built-in manufacturer (and its
-      // system) via the existing delete UI, then saving.
+      // Simulate an old install whose stored catalog lost the
+      // built-in manufacturer (and its system), but which also holds
+      // a user-created manufacturer the merge must preserve.
+      final userMfr = Manufacturer(
+        id: 'user-mfr-1',
+        name: 'Atelier du coin',
+        isBuiltIn: false,
+      );
       final withoutBuiltIns = catalog.copyWith(
-        manufacturers: catalog.manufacturers
-            .where((m) => m.id != maghrebExtrusionId)
-            .toList(),
-        profileSystems: catalog.profileSystems
-            .where((s) => s.id != meSerie14600Id)
-            .toList(),
+        manufacturers: [userMfr],
+        profileSystems: [],
       );
       await store.save(withoutBuiltIns);
 
-      // Reload (simulating app restart) -- the deletion must stick.
+      // Reload (simulating app restart) -- missing built-ins come
+      // back, the user record survives untouched.
       final reloadedStore = CatalogStore();
       final reloaded = await reloadedStore.load();
 
       expect(
         reloaded.manufacturers.any((m) => m.id == maghrebExtrusionId),
-        isFalse,
+        isTrue,
       );
       expect(
         reloaded.profileSystems.any((s) => s.id == meSerie14600Id),
-        isFalse,
+        isTrue,
+      );
+      expect(
+        reloaded.manufacturers.any((m) => m.id == 'user-mfr-1'),
+        isTrue,
       );
     });
 

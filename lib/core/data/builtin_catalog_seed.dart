@@ -1931,6 +1931,62 @@ Catalog withBuiltInCatalogSeed(Catalog catalog) {
   );
 }
 
+/// Removes built-in manufacturer/system records whose ids no longer match
+/// anything this build ships (e.g. `Aluminium du Maroc` / `Cuzco 713 OM`,
+/// dropped in the C4b clean-slate). Pre-C4b installs persist those records
+/// with `isBuiltIn: true`, and the one-time seed sentinel means
+/// [withBuiltInCatalogSeed] never revisits them -- without pruning, a
+/// superseded manufacturer stays in the picker forever next to the real
+/// systems.
+///
+/// Narrow and deliberate, mirroring [adoptBuiltInRuleSets]'s contract:
+/// - only records carrying `isBuiltIn == true` whose id is absent from
+///   the shipped [builtInManufacturers]/[builtInProfileSystems] are
+///   removed; user-created records (`isBuiltIn: false`) are never
+///   touched, whatever their ids;
+/// - pruning a stale manufacturer also drops profile systems pointing
+///   at it (by `manufacturerId`), even if such a system id somehow
+///   still shipped -- a system with no manufacturer left would be
+///   meaningless in the picker;
+/// - constructions referencing a pruned system id are NOT touched here
+///   (catalog merge must stay construction-agnostic); they resolve as
+///   "unresolved" downstream, which the editor already surfaces.
+///
+/// Returns the SAME instance when there is nothing to prune, so callers
+/// (`CatalogStore.load`) can detect "changed" by identity.
+Catalog pruneRemovedBuiltIns(Catalog catalog) {
+  final shippedManufacturerIds =
+      builtInManufacturers.map((m) => m.id).toSet();
+  final shippedSystemIds =
+      builtInProfileSystems.map((s) => s.id).toSet();
+
+  final prunedManufacturerIds = catalog.manufacturers
+      .where((m) => m.isBuiltIn && !shippedManufacturerIds.contains(m.id))
+      .map((m) => m.id)
+      .toSet();
+  final prunedSystemIds = catalog.profileSystems
+      .where(
+        (s) =>
+            (s.isBuiltIn && !shippedSystemIds.contains(s.id)) ||
+            prunedManufacturerIds.contains(s.manufacturerId),
+      )
+      .map((s) => s.id)
+      .toSet();
+
+  if (prunedManufacturerIds.isEmpty && prunedSystemIds.isEmpty) {
+    return catalog;
+  }
+
+  return catalog.copyWith(
+    manufacturers: catalog.manufacturers
+        .where((m) => !prunedManufacturerIds.contains(m.id))
+        .toList(),
+    profileSystems: catalog.profileSystems
+        .where((s) => !prunedSystemIds.contains(s.id))
+        .toList(),
+  );
+}
+
 /// Returns [catalog] with every PRESENT built-in profile system whose
 /// stored rule set is still the generic placeholder refreshed to the
 /// rule set the shipped definition carries.
